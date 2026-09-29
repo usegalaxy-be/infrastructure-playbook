@@ -1,0 +1,25 @@
+#!/bin/sh
+# Refuse pushes carrying commits that do not descend from the public root commit, or that gitleaks flags.
+root=adf471ac62b97da0d99d0f8122d6c8b3c527415c
+zero=0000000000000000000000000000000000000000
+remote="$1"
+
+command -v gitleaks >/dev/null 2>&1 || { echo "pre-push: gitleaks not found, refusing to push" >&2; exit 1; }
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  if ! git merge-base --is-ancestor "$root" "$local_sha" 2>/dev/null; then
+    echo "pre-push: $local_ref does not descend from the public root commit $root, refusing (old history?)" >&2
+    exit 1
+  fi
+  if [ "$remote_sha" = "$zero" ]; then
+    range="$local_sha --not --remotes=$remote"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  if ! gitleaks git --no-banner --redact --log-opts="$range" . >&2; then
+    echo "pre-push: gitleaks flagged commits in $local_ref, refusing" >&2
+    exit 1
+  fi
+done
+exit 0
