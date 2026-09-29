@@ -122,6 +122,9 @@ def main():
 
     start = date.fromisoformat(args.start)
     end = date.fromisoformat(args.end)
+    if end <= start:
+        print(f'ERROR: --end ({end}) must be after --start ({start})', file=sys.stderr)
+        sys.exit(1)
 
     conn = psycopg2.connect('')
     try:
