@@ -80,4 +80,5 @@ roles/rossmcdonald.influxdb
 roles/artis3n.tailscale
 roles/usegalaxy_eu.gie_proxy
 roles/ansible-community.ansible-vault
+roles/usegalaxy_au.history_mailer
 inventories/host_files/*
