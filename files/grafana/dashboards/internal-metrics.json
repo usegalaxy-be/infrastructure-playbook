@@ -1727,7 +1727,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 4,
         "w": 3,
         "x": 21,
         "y": 14
@@ -1785,7 +1785,7 @@
           "tags": []
         }
       ],
-      "title": "Total new Users",
+      "title": "Registered users",
       "transformations": [
         {
           "id": "reduce",
@@ -1799,7 +1799,104 @@
         }
       ],
       "transparent": true,
-      "type": "stat"
+      "type": "stat",
+      "description": "Users who created an account in the selected time range."
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 21,
+        "y": 18
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "institution::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "newly_active_users_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"newly_active_users_count\" FROM \"newly_active_users_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/))",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "newly_active_users_count"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Active registered users",
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "includeTimeField": false,
+            "mode": "seriesToRows",
+            "reducers": [
+              "sum"
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "stat",
+      "description": "Users whose first job falls in the selected time range. Over the full range: registered users who have run at least one job."
     },
     {
       "datasource": {

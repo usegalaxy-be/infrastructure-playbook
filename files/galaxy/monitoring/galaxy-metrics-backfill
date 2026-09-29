@@ -20,6 +20,10 @@ Usage (from usegalaxy.be):
     # Dry-run first to inspect output:
     ... --dry-run 2>&1 | head -40
 
+    # Fill a newly added category only, without duplicating the others:
+    ... --category 'Newly active users - Flemish institutions' \
+        --category 'Newly active users - VIB Centers'
+
 --end is exclusive: the last day backfilled is end - 1 day.
 Set --end to the date of the first timestamp already in InfluxDB to avoid duplicates.
 """
@@ -105,6 +109,8 @@ def main():
     parser.add_argument('--influxdb-db', default='internal_metrics')
     parser.add_argument('--influxdb-user', default=os.environ.get('INFLUXDB_USER', ''))
     parser.add_argument('--influxdb-password', default=os.environ.get('INFLUXDB_PASSWORD', ''))
+    parser.add_argument('--category', action='append', default=[],
+                        help='Only backfill this query category (repeatable); default is all categories')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print line protocol to stdout instead of writing to InfluxDB')
     args = parser.parse_args()
@@ -120,6 +126,12 @@ def main():
     conn = psycopg2.connect('')
     try:
         queries = load_queries(QUERIES_FILE)
+        if args.category:
+            unknown = set(args.category) - set(queries)
+            if unknown:
+                print(f'ERROR: unknown category: {", ".join(sorted(unknown))}', file=sys.stderr)
+                sys.exit(1)
+            queries = {k: v for k, v in queries.items() if k in args.category}
         d = start
         while d < end:
             # Timestamp written to InfluxDB: the day Telegraf *would* have run (next day at 00:00:01 UTC)
