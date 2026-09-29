@@ -124,6 +124,7 @@ WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
         WHERE earlier.user_id = gu.id
             AND earlier.create_time < date_trunc('day', current_date - interval '1 day')
     )
+    AND gu.active IS TRUE
 GROUP BY institution, is_vib_data_core
 ORDER BY newly_active_users_count DESC;
 
@@ -157,6 +158,7 @@ WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
         WHERE earlier.user_id = gu.id
             AND earlier.create_time < date_trunc('day', current_date - interval '1 day')
     )
+    AND gu.active IS TRUE
 GROUP BY vib_domain, is_vib_data_core
 ORDER BY newly_active_users_count DESC;
 
