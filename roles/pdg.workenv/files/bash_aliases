@@ -1,0 +1,183 @@
+# ~/.bash_aliases — managed by Ansible (pdg.workenv)
+
+# workenv — print this environment's cheatsheet
+function workenv() {
+    bat --language=md --style=plain <<'EOF'
+# workenv cheatsheet
+
+## Navigation
+| Command / Key | Action |
+|---|---|
+| `z <query>` | Jump to frecently-visited directory (zoxide) |
+| `zi` | Same but opens fzf picker when ambiguous |
+| `fcd` / **Alt+F** | Ancestors above + subdirs below current location |
+| `fcd ~` / **Alt+H** | Search all dirs under home (finds siblings/cousins) |
+| `fcd /path` | Search all dirs under given path |
+| **Alt+C** | fzf subdirectory picker from current location (fzf built-in) |
+| `..` / `...` | Up 1 / 2 levels |
+| `cd -` | Previous directory |
+
+## Search & Edit
+| Command / Key | Action |
+|---|---|
+| `vrg` | ripgrep → fzf with bat preview → open in vim at match line |
+| **Ctrl+T** | fzf file picker with bat preview |
+| **Ctrl+R** | fzf shell history search |
+
+## Aliases
+| Alias | Expands to |
+|---|---|
+| `ll` / `la` | `ls -lshat` / `ls -la` |
+| `psg <name>` | grep running processes |
+| `ports` | `ss -tulpn` — listening ports |
+| `df` / `du` / `free` | human-readable disk/memory |
+| `refresh-env` | re-import SSH agent + tokens into current tmux pane |
+
+## Systemd
+| Alias | Action |
+|---|---|
+| `sc` | systemctl |
+| `scst <unit>` | systemctl status |
+| `scre <unit>` | systemctl restart |
+| `jf` | journalctl -f |
+| `jfu <unit>` | journalctl -fu (follow unit) |
+
+## Ansible
+| Alias | Action |
+|---|---|
+| `ap` | ansible-playbook |
+| `av` | ansible-vault |
+| `vg <pattern>` | search HashiCorp Vault secrets by key/value |
+
+## Condor / Git
+| Alias | Action |
+|---|---|
+| `cq` | watch condor_q every 5s |
+| `gs` / `gd` / `gl` | git status / diff / log --oneline --graph |
+| `wts` | status of all worktrees at a glance |
+| `wtcd` | fzf-pick a worktree and cd into it |
+| `lg` | lazygit — TUI git client (worktrees via `w`) |
+
+## Vim
+| Key | Action |
+|---|---|
+| `<space>w/q/x` | save / quit / save+quit |
+| `<space><space>` | clear search highlight |
+| `Ctrl+hjkl` | navigate splits |
+| `<space>]` / `<space>[` | next / prev buffer |
+| `<space>b` | list buffers |
+| `<space>e` | file explorer (netrw) |
+| `<Ctrl+p>` | fzf file search |
+| Reopen file | cursor restored to last position |
+| `/` search | yellow highlight (readable on any theme) |
+
+## iTerm2 key mappings (Esc+ sequences)
+| Key | Mapped to |
+|---|---|
+| **Alt+F** | Esc+f → `fcd` |
+| **Alt+H** | Esc+h → `fcd ~` |
+| **Alt+C** | Esc+c → fzf directory picker |
+EOF
+}
+
+# Allow aliases to work with sudo (trailing space triggers alias expansion)
+alias sudo='sudo '
+
+# --- Navigation -------------------------------------------------
+alias ll='ls -lshat'
+alias la='ls -la'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias vrg='rg --line-number . | fzf --delimiter=: --preview '"'"'LINE={2}; bat --color=always --highlight-line $LINE --line-range $(($LINE>5?$LINE-5:1)):$(($LINE+10)) {1}'"'"' | awk -F: '"'"'{print "+"$2" "$1}'"'"' | xargs -r vim'
+
+# --- Disk & resources -------------------------------------------
+alias df='df -h'
+alias du='du -h'
+alias free='free -h'
+
+# --- Processes --------------------------------------------------
+# Usage: psg condor
+alias psg='ps aux | grep -v grep | grep'
+
+# --- Network ----------------------------------------------------
+alias ports='ss -tulpn'
+
+# --- Systemd ----------------------------------------------------
+alias sc='systemctl'
+alias scst='systemctl status'
+alias scre='systemctl restart'
+alias jf='journalctl -f'
+# Usage: jfu galaxy
+alias jfu='journalctl -fu'
+
+# --- tmux env refresh -------------------------------------------
+# Run in existing panes after reconnecting to pick up new SSH agent + env vars
+alias refresh-env='eval $(tmux show-environment -s 2>/dev/null | grep -E "SSH_AUTH_SOCK|GH_TOKEN|ANSIBLE_VAULT_PASSWORD")'
+
+# --- Ansible ----------------------------------------------------
+# Cap banner width at 160 cols — Ansible reads ioctl(TIOCGWINSZ) directly and
+# ignores $COLUMNS, so wide terminals produce 200+ char banners that wrap badly.
+function ap() {
+    local _saved=${COLUMNS:-0} _cap=160
+    [[ $_saved -gt $_cap ]] && stty cols $_cap 2>/dev/null
+    ansible-playbook "$@"
+    local _r=$?
+    [[ $_saved -gt 0 ]] && stty cols "$_saved" 2>/dev/null
+    return $_r
+}
+alias av='ansible-vault'
+# Usage: vg <pattern>  — searches HashiCorp Vault (vsc/prod/usegalaxy-be) by key/value
+alias vg='vault-grep'
+
+# --- Condor -----------------------------------------------------
+alias cq='watch -n 5 condor_q -nobatch'
+
+# --- Git --------------------------------------------------------
+alias gs='git status'
+alias gd='git diff'
+alias gl='git log --oneline --graph --decorate'
+alias lg='lazygit'
+
+function wtcd() {
+    local repo target
+    repo=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo"; return 1; }
+    target=$(git -C "$repo" worktree list \
+        | fzf --height=40% --reverse --prompt="worktree: " \
+        | awk '{print $1}')
+    [[ -z "$target" ]] && return
+    cd "${target/\/workspaces\/ansible-deployment/$repo}"
+}
+
+function wts() {
+    local repo wt_path branch gitdir changes slug local_path
+    repo=$(git rev-parse --show-toplevel 2>/dev/null) || { echo "not in a git repo"; return 1; }
+
+    git -C "$repo" worktree list --porcelain \
+      | awk '
+            /^worktree /{wt_path=$2}
+            /^branch /{branch=$2}
+            /^gitdir /{gitdir=$2}
+            /^$/{print wt_path "|" branch "|" gitdir; wt_path=branch=gitdir=""}
+            END{if(wt_path) print wt_path "|" branch "|" gitdir}
+        ' \
+      | while IFS='|' read -r wt_path branch gitdir; do
+            if [[ "$wt_path" == /workspaces/* ]]; then
+                # Devcontainer-path worktree: translate path and use worktree-specific GIT_DIR
+                # so git sees the correct HEAD and index for that branch.
+                local_path="${wt_path/\/workspaces\/ansible-deployment/$repo}"
+                slug=$(basename "$(dirname "$gitdir")")
+                changes=$(GIT_DIR="$repo/.git/worktrees/$slug" \
+                    git --work-tree="$local_path" status --short 2>/dev/null)
+            else
+                changes=$(git -C "$wt_path" status --short 2>/dev/null)
+            fi
+
+            printf "\033[1m%-45s\033[0m %s\n" "${branch##refs/heads/}" "$wt_path"
+            if [[ -n "$changes" ]]; then
+                echo "$changes" | sed 's/^/  /'
+            else
+                echo "  (clean)"
+            fi
+            echo
+        done
+}

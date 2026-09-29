@@ -1,0 +1,28 @@
+---
+- name: Ensure the deploy hooks directory exists
+  file:
+    path: /etc/letsencrypt/renewal-hooks/deploy
+    state: directory
+    mode: '0755'
+
+- name: Deploy the certificate copy script
+- name: "Send copy_certs from template"
+  template:
+    src: "copy_certs.sh.j2"
+    dest: "{{ backup_path }}/scripts/copy_certs.sh"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_group.name }}"
+    mode: 0740
+  copy:
+    src: copy_certs.sh
+    dest: /etc/letsencrypt/renewal-hooks/deploy/copy_certs.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure certbot to use the deploy hook script
+  lineinfile:
+    path: /etc/letsencrypt/renewal/yourdomain.com.conf
+    regexp: '^renew_hook ='
+    line: 'renew_hook = /etc/letsencrypt/renewal-hooks/deploy/copy_certs.sh'
+    create: yes

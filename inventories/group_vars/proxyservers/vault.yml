@@ -1,0 +1,21 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+# Note: vault_smtp_password and vault_error_email were removed here — the canonical
+# values live in group_vars/all/vault/monitoring_vault.yml and galaxyservers/vault.yml.
+
+# rabbitmq + flower (same Vault path as galaxyservers — identical values)
+_vault_rabbitmq: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/rabbitmq') }}"
+vault_rabbitmq_password_vhost: "{{ _vault_rabbitmq.vault_rabbitmq_password_vhost }}"
+vault_rabbitmq_admin_password: "{{ _vault_rabbitmq.vault_rabbitmq_admin_password }}"
+vault_rabbitmq_password_flower: "{{ _vault_rabbitmq.vault_rabbitmq_password_flower }}"
+vault_rabbitmq_password_galaxy: "{{ _vault_rabbitmq.vault_rabbitmq_password_galaxy }}"
+vault_flower_user_password: "{{ _vault_rabbitmq.vault_flower_user_password }}"
+
+# sentry (same Vault path as galaxyservers — identical value)
+vault_sentry_password: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/sentry').vault_sentry_password }}"
+
+# proxyservers-specific
+vault_grafana_security: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/proxyservers').vault_grafana_security }}"
+
+# network
+vault_host_mappings: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/proxyservers').vault_host_mappings }}"

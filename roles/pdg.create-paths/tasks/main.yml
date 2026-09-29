@@ -1,0 +1,11 @@
+---
+# main tasks file for galaxyproject.galaxy
+
+# Deploy a Galaxy server
+#   https://docs.galaxyproject.org/
+
+  
+- name: Include custom path management tasks
+  include_tasks:
+    file: paths.yml
+

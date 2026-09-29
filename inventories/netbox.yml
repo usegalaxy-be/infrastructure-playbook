@@ -1,0 +1,24 @@
+# NetBox dynamic inventory — eventual replacement for inventories/hosts.
+# Requires: netbox.netbox collection, NETBOX_URL, NETBOX_TOKEN environment variables.
+#
+# Usage: ansible-playbook ... -i inventories/netbox.yml -i inventories/group_vars/
+#
+# See https://netbox-ansible-collection.readthedocs.io/en/latest/nb_inventory_module.html
+
+plugin: netbox.netbox.nb_inventory
+
+api_endpoint: "{{ lookup('env', 'NETBOX_URL') }}"
+token: "{{ lookup('env', 'NETBOX_TOKEN') }}"
+
+# Compose ansible_host from the device's primary IP
+compose:
+  ansible_host: primary_ip4.address | ansible.utils.ipaddr('address')
+
+# Map NetBox device roles / tags to Ansible inventory groups
+group_by:
+  - device_roles
+  - tags
+
+# Limit to this site / tenant (adjust to match your NetBox setup)
+# query_filters:
+#   - site: usegalaxy-be

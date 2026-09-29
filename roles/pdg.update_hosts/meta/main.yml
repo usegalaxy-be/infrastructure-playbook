@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: update_hosts
+  author: pdg
+  description: Manage /etc/hosts entries
+  min_ansible_version: "2.9"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+
+dependencies: []

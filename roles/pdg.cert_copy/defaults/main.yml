@@ -1,0 +1,8 @@
+---
+# defaults file for pdg.cert_copy
+source_certs_dir: "/etc/letsencrypt/live"
+destination_certs_dir: "/etc/ssl/certs"
+shared_certs_dir: "/srv/galaxy/shared/shared_certs"
+
+renewal_script_path: "/etc/letsencrypt/renewal-hooks/deploy"
+renewal_config_path: "/etc/letsencrypt/renewal"

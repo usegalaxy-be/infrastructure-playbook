@@ -1,0 +1,60 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+
+# monitoring
+vault_error_email: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/monitoring').vault_error_email }}"
+vault_vib_data_core_emails: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/monitoring').vault_vib_data_core_emails }}"
+
+# rabbitmq + flower
+_vault_rabbitmq: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/rabbitmq') }}"
+vault_rabbitmq_password_vhost: "{{ _vault_rabbitmq.vault_rabbitmq_password_vhost }}"
+vault_rabbitmq_admin_password: "{{ _vault_rabbitmq.vault_rabbitmq_admin_password }}"
+vault_rabbitmq_password_flower: "{{ _vault_rabbitmq.vault_rabbitmq_password_flower }}"
+vault_rabbitmq_password_galaxy: "{{ _vault_rabbitmq.vault_rabbitmq_password_galaxy }}"
+vault_rabbitmq_password_germany: "{{ _vault_rabbitmq.vault_rabbitmq_password_germany }}"
+vault_rabbitmq_password_vib: "{{ _vault_rabbitmq.vault_rabbitmq_password_vib }}"
+vault_flower_user_password: "{{ _vault_rabbitmq.vault_flower_user_password }}"
+
+# sentry
+_vault_sentry: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/sentry') }}"
+vault_sentry_password: "{{ _vault_sentry.vault_sentry_password }}"
+vault_galaxy_sentry_dsn: "{{ _vault_sentry.vault_galaxy_sentry_dsn }}"
+
+# minio
+_vault_minio: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/minio') }}"
+vault_minio_access_key: "{{ _vault_minio.vault_minio_access_key }}"
+vault_minio_secret_key: "{{ _vault_minio.vault_minio_secret_key }}"
+
+# irods
+_vault_irods: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/irods') }}"
+vault_irods_user: "{{ _vault_irods.vault_irods_user }}"
+vault_irods_password: "{{ _vault_irods.vault_irods_password }}"
+vault_irods_zone: "{{ _vault_irods.vault_irods_zone }}"
+vault_irods_host: "{{ _vault_irods.vault_irods_host }}"
+vault_irods_port: "{{ _vault_irods.vault_irods_port }}"
+vault_irods_cwd: "{{ _vault_irods.vault_irods_cwd }}"
+vault_irods_client_server_negotiation: "{{ _vault_irods.vault_irods_client_server_negotiation }}"
+vault_irods_client_server_policy: "{{ _vault_irods.vault_irods_client_server_policy }}"
+vault_irods_encryption_algorithm: "{{ _vault_irods.vault_irods_encryption_algorithm }}"
+vault_irods_encryption_key_size: "{{ _vault_irods.vault_irods_encryption_key_size }}"
+vault_irods_encryption_num_hash_rounds: "{{ _vault_irods.vault_irods_encryption_num_hash_rounds }}"
+vault_irods_encryption_salt_size: "{{ _vault_irods.vault_irods_encryption_salt_size }}"
+vault_irods_ssl_verify_server: "{{ _vault_irods.vault_irods_ssl_verify_server }}"
+vault_irods_ssl_ca_certificate_file: "{{ _vault_irods.vault_irods_ssl_ca_certificate_file }}"
+
+# influx (consumer stats)
+_vault_influx: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/influx') }}"
+consumer_influx_address: "{{ _vault_influx.consumer_influx_address }}"
+consumer_influx_port: "{{ _vault_influx.consumer_influx_port }}"
+consumer_influx_db: "{{ _vault_influx.consumer_influx_db }}"
+consumer_influx_username: "{{ _vault_influx.consumer_influx_username }}"
+consumer_influx_password: "{{ _vault_influx.consumer_influx_password }}"
+consumer_influx_measurement: "{{ _vault_influx.consumer_influx_measurement }}"
+
+# galaxy encryption keys
+galaxy_vault_encryption_keys: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/galaxyservers').galaxy_vault_encryption_keys }}"
+
+# network
+vault_host_mappings: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/galaxyservers').vault_host_mappings }}"
+_vault_device_ips: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips') }}"
+vault_proxy_internal_ip: "{{ _vault_device_ips.proxy_internal_ip }}"

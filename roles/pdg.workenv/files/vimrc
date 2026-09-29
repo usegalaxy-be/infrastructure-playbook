@@ -1,0 +1,133 @@
+" ============================================================
+" ~/.vimrc — managed by Ansible (pdg.workenv)
+" Pure vim, no plugin manager. Works on any server out of the box.
+" ============================================================
+
+" --- Core -------------------------------------------------------
+set nocompatible          " no legacy vi compatibility
+filetype plugin indent on " file-type aware indentation and plugins
+syntax enable             " syntax highlighting
+
+" --- Appearance -------------------------------------------------
+set number                " show absolute line number on current line
+set relativenumber        " other lines show distance — great for jump commands
+set cursorline            " highlight the line the cursor is on
+set scrolloff=8           " always keep 8 lines visible above/below cursor
+set sidescrolloff=5
+set laststatus=2          " always show the status bar (even with one window)
+set showmode              " show INSERT / VISUAL / REPLACE in status bar
+set showcmd               " show partial commands in bottom right
+silent! set signcolumn=yes " always show the sign column (needs vim 8+, skip on old hosts)
+
+" Colorscheme — desert ships with vim, looks decent on dark terminals
+silent! colorscheme desert
+
+" Search highlights — override colorscheme: yellow bg + black text is readable
+" on any terminal theme. IncSearch (current match while typing) uses orange.
+hi Search    cterm=NONE ctermbg=226 ctermfg=0 gui=NONE guibg=#ffff00 guifg=#000000
+hi IncSearch cterm=NONE ctermbg=214 ctermfg=0 gui=NONE guibg=#ff8700 guifg=#000000
+
+" --- Indentation ------------------------------------------------
+set expandtab             " use spaces, not tabs
+set shiftwidth=4          " >> / << shift by 4 spaces
+set tabstop=4             " a tab character displays as 4 spaces
+set softtabstop=4         " backspace deletes 4 spaces at once
+set autoindent            " copy indent from previous line
+set smartindent           " add indent after { etc.
+
+" YAML (Ansible playbooks, vars, TPV configs) — 2 spaces
+autocmd FileType yaml,yml setlocal shiftwidth=2 tabstop=2 softtabstop=2
+
+" --- Search -----------------------------------------------------
+set incsearch             " highlight as you type
+set hlsearch              " keep highlights after pressing Enter
+set ignorecase            " case-insensitive by default
+set smartcase             " ...but case-sensitive if you type an uppercase letter
+
+" --- Files & Persistence ----------------------------------------
+set noswapfile            " no .swp files littering the filesystem
+set nobackup              " no ~ backup files
+set undofile              " persist undo history across sessions
+" Auto-create undo directory for any user (works with system-wide /etc/vimrc)
+if !isdirectory(expand('~/.vim/undo'))
+    call mkdir(expand('~/.vim/undo'), 'p', 0700)
+endif
+set undodir=~/.vim/undo// " store undo files centrally (// = full-path encoding)
+
+" --- Behaviour --------------------------------------------------
+set hidden                " switch buffers without saving (use :ls to list open buffers)
+autocmd BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | execute "normal! g'\"" | endif
+set splitright            " :vs puts the new pane on the right
+set splitbelow            " :sp puts the new pane below
+set wildmenu              " show completion menu for : commands
+set wildmode=longest:full,full
+set backspace=indent,eol,start  " backspace works over everything in insert mode
+set clipboard=unnamed           " yank/paste uses system clipboard (if vim has +clipboard)
+set noerrorbells          " no bell on errors
+set timeoutlen=500        " leader key timeout (ms)
+set backspace=indent,eol,start
+
+" --- Leader key -------------------------------------------------
+let mapleader = " "       " spacebar as leader — easy to hit
+
+" --- Keymaps ----------------------------------------------------
+" Save and quit
+nnoremap <leader>w :w<CR>
+nnoremap <leader>q :q<CR>
+nnoremap <leader>x :x<CR>
+
+" Clear search highlight
+nnoremap <leader><space> :nohlsearch<CR>
+
+" Navigate splits with Ctrl+hjkl (no need for Ctrl+w first)
+nnoremap <C-h> <C-w>h
+nnoremap <C-j> <C-w>j
+nnoremap <C-k> <C-w>k
+nnoremap <C-l> <C-w>l
+
+" Move selected lines up/down with Alt+j/k
+nnoremap <A-j> :m .+1<CR>==
+nnoremap <A-k> :m .-2<CR>==
+vnoremap <A-j> :m '>+1<CR>gv=gv
+vnoremap <A-k> :m '<-2<CR>gv=gv
+
+" Re-indent visual selection and keep it selected
+vnoremap < <gv
+vnoremap > >gv
+
+" Y yanks to end of line, consistent with D (delete to end) and C (change to end)
+nnoremap Y y$
+
+" Keep the cursor centred when jumping through search results
+nnoremap n nzzzv
+nnoremap N Nzzzv
+nnoremap * *zzzv
+
+" Quick buffer navigation
+nnoremap <leader>] :bnext<CR>
+nnoremap <leader>[ :bprev<CR>
+nnoremap <leader>b :ls<CR>:b<space>   " list buffers then prompt for number
+
+" Open a file explorer (netrw, built-in)
+nnoremap <leader>e :Explore<CR>
+
+" --- fzf + ripgrep (no-op on hosts where fzf isn't installed) --
+" Source install puts the vim plugin under ~/.fzf; package installs it system-wide.
+if isdirectory(expand('~/.fzf'))
+    set rtp+=~/.fzf
+endif
+if executable('fzf')
+    nnoremap <C-p> :FZF<CR>
+endif
+
+set grepprg=rg\ --vimgrep\ --smart-case
+set grepformat=%f:%l:%c:%m
+set path+=**
+
+" --- Status line (no plugins needed) ----------------------------
+set statusline=
+set statusline+=\ %f                      " relative file path
+set statusline+=\ %m%r%h%w               " [+] [RO] [Help] [Preview] flags
+set statusline+=%=                        " switch to right side
+set statusline+=\ %{&filetype}           " file type (yaml, python, sh ...)
+set statusline+=\ \|\ %l/%L\ :\ col\ %c\  " line/total : col number

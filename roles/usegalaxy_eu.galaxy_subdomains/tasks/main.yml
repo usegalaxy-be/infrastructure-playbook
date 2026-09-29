@@ -1,0 +1,60 @@
+- name: Create directory
+  ansible.builtin.file:
+    path: "{{ galaxy_subsite_dir }}"
+    state: directory
+    mode: 0755
+
+- name: Template out main welcome page
+  ansible.builtin.template:
+    src: welcome.html
+    dest: "{{ galaxy_subsite_dir }}/{{ galaxy_subsite_base_domain }}.html"
+    mode: 0644
+
+- name: "Template out welcome pages"
+  ansible.builtin.template:
+    src: welcome.html
+    dest: "{{ galaxy_subsite_dir }}/{{ item.name }}.{{ galaxy_subsite_base_domain }}.html"
+    mode: 0644
+  with_items: "{{ galaxy_subsites }}"
+
+- name: Template out custom CSS per subsite.
+  ansible.builtin.template:
+    src: multisite-base.css
+    dest: "{{ galaxy_subsite_dir }}/{{ item.name }}.{{ galaxy_subsite_base_domain }}-custom.css"
+    mode: 0644
+  with_items: "{{ galaxy_subsites }}"
+
+- name: Create base domain custom css
+  ansible.builtin.copy:
+    dest: "{{ galaxy_subsite_dir }}/{{ galaxy_subsite_base_domain }}-custom.css"
+    content: "{{ galaxy_subsite_base_css }}"
+    mode: 0644
+
+# Any images
+- name: Copy custom background images
+  ansible.builtin.copy:
+    src: "files/subsites/{{ item.name }}.png"
+    dest: "{{ galaxy_subsite_dir }}/{{ item.name }}.png"
+    mode: 0644
+  with_items: "{{ galaxy_subsites }}"
+  when: item.wallpaper | default(False)
+
+# Main css file that's used as a fallback.
+- name: Create main site CSS
+  ansible.builtin.shell: |
+    cat {{ galaxy_server_dir }}/static/style/base.css {{ galaxy_subsite_dir }}/{{ galaxy_subsite_base_domain }}-custom.css \
+      > {{ galaxy_subsite_dir }}/{{ galaxy_subsite_base_domain }}.css
+
+# Make the final CSS files.
+- name: Merge CSS files for subsites
+  ansible.builtin.shell: |
+    cat {{ galaxy_server_dir }}/static/style/base.css {{ galaxy_subsite_dir }}/{{ item.name }}.{{ galaxy_subsite_base_domain }}-custom.css \
+      > {{ galaxy_subsite_dir }}/{{ item.name }}.{{ galaxy_subsite_base_domain }}.css
+  with_items: "{{ galaxy_subsites }}"
+
+# Template out global_host_filters for the subsite specific tool lists
+- name: Template out global_host_filters.py
+  ansible.builtin.template:
+    src: "global_host_filters.py.j2"
+    dest: "{{ galaxy_server_dir }}/lib/galaxy/tool_util/toolbox/filters/global_host_filters.py"
+    mode: 0644

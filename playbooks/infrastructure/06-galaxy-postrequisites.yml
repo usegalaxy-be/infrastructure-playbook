@@ -1,0 +1,314 @@
+---
+# Install Galaxy post-requisites: gxadmin CLI and HTCondor head node (collector, negotiator, schedd).
+# Run after 04-galaxy.yml. HTCondor must be up before compute workers can join the pool.
+
+- name: Deploy Galaxy Post-Requisites
+  hosts: galaxyservers
+  become: true
+  become_user: root
+
+  handlers:
+    - name: Restart condor
+      ansible.builtin.service:
+        name: condor
+        state: restarted
+
+    - name: Save iptables rules
+      ansible.builtin.shell:
+        cmd: iptables-save > /etc/sysconfig/iptables
+
+  pre_tasks:
+    - name: Exclude openssh packages from dnf updates
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/dnf.conf
+        regexp: '^exclude='
+        insertafter: '^\[main\]'
+        line: 'exclude=openssh openssh-server openssh-clients openssl openssl-libs'
+      tags: always
+    - name: Apply common repo fixes (skip unavailable repos, refresh pgdg GPG key)
+      ansible.builtin.include_tasks: tasks/fix_repos.yml
+      tags: always
+
+    - name: Remove the old root-owned shared_data sync cron entries (root gets NFS root_squash'd here)
+      ansible.builtin.cron:
+        name: "sync  to {{ item }}"
+        user: root
+        state: absent
+      loop:
+        - /srv/galaxy/shared/shared_data/test/mutable-config/
+        - /srv/galaxy/shared/shared_data/test/shed_data/
+      when: inventory_hostname == 'usegalaxy.be'
+      tags: tool-deps
+
+  roles:
+      # Installs, configures and manages proftpd (FTP) server.
+      # NOTE: currently not in use, not installed on prod. Kept commented
+      # rather than deleted: certs-over-NFS still needs a real answer.
+      # TODO: possible to set up with ssl cert main instance?
+      # TODO: set up a cron job to copy over certs to nfs? if a proxy server is in place for all services that need certificates this wont be necessary anymore
+      # NOTE: certs are copied over by hand for the test instance at the moment
+
+      # - role: galaxyproject.proftpd
+
+      # Configures db backup scripts and cron jobs
+      - role: pdg.postgres-backup
+        tags: backup
+
+      # Installs and configures gxadmin
+      - role: galaxyproject.gxadmin
+        tags: gxadmin
+
+      # HTCondor Cluster setup
+      - role: grycap.htcondor
+        tags: condor
+
+      # Install and configure TIaaS (Training Infrastructure as a Service).
+      # Live on prod (tiaas.service active, /srv/tiaas populated) but was left
+      # commented out here, so Ansible has not managed it. Skip deliberately
+      # with --skip-tags tiaas if nginx's own tiaas_nginx_routes vars (see
+      # group_vars/all/postrequisites.yml) haven't been set up for a target yet.
+      - role: galaxyproject.tiaas2
+        tags: tiaas
+
+      # Syncs prod's resolved tool config to shared_data/test so test can consume it
+      # instead of installing its own copy. dependencies/ left out pending a size check.
+      - role: pdg.rsync_tool_dependencies
+        tags: tool-deps
+        when: inventory_hostname == 'usegalaxy.be'
+        vars:
+            nfs_path: /srv/galaxy/shared/shared_data/test
+            sync_cron_manual_run: false
+            sync_cron_setup_cron: true
+            # root gets NFS root_squash'd on this share, confirmed live: root's rsync
+            # was denied, galaxy_master's succeeded and owns the source/dest files.
+            sync_cron_username: galaxy_master
+            sync_cron_chdir_path: "/"
+            sync_cron_frequency:
+              minute: 0
+              hour: 6
+              day: "*"
+              weekday: 6
+              month: "*"
+              disabled: no
+            sync_cron_tasks:
+              - src_path: "{{ galaxy_mutable_config_dir }}/"
+                dest_url: "{{ nfs_path }}/mutable-config/"
+              - src_path: "{{ galaxy_mutable_data_dir }}/shed_data/"
+                dest_url: "{{ nfs_path }}/shed_data/"
+
+  post_tasks:
+      # Deploy local condor config after grycap.htcondor so our settings take
+      # precedence over the role's config.d snippets. condor_config.local is
+      # loaded last by HTCondor and naturally overrides everything in config.d/.
+      - name: Deploy HTCondor local configuration
+        ansible.builtin.template:
+          src: "{{ playbook_dir }}/../../templates/htcondor/condor_config.local.j2"
+          dest: /etc/condor/condor_config.local
+          owner: root
+          group: root
+          mode: '0644'
+        notify: Restart condor
+        tags: condor
+
+      # TCP_FORWARDING_HOST causes the schedd to advertise condor_tcp_forwarding_host
+      # instead of the VM-network address. VIB workers (separate
+      # OpenStack project) can reach the floating IP but not VM ip. However,
+      # the Galaxy head VM itself cannot reach its own floating IP (hairpin NAT).
+      # This DNAT rule redirects locally-originated connections to the floating IP
+      # back to ansible_host (the host's own VM-network IP) so condor_q and
+      # condor_submit work normally from the schedd host itself.
+      # Applies to any schedd with condor_tcp_forwarding_host set (prod and test).
+      - name: Install iptables-services for condor CCB hairpin rule persistence
+        ansible.builtin.package:
+          name: iptables-services
+          state: present
+        when:
+          - condor_tcp_forwarding_host | default('') | length > 0
+        tags: condor
+
+      - name: Enable iptables service
+        ansible.builtin.systemd:
+          name: iptables
+          enabled: true
+        when:
+          - condor_tcp_forwarding_host | default('') | length > 0
+        tags: condor
+
+      - name: Add iptables NAT OUTPUT DNAT rule for condor CCB hairpin NAT
+        ansible.builtin.iptables:
+          table: nat
+          chain: OUTPUT
+          destination: "{{ condor_tcp_forwarding_host }}"
+          protocol: tcp
+          destination_port: "9618"
+          jump: DNAT
+          to_destination: "{{ condor_hairpin_own_ip }}:9618"
+          comment: "condor CCB hairpin"
+        when:
+          - condor_tcp_forwarding_host | default('') | length > 0
+        notify: Save iptables rules
+        tags: condor
+
+      # The CM queries all schedds in the pool. Peer schedds advertise their
+      # VSC floating IPs, which are not directly reachable from the VM network.
+      # Each entry maps a peer schedd's floating IP to its VM-network IP.
+      - name: Add iptables NAT OUTPUT DNAT rules for peer schedd CCB hairpin
+        ansible.builtin.iptables:
+          table: nat
+          chain: OUTPUT
+          destination: "{{ item.floating_ip }}"
+          protocol: tcp
+          destination_port: "9618"
+          jump: DNAT
+          to_destination: "{{ item.vm_ip }}:9618"
+          comment: "condor peer schedd hairpin {{ item.floating_ip }}"
+        loop: "{{ condor_peer_schedd_dnat | default([]) }}"
+        notify: Save iptables rules
+        tags: condor
+
+      # Without an explicit host route, packets to a peer floating IP take the
+      # VSC interface as egress (DHCP on the VSC port pushes a route for the
+      # floating IP subnet). The OUTPUT DNAT then runs with the VSC source IP,
+      # which the peer cannot reply to via the VM network. The /32 host route
+      # forces those packets out the VM-network interface instead.
+      - name: Deploy NetworkManager dispatcher for condor peer schedd host routes
+        ansible.builtin.template:
+          src: "{{ playbook_dir }}/../../templates/network/condor-peer-routes.j2"
+          dest: /etc/NetworkManager/dispatcher.d/50-condor-peer-routes
+          owner: root
+          group: root
+          mode: '0755'
+        when: condor_peer_schedd_dnat | default([]) | length > 0
+        tags: condor
+
+      - name: Apply host routes for condor peer schedd CCB hairpin NAT
+        ansible.builtin.command:
+          cmd: "ip route replace {{ item.floating_ip }}/32 dev {{ ansible_default_ipv4.interface }}"
+        loop: "{{ condor_peer_schedd_dnat | default([]) }}"
+        when: condor_peer_schedd_dnat | default([]) | length > 0
+        changed_when: true
+        tags: condor
+
+      - name: Remove legacy pdg.condor_cm update-hosts cron job
+        ansible.builtin.file:
+          path: /etc/cron.d/ansible_update_hosts
+          state: absent
+        tags: condor
+
+      - name: Remove legacy pdg.condor_cm update-hosts script
+        ansible.builtin.file:
+          path: /usr/bin/update-hosts
+          state: absent
+        tags: condor
+
+      # - name: Upgrade condor to latest in configured channel
+      #   ansible.builtin.dnf:
+      #       name: condor
+      #       state: latest
+      #   register: condor_upgrade
+      #   tags: upgrade
+      # - name: Restart condor after upgrade
+      #   ansible.builtin.systemd:
+      #       name: condor
+      #       state: restarted
+      #   when: condor_upgrade.changed
+      #   tags: upgrade
+      # - name: Start condor
+      #   ansible.builtin.systemd:
+      #       name: condor
+      #       state: started
+      # - name: Condor auto approve
+      #   ansible.builtin.cron:
+      #       name: condor_auto_approve
+      #       minute: 0
+      #       job: "/usr/bin/condor_token_request_auto_approve -netblock {{ condor_ip_range }} -lifetime 3660"
+
+      - name: Setup gxadmin cleanup task
+        ansible.builtin.cron:
+            name: "Cleanup Old User Data"
+            user: galaxy_master # Run as the Galaxy user
+            minute: "0"
+            hour: "23"
+            job: "SHELL=/bin/bash source {{ galaxy_venv_dir }}/bin/activate && GALAXY_LOG_DIR=/tmp/gxadmin/ GALAXY_ROOT={{ galaxy_server_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} {{ gxadmin_bin_dir }}/gxadmin galaxy cleanup 60"
+        tags: gxadmin
+
+      - name: Cleanup TUS upload store (stale incomplete uploads)
+        ansible.builtin.cron:
+            name: "Cleanup TUS upload store"
+            user: galaxy_master
+            minute: "30"
+            hour: "23"
+            job: "/bin/find {{ galaxy_tus_upload_store }} -mindepth 1 -maxdepth 1 -mtime +5 ! -name '.nfs*' -exec rm -rf {} +"
+        tags: cron
+
+      - name: Cleanup scratch directory (new_file_path)
+        ansible.builtin.cron:
+            name: "Cleanup Galaxy scratch"
+            user: galaxy_master
+            minute: "45"
+            hour: "23"
+            job: "/bin/find {{ galaxy_new_file_path }} -mindepth 1 -maxdepth 1 -mtime +5 ! -name '.nfs*' -exec rm -rf {} +"
+        tags: cron
+
+      - name: Cleanup job working directory (stale job dirs)
+        ansible.builtin.cron:
+            name: "Cleanup Galaxy job working directory"
+            user: galaxy_master
+            minute: "0"
+            hour: "0"
+            job: "/bin/find {{ galaxy_job_working_directory }}/*/* -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + ; /bin/find {{ galaxy_job_working_directory }}/* -mindepth 0 -maxdepth 1 -type d -empty ! -name '_interactive' -exec rmdir {} +"
+        tags: cron
+
+      # Without this, cron pipes every job's output to esmtp, which has no relay
+      # configured and queues it under ~/.esmtp_queue forever. That queue had
+      # grown to 3942 mails / 1GB on the 30GB root disk by Sept 2026.
+      # Jobs worth watching log to a file and are alerted on in Grafana instead.
+      - name: Discard cron output instead of mailing it
+        ansible.builtin.cron:
+            name: MAILTO
+            user: galaxy_master
+            env: true
+            value: ""
+        tags: cron
+
+      - name: Cleanup undeliverable cron mail queue
+        ansible.builtin.cron:
+            name: "Cleanup esmtp queue"
+            user: galaxy_master
+            minute: "30"
+            hour: "4"
+            weekday: "0"
+            job: "/bin/find {{ galaxy_user_home }}/.esmtp_queue -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} +"
+        tags: cron
+
+      # Build caches on the small root disk. They only speed up Galaxy client
+      # and venv rebuilds, which happen a few times a year, so anything older
+      # than galaxy_admin_cache_max_age_days is not worth the space.
+      - name: Prune admin home build caches
+        ansible.builtin.cron:
+            name: "Prune admin home caches"
+            user: galaxy_master
+            minute: "0"
+            hour: "4"
+            weekday: "0"
+            job: >-
+              {% for d in galaxy_admin_cache_dirs %}
+              /bin/find {{ d }} -type f -mtime +{{ galaxy_admin_cache_max_age_days }} -delete 2>/dev/null;
+              /bin/find {{ d }} -mindepth 1 -type d -empty -delete 2>/dev/null;
+              {% endfor %}
+              true
+        tags: cron
+
+      - name: Cleanup GxIT interactive tool staging directories
+        ansible.builtin.cron:
+            name: "Cleanup GxIT staging directories"
+            user: galaxy_master
+            minute: "15"
+            hour: "0"
+            # Remove _interactive job staging dirs older than 1 day.
+            # These are left behind when a GxIT job errors while the embedded
+            # Pulsar is collecting outputs (e.g. after an iRODS timeout). If
+            # left in place they cause the Pulsar work thread to crash on every
+            # handler restart, blocking all Pulsar/GxIT job processing.
+            job: "/bin/find {{ galaxy_job_working_directory }}/_interactive -mindepth 1 -maxdepth 1 -type d -mtime +1 -exec rm -rf {} +"
+        tags: cron

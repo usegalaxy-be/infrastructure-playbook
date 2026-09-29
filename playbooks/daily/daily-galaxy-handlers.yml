@@ -1,0 +1,32 @@
+---
+# Gracefully restart Galaxy services via galaxyctl without redeploying anything.
+# All restart_* vars default to false — pass whichever you need on the command line:
+#   ansible-playbook daily-galaxy-handlers.yml -e restart_handler=true -e restart_gunicorn=true
+# restart_galaxy: runs galaxyctl update (picks up systemd unit changes)
+# restart_handler: graceful restart of job handler processes
+# restart_gunicorn: graceful restart of gunicorn web workers
+
+- name: Galaxy Service Restart (Handlers Only)
+  hosts: galaxyservers
+  become: true
+  become_user: root
+  vars:
+    restart_galaxy: false
+    restart_handler: false
+    restart_gunicorn: false
+
+  tasks:
+    - name: galaxyctl update
+      command: "{{ galaxy_gravity_command }} -d -c {{ galaxy_config_file }} update"
+      tags: ["galaxy-core", "galaxy", "update"]
+      when: restart_galaxy | bool
+
+    - name: galaxy gravity handler restart
+      command: "{{ galaxy_gravity_command }} -d -c {{ galaxy_config_file }} graceful handler"
+      tags: ["galaxy-core", "galaxy", "restart"]
+      when: restart_handler | bool
+
+    - name: galaxy gravity gunicorn restart
+      command: "{{ galaxy_gravity_command }} -d -c {{ galaxy_config_file }} graceful gunicorn"
+      tags: ["galaxy-core", "galaxy", "restart"]
+      when: restart_gunicorn | bool

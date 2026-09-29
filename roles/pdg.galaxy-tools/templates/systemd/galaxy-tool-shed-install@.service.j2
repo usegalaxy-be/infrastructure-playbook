@@ -1,0 +1,13 @@
+[Unit]
+Description=Galaxy Tool Shed install (%i)
+After=network.target
+After=time-sync.target
+
+[Service]
+Type=oneshot
+User={{ tools_user }}
+Group={{ tools_group }}
+WorkingDirectory={{ tool_install_dir }}
+TimeoutStartSec=0
+ExecStartPre=git -C {{ tools_repo_dir }} pull
+ExecStart={{ ephemeris_venv_dir }}/bin/shed-tools install -t {{ tools_repo_dir }}/%i.yaml.lock -a {{ galaxy_singularity_user_api_key }} -g {{ galaxy_tools_galaxy_instance_url }} -v --log-file {{ galaxy_tools_install_log_file }} --test --test-json {{ tool_install_dir }}/tool_install_test_output_%i.json --skip-install-resolver-dependencies --parallel-tests {{ parallel_tests }}

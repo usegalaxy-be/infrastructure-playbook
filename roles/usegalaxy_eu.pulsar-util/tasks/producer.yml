@@ -1,0 +1,45 @@
+---
+- name: Install pip
+  ansible.builtin.package:
+    name: python3-pip
+    state: present
+
+- name: Install htcondor python module
+  ansible.builtin.pip:
+    name: htcondor
+    state: present
+
+- name: Pulsar cron task
+  become_user: pulsar
+  become: true
+  block:
+  - name: Check existence of folder to store producer scripts
+    ansible.builtin.stat:
+      path: "{{ pulsar_metrics_scripts_path }}"
+    register: st
+
+  - name: Create folder to store producer scripts
+    ansible.builtin.file:
+      path: "{{ pulsar_metrics_scripts_path }}"
+      state: directory
+      owner: pulsar
+      group: pulsar
+      mode: '0755'
+    when: not st.stat.exists
+
+  - name: Copy producer files
+    ansible.builtin.copy:
+      src: "{{ item }}"
+      dest: "{{ pulsar_metrics_scripts_path }}/{{ item }}"
+      owner: pulsar
+      group: pulsar
+      mode: 0700
+    with_items:
+      - producer.py
+      - htcondor.py
+
+  - name: Add cron to collect stats
+    cron:
+      name: "condor stats"
+      minute: "*"
+      job: "/opt/pulsar/venv3/bin/python {{ pulsar_metrics_scripts_path }}/producer.py {{ pulsar_app_dir }}/app.yml {{ cluster_type }}"

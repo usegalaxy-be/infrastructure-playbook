@@ -1,0 +1,26 @@
+[Unit]
+Description=Galaxy Gunicorn
+After=network.target
+After=time-sync.target
+
+[Service]
+UMask=022
+Type=simple
+User={{ galaxy_user.name }}
+Group={{ __galaxy_user_group }}
+WorkingDirectory={{ galaxy_server_dir }}
+TimeoutStartSec=10
+{% set _gunicorn_preload = galaxy_systemd_gunicorn_preload | default(galaxy_systemd_gunicorn_preload_default) -%}
+ExecStart={{ galaxy_venv_dir }}/bin/gunicorn 'galaxy.webapps.galaxy.fast_factory:factory()' --timeout {{ galaxy_systemd_gunicorn_timeout }} --pythonpath lib -k galaxy.webapps.galaxy.workers.Worker -b unix:{{ galaxy_systemd_gunicorn_listen_path }}_%I.sock --workers={{ galaxy_systemd_gunicorn_workers }} --config python:galaxy.web_stack.gunicorn_config {{ _gunicorn_preload }} --forwarded-allow-ips="*"
+ExecReload= /bin/kill -HUP $MAINPID
+ExecStop = /bin/kill -s TERM $MAINPID
+Environment=HOME={{ galaxy_root }} VIRTUAL_ENV={{ galaxy_venv_dir }} PATH={{ galaxy_venv_dir }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin DOCUTILSCONFIG='' PYTHONPATH={{ galaxy_server_dir }}/lib:{{ galaxy_dynamic_job_rules_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} {{ galaxy_systemd_gunicorn_env }}
+MemoryLimit={{ galaxy_systemd_memory_limit }}G
+Restart=always
+
+MemoryAccounting=yes
+CPUAccounting=yes
+BlockIOAccounting=yes
+
+[Install]
+WantedBy=multi-user.target

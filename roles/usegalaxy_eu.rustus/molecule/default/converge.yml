@@ -1,0 +1,11 @@
+---
+# The default scenario tests the role using its default configuration, except that the version is
+# fixed to a well-known release of rustus.
+- name: Converge
+  hosts: all
+  vars_files:
+    - vars.yml
+  tasks:
+    - name: "Include usegalaxy_eu.rustus"
+      ansible.builtin.include_role:
+        name: "usegalaxy_eu.rustus"

@@ -1,0 +1,53 @@
+---
+# Re-initialize condor compute workers: remap UIDs (pdg.remap-user), reconfigure HTCondor, reset NTP.
+# Use after a VM image rebuild or when a worker needs to rejoin the pool from scratch.
+
+- hosts: prodcomputeservers
+  become: true
+  # Galaxy  user setup with Terraform (https://gitlab.psb.ugent.be/igegu/usegalaxy-be-terraform)
+  become_user: root
+  vars_files:
+      # - vsc_openstack/secret_group_vars/oidc_vars.yml
+  # collections:
+  #   - galaxyproject.galaxy
+  pre_tasks:
+    - name: Install Dependencies
+      package:
+        name: ['acl']
+      become: true
+      become_user: root
+    - name: Print condor_host
+      debug:
+        msg: "condor_host: {{ condor_host }}"
+    - name: Print htcondor roles
+      debug:
+        msg: "htcondor_role_execute: {{ htcondor_role_execute }}"
+    - name: Print vault_condor_pass
+      debug:
+        msg: "vault_condor_pass: {{ vault_condor_pass }}"
+    - name: Remove previous installation
+      package:
+        name: condor
+        state: absent
+  roles:
+      # Remap galaxy and condor users
+
+      - role: pdg.remap-user
+
+      # HTCondor Cluster setup
+
+      - role: grycap.htcondor
+
+      # Set NTP
+
+      - role: influxdata.chrony
+
+  post_tasks:
+    - name: Disable pulsar
+      systemd:
+        name: pulsar
+        state: stopped
+    - name: Start condor
+      systemd:
+        name: condor
+        state: started 

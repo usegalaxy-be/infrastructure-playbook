@@ -1,0 +1,63 @@
+---
+
+# - name: Compose the Minio client download base url
+#   set_fact:
+#     _minio_client_download_url: "https://dl.minio.io/client/mc/release/linux-{{ minio_architecture }}/mc"
+
+- name: Compose the Minio client download base url
+  set_fact:
+    _minio_client_download_url: "https://dl.minio.io/client/mc/release/linux-{{ minio_architecture }}/archive/mcli-{{ minio_client_release }}.{{ ansible_architecture }}.rpm"
+
+
+- name: Get the Minio client checksum for architecture {{ minio_architecture }}
+  set_fact:
+    _minio_client_checksum: "{{ lookup('url', _minio_client_download_url + '.sha256sum').split(' ')[0] }}"
+
+- name: Download the Minio client
+  get_url:
+    url: "{{ _minio_client_download_url }}"
+    dest: "{{ minio_temp_rpm_dest }}"
+    owner: root
+    group: root
+    mode: 0755
+    checksum: "sha256:{{ _minio_client_checksum }}"
+  register: _download_client
+  until: _download_client is succeeded
+  retries: 5
+  delay: 2
+
+
+- name: Install pgdg repository package (RedHat)
+  yum:
+    name: >-
+      {{_minio_client_download_url}}
+    state: latest
+    validate_certs: false
+    disable_gpg_check: "{{ disable_yum_gpg_check | d(omit) }}"
+    # checksum: "sha256:{{ _minio_client_checksum }}"
+  register: _minio_yum_result
+  # when: _download_client
+  until: _minio_yum_result is succeeded
+  retries: 5
+  delay: 5
+
+# - name: Download the Minio client
+#   get_url:
+#     url: "{{ _minio_client_download_url }}"
+#     dest: "{{ minio_client_bin }}"
+#     owner: root
+#     group: root
+#     mode: 0755
+#     checksum: "sha256:{{ _minio_client_checksum }}"
+#   register: _download_client
+#   until: _download_client is succeeded
+#   retries: 5
+#   delay: 2
+
+- name: Configure minio connection alias
+  command: "mcli alias set {{ minio_alias }} {{ minio_url }} {{ minio_access_key }} {{ minio_secret_key }}"
+  register: alias_command
+  changed_when: false
+  failed_when: '"Added `" + minio_alias + "` successfully" not in alias_command.stdout'
+  become: true
+  become_user: "{{ galaxy_user_name }}"

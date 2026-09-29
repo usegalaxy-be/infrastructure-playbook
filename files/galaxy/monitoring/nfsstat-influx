@@ -1,0 +1,8 @@
+#!/bin/bash
+# nfsstat-influx
+# Reports NFS v3 operation counts in InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/nfsstat-influx
+# Telegraf exec plugin interval: 1m
+
+nfsstat -3 -v -l | awk '(NR>2 && length){print "nfsstat,op="substr($4, 0, length($4)-1)" count="$5}'

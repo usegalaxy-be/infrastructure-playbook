@@ -1,0 +1,10 @@
+<tool id="test-pulsar-be" name="TPV test: Pulsar BE" version="1.0" hidden="true">
+    <description>Routing test for Belgian Pulsar destination (admin use only)</description>
+    <command><![CDATA[
+        echo "TPV test OK: $(hostname) $(date)" > '$output'
+    ]]></command>
+    <inputs/>
+    <outputs>
+        <data name="output" format="txt" label="tpv-test-pulsar-be"/>
+    </outputs>
+</tool>

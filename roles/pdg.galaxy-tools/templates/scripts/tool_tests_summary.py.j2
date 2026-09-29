@@ -1,0 +1,290 @@
+import os
+import json
+import csv
+import argparse
+import re
+import time
+from collections import defaultdict, Counter
+
+def parse_tool_info(tool_id):
+    """
+    Extract owner + tool name from ToolShed-style IDs.
+    Example: toolshed.g2.bx.psu.edu/repos/iuc/ebi_search_rest_results/ebi_search_rest_results/0.1.1
+    """
+    parts = tool_id.split("/")
+    if len(parts) >= 6:
+        owner = parts[4]
+        tool_name = parts[5]
+    else:
+        owner = "unknown"
+        tool_name = tool_id
+    return owner, tool_name
+
+
+
+
+def clean_error(err, truncate=300):
+    """Clean up error strings for CSV output."""
+    if not err:
+        return ""
+    # collapse newlines and tabs → spaces
+    cleaned = err.replace("\n", " ").replace("\r", " ").replace("\t", " ")
+    # strip excessive spaces
+    cleaned = " ".join(cleaned.split())
+    # remove CSV-breaking commas (optional, or replace with ;)
+    cleaned = cleaned.replace(",", ";")
+    # truncate if too long
+    if truncate and len(cleaned) > truncate:
+        cleaned = cleaned[:truncate] + "…"
+    return cleaned
+
+
+
+def summarize_tests(path, start_time=None, end_time=None):
+    """
+    Parse test JSON files and summarize results.
+    
+    Args:
+        path: Directory containing test JSON files
+        start_time: Unix timestamp - only include files created after this time (optional)
+        end_time: Unix timestamp - only include files created before this time (optional)
+    """
+    tool_summary = {}
+
+    tool_tests_summary = {}
+    summary = defaultdict(lambda: {
+        "tool_id": None,
+        "owner": None,
+        "tool_name": None,
+        "version": None,
+        "success": 0,
+        "failure": 0,
+        "problems": [],
+        "unique_errors": None,
+        "container_image": None,
+    })
+
+    for fname in os.listdir(path):
+        print(fname)
+        if not fname.endswith(".json"):
+            continue
+        
+        # Filter by creation time if specified
+        fpath = os.path.join(path, fname)
+        if start_time is not None or end_time is not None:
+            file_ctime = os.path.getctime(fpath)
+            if start_time is not None and file_ctime < start_time:
+                print(f"Skipping {fname}: created before start_time")
+                continue
+            if end_time is not None and file_ctime > end_time:
+                print(f"Skipping {fname}: created after end_time")
+                continue
+        
+        with open(fpath) as f:
+            try:
+                data = json.load(f)
+            except json.JSONDecodeError:
+                print("JSON ERROR")
+                continue
+
+        tests = data.get("tests", [])
+        if not tests:
+            print("NO TESTS")
+            continue
+
+        tool_id = tests[0].get("data", {}).get("tool_id", fname.replace("_test.json", ""))
+        tool_name = fname.replace("_test.json", "")
+
+        results = data.get("results",{})
+        #entry.update(results)
+
+        # Include all tools, not just those with errors
+        # if results.get("errors", 0) == 0 and results.get("failures", 0) == 0 and results.get("skips", 0) == 0:
+        #     print("NO ERRORS")
+        #     continue  # No top-level errors
+
+        # Initialize if new
+        if tool_name not in tool_summary:
+            tool_summary[tool_name] = {
+                "tool_id": tool_id,
+                "tool_name": tool_name,
+                "problems": [],
+                "unique_errors": set(),
+                "container_image": None,
+                "container_type": None,
+            }
+
+        entry = tool_summary[tool_name]
+
+        entry.update(results)
+        # Calculate success count
+        entry["success"] = results.get("total", 0) - results.get("errors", 0) - results.get("failures", 0) - results.get("skips", 0)
+
+        # Extract container type from job metrics
+        for test in tests:
+            test_data = test.get("data", {})
+            job = test_data.get("job", {})
+            job_metrics = job.get("job_metrics", [])
+            for metric in job_metrics:
+                if metric.get("name") == "container_type":
+                    entry["container_type"] = metric.get("raw_value")
+                    break
+            if entry["container_type"]:
+                break
+
+        print("NEW ENTRY:")
+        print(entry)
+        print(tool_name)
+
+        for test in tests:
+            test_data = test.get("data", {})
+            if test_data.get("status") == "success":
+                continue
+
+            probs = test_data.get("output_problems", [])
+            #print("PROBS: ", probs)
+            #entry["problems"].extend(probs)
+            #entry["unique_errors"].update(probs)
+            entry["problems"].extend([clean_error(p) for p in probs])
+            entry["unique_errors"].update([clean_error(p) for p in probs])
+
+    # Convert unique_errors set → list for JSON-safe output (every tool, not
+    # just the last one processed)
+    for entry in tool_summary.values():
+        entry["unique_errors"] = list(entry["unique_errors"])
+
+    return list(tool_summary.values())
+
+
+def load_previous_summary(path):
+    """Load a previously-written tool_summary.csv, keyed by tool_name."""
+    if not path or not os.path.exists(path):
+        return {}
+    previous = {}
+    with open(path, newline="") as f:
+        for row in csv.DictReader(f):
+            previous[row["tool_name"]] = row
+    return previous
+
+
+def is_failing(total, errors, failures):
+    return int(errors or 0) > 0 or int(failures or 0) > 0
+
+
+def compute_new_failures(summary, previous):
+    """Tools that are failing now and either weren't tracked before, weren't
+    failing before, or have error text not seen in the previous run."""
+    new_failures = []
+    for tool in summary:
+        if not is_failing(tool.get("total"), tool.get("errors"), tool.get("failures")):
+            continue
+
+        prev = previous.get(tool["tool_name"])
+        if prev is None:
+            new_failures.append(tool)
+            continue
+
+        if not is_failing(prev.get("total"), prev.get("errors"), prev.get("failures")):
+            new_failures.append(tool)
+            continue
+
+        prev_errors = set((prev.get("unique_errors") or "").split(" | ")) - {""}
+        curr_errors = set(tool.get("unique_errors") or [])
+        if not curr_errors.issubset(prev_errors):
+            new_failures.append(tool)
+
+    return new_failures
+
+
+def save_csv(summary, out_path="tool_summary.csv"):
+    fieldnames = [
+        "tool_id",
+        "tool_name",
+        "container_image",
+        "container_type",
+        "total",
+        "success",
+        "errors",
+        "failures",
+        "skips",
+        "problems",
+        "unique_errors"
+    ]
+    with open(out_path, "w", newline="") as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for tool in summary:
+            writer.writerow({
+                "tool_id": tool["tool_id"],
+                "tool_name": tool["tool_name"],
+                "container_image": tool["container_image"] or "",
+                "container_type": tool["container_type"] or "",
+                "total": tool["total"],
+                "success": tool.get("success", 0),
+                "errors": tool["errors"],
+                "failures": tool["failures"],
+                "skips": tool["skips"],
+                # join lists with |
+                "problems": " | ".join(tool["problems"]),
+                "unique_errors": " | ".join(tool["unique_errors"]),
+            })
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Summarize Galaxy tool test results from JSON files"
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default="{{ tool_test_dir }}",
+        help="Path to directory containing test JSON files (default: {{ tool_test_dir }})"
+    )
+    parser.add_argument(
+        "--start-time",
+        type=float,
+        default=None,
+        help="Only include files created after this Unix timestamp"
+    )
+    parser.add_argument(
+        "--end-time",
+        type=float,
+        default=None,
+        help="Only include files created before this Unix timestamp"
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="{{ tool_install_dir }}/tool_summary.csv",
+        help="Output CSV file path (default: {{ tool_install_dir }}/tool_summary.csv)"
+    )
+    parser.add_argument(
+        "--previous",
+        type=str,
+        default=None,
+        help="Path to the previous run's tool_summary.csv, to compute a new-failures diff"
+    )
+    parser.add_argument(
+        "--new-failures-output",
+        type=str,
+        default=None,
+        help="Output CSV path for the new-failures diff (default: <output> with _new_failures suffix)"
+    )
+
+    args = parser.parse_args()
+
+    path_to_jsons = args.path
+    tool_summary = summarize_tests(path_to_jsons, start_time=args.start_time, end_time=args.end_time)
+
+    # Example: pretty-print summary of first 2 tools
+    #print(json.dumps(tool_summary, indent=4))
+    # CSV output
+    save_csv(tool_summary, args.output)
+    print("CSV saved as", args.output)
+
+    if args.previous:
+        previous_summary = load_previous_summary(args.previous)
+        new_failures = compute_new_failures(tool_summary, previous_summary)
+        new_failures_output = args.new_failures_output or re.sub(r"\.csv$", "_new_failures.csv", args.output)
+        save_csv(new_failures, new_failures_output)
+        print(f"{len(new_failures)} new/changed failure(s) since {args.previous} saved as {new_failures_output}")

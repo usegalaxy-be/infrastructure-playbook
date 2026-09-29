@@ -1,0 +1,12 @@
+---
+# Set up shared ssl certs 
+
+  
+- name: Include custom path management tasks
+  include_tasks:
+    file: paths.yml
+
+- name: Include custom cert management tasks
+  include_tasks:
+    file: copy.yml
+

@@ -1,0 +1,23 @@
+---
+- name: Add NVIDIA container toolkit repository
+  ansible.builtin.get_url:
+    url: "{{ nvidia_gpu_container_toolkit_repo_url }}"
+    dest: /etc/yum.repos.d/nvidia-container-toolkit.repo
+    mode: "0644"
+
+- name: Install nvidia-container-toolkit
+  ansible.builtin.dnf:
+    name: nvidia-container-toolkit
+    state: present
+
+# grep returns non-zero if daemon.json is missing or lacks the nvidia runtime.
+- name: Detect existing NVIDIA Docker runtime
+  ansible.builtin.command: grep -q '"nvidia"' /etc/docker/daemon.json
+  register: nvidia_docker_configured
+  changed_when: false
+  failed_when: false
+
+- name: Wire the NVIDIA runtime into Docker
+  ansible.builtin.command: nvidia-ctk runtime configure --runtime=docker
+  when: nvidia_docker_configured.rc != 0
+  notify: nvidia_gpu restart docker

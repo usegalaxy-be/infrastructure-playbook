@@ -1,0 +1,412 @@
+<?xml version='1.0' encoding='utf-8'?>
+<toolbox>
+    <section id="get_data" name="Get Data" version="">
+        <tool file="data_source/upload.xml" />
+        <tool file="data_source/ucsc_tablebrowser.xml" />
+        <tool file="data_source/ucsc_tablebrowser_test.xml" hidden="True"/>
+        <tool file="data_source/ucsc_tablebrowser_archaea.xml"/>
+        <tool file="data_source/ncbi_datasets.xml" hidden="True"/> 
+        <tool file="data_source/sra.xml" hidden="True"/>
+        <tool file="data_source/ebi_sra.xml" hidden="True" />
+        <tool file="data_source/microbial_import.xml" hidden="True"/>
+        <tool file="data_source/biomart.xml" hidden="True"/>
+        <tool file="data_source/biomart_test.xml" hidden="True"/>
+        <tool file="data_source/cbi_rice_mart.xml" hidden="True"/>
+        <tool file="data_source/gramene_mart.xml" hidden="True"/>
+        <tool file="data_source/dorina_galaxy.xml" />
+        <tool file="data_source/fairdomhub.xml" />
+        <tool file="data_source/fly_modencode.xml" hidden="True"/>
+        <tool file="data_source/intermine.xml" />
+        <tool file="data_source/flymine.xml" hidden="True"/>
+        <tool file="data_source/flymine_test.xml" hidden="True"/>
+        <tool file="data_source/modmine.xml" hidden="True"/>
+        <tool file="data_source/mousemine.xml" />
+        <tool file="data_source/ratmine.xml" hidden="True"/>
+        <tool file="data_source/yeastmine.xml" hidden="True"/>
+        <tool file="data_source/metabolicmine.xml" hidden="True"/>
+        <tool file="data_source/worm_modencode.xml" hidden="True"/>
+        <tool file="data_source/wormbase.xml" hidden="True"/>
+        <tool file="data_source/wormbase_test.xml" hidden="True"/>
+        <tool file="data_source/zebrafishmine.xml" hidden="True"/>
+        <tool file="data_source/eupathdb.xml" hidden="True"/>
+        <tool file="data_source/hbvar.xml" hidden="True"/>
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/ebi_metagenomics_run_downloader/a1ef6c88ee37/ebi_metagenomics_run_downloader/ebi_metagenomics_run_downloader.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/gdcwebapp/7709b8ca3296/gdcwebapp/gdcwebapp.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/ebi_search_rest_results/42d5e40fcd0b/ebi_search_rest_results/ebi_search_rest_results.xml" hidden="True" />
+    </section>
+    <section id="send_data" name="Send Data" version="">
+        <tool file="data_export/send.xml" hidden="True"/>
+        <tool file="data_export/export_remote.xml" />
+    </section>
+    <section id="collection_operations" name="Collection Operations" version="">
+        <tool file="${model_tools_path}/unzip_collection.xml" />
+        <tool file="${model_tools_path}/zip_collection.xml" />
+        <tool file="${model_tools_path}/filter_failed_collection.xml" />
+        <tool file="${model_tools_path}/filter_empty_collection.xml" />
+        <tool file="${model_tools_path}/filter_null.xml" />
+        <tool file="${model_tools_path}/flatten_collection.xml" />
+        <tool file="${model_tools_path}/merge_collection.xml" />
+        <tool file="${model_tools_path}/relabel_from_file.xml" />
+        <tool file="${model_tools_path}/filter_from_file.xml" />
+        <tool file="${model_tools_path}/sort_collection_list.xml" />
+        <tool file="${model_tools_path}/harmonize_two_collections_list.xml" />
+        <tool file="${model_tools_path}/cross_product_flat.xml" />
+        <tool file="${model_tools_path}/cross_product_nested.xml" />
+        <tool file="${model_tools_path}/tag_collection_from_file.xml" />
+        <tool file="${model_tools_path}/apply_rules.xml" />
+        <tool file="${model_tools_path}/build_list.xml" />
+        <tool file="${model_tools_path}/build_list_1.2.0.xml" />
+        <tool file="${model_tools_path}/extract_dataset.xml" />
+        <tool file="${model_tools_path}/duplicate_file_to_collection.xml" />
+    </section>
+    <section id="expression_tools" name="Expression Tools" version="">
+        <tool file="expression_tools/parse_values_from_file.xml"/>
+    </section>
+    <label id="general_text_label" text="General Text Tools" version="" />
+    <section id="text_manipulation" name="Text Manipulation" version="">
+        <tool file="filters/fixedValueColumn.xml" />
+        <tool file="filters/catWrapper.xml" />
+        <tool file="filters/cutWrapper.xml" />
+        <tool file="filters/mergeCols.xml" />
+        <tool file="filters/convert_characters.xml" />
+        <tool file="filters/CreateInterval.xml" />
+        <tool file="filters/cutWrapper.xml" />
+        <tool file="filters/changeCase.xml" />
+        <tool file="filters/pasteWrapper.xml" />
+        <tool file="filters/remove_beginning.xml" />
+        <tool file="filters/randomlines.xml" />
+        <tool file="filters/headWrapper.xml" />
+        <tool file="filters/tailWrapper.xml" />
+        <tool file="filters/trimmer.xml" />
+        <tool file="filters/wc_gnu.xml" />
+        <tool file="filters/secure_hash_message_digest.xml" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/bgruening/unique/7ce75adb93be/unique/uniq.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/complement/e0a23ab32d7f/complement/complement.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/complement/38c8bb402872/complement/complement.xml" hidden="True" />
+        <tool file="filters/grep.xml" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/mnhn65mo/tabular_to_csv/f1b7d0032530/tabular_to_csv/tab2csv.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/mnhn65mo/csv_to_tabular/b735ac78702b/csv_to_tabular/csv2tab.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/subtract/0145969324c4/subtract/subtract.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/subtract_query/960d5d114184/subtract_query/subtract_query.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/subtract_query/ff3901618482/subtract_query/subtract_query.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/cluster/05696474ee89/cluster/cluster.xml" hidden="True" />
+    </section>
+    <section id="convert" name="Convert Formats">
+        <tool file="filters/bed2gff.xml" />
+        <tool file="filters/gff2bed.xml" />
+        <tool file="maf/maf_to_bed.xml" />
+        <tool file="maf/maf_to_interval.xml" />
+        <tool file="maf/maf_to_fasta.xml" />
+        <tool file="filters/sff_extractor.xml" />
+        <tool file="filters/wig_to_bigwig.xml" />
+        <tool file="filters/bed_to_bigbed.xml" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_vcf/18f7e96459d2/crossmap_vcf/crossmap_vcf.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_vcf/97979c3d179f/crossmap_vcf/crossmap_vcf.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_vcf/d4965adac10c/crossmap_vcf/crossmap_vcf.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_vcf/d8649c4e4c3a/crossmap_vcf/crossmap_vcf.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_gff/09c6a9e067f9/crossmap_gff/crossmap_gff.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_gff/0eb744382179/crossmap_gff/crossmap_gff.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_gff/75a08e10cc76/crossmap_gff/crossmap_gff.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_gff/42b239a32349/crossmap_gff/crossmap_gff.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bed/50b7875a49d0/crossmap_bed/crossmap_bed.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bed/ee86b27291b5/crossmap_bed/crossmap_bed.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bed/b1c12a94db6f/crossmap_bed/crossmap_bed.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bed/91efc13d3ec1/crossmap_bed/crossmap_bed.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_wig/754f70dd85ae/crossmap_wig/crossmap_wig.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_wig/e8d84292e510/crossmap_wig/crossmap_wig.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_wig/e72c320c17c1/crossmap_wig/crossmap_wig.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_wig/f7229c8445da/crossmap_wig/crossmap_wig.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bam/0f0cf480051b/crossmap_bam/crossmap_bam.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bam/158b5b2a164a/crossmap_bam/crossmap_bam.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bam/6ee334657360/crossmap_bam/crossmap_bam.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/crossmap_bam/908df9a9f86b/crossmap_bam/crossmap_bam.xml" hidden="True" />
+    </section>
+    <section id="filter_and_sort" name="Filter and Sort" version="">
+        <tool file="stats/filtering.xml" />
+    <label id="gff" text="GFF" version="" />
+    </section>
+    <section id="join_subtract_and_group" name="Join, Subtract and Group" version="">
+        <tool file="stats/grouping.xml" />
+        <tool file="filters/compare.xml" />
+        <tool file="filters/joiner.xml" />
+    </section>
+    <label id="genomic_manip_label" text="Genomic File Manipulation" version="" />
+    <section id="convert_formats" name="Convert Formats" version="">
+        <tool file="filters/axt_to_concat_fasta.xml" />
+        <tool file="filters/axt_to_fasta.xml" />
+        <tool file="filters/axt_to_lav.xml" />
+        <tool file="filters/bed2gff.xml" />
+        <tool file="filters/gff2bed.xml" />
+        <tool file="filters/lav_to_bed.xml" />
+        <tool file="maf/maf_to_bed.xml" />
+        <tool file="maf/maf_to_interval.xml" />
+        <tool file="maf/maf_to_fasta.xml" />
+        <tool file="filters/wiggle_to_simple.xml" />
+        <tool file="filters/sff_extractor.xml" />
+        <tool file="filters/gtf2bedgraph.xml" />
+        <tool file="filters/wig_to_bigwig.xml" />
+        <tool file="filters/bed_to_bigbed.xml" />
+        <tool file="extract/liftOver_wrapper.xml" />
+    </section>
+    <section id="fasta_fastq" name="FASTA/FASTQ" version="">
+    <label id="solid" text="AB-SOLiD data" version="" />
+        <tool file="next_gen_conversion/solid2fastq.xml" />
+        <tool file="solid_tools/solid_qual_stats.xml" />
+        <tool file="solid_tools/solid_qual_boxplot.xml" />
+    </section>
+    <section id="fastq_quality_control" name="FASTQ Quality Control" version="">
+    </section>
+    <section id="sam_bam" name="SAM/BAM" version="">
+        <label id="bamtools_label" text="bamtools" version="" />
+        <label id="samtools_label" text="samtools" version="" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/samtools_mpileup/0668270db5ba/samtools_mpileup/samtools_mpileup.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/samtools_mpileup/44a18a94d7a9/samtools_mpileup/samtools_mpileup.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/samtools_mpileup/583abf29fc8e/samtools_mpileup/samtools_mpileup.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/samtools_mpileup/7df230bec125/samtools_mpileup/samtools_mpileup.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/samtools_mpileup/9da0311ab1dd/samtools_mpileup/samtools_mpileup.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/samtools_mpileup/b61f5d6a7f25/samtools_mpileup/samtools_mpileup.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/samtools_mpileup/fa7ad9b89f4a/samtools_mpileup/samtools_mpileup.xml" hidden="True" />
+    </section>
+    <section id="bed" name="BED" version="">
+    </section>
+    <section id="vcf_bcf" name="VCF/BCF" version="">
+        <label id="vcflib_label" text="vcflib" version="" />
+    </section>
+    <section id="nanopore" name="Nanopore" version="">
+        <label id="nanopore_label" text="poretools" version="" />
+    </section>
+    <label id="genomics_label" text="Common Genomics Tools" version="" />
+    <section id="operate_on_genomic_intervals" name="Operate on Genomic Intervals" version="">
+        <tool file="stats/aggregate_binned_scores_in_intervals.xml" />
+    </section>
+    <section id="fetch_sequences_alignments" name="Fetch Sequences / Alignments" version="">
+        <tool file="filters/ucsc_gene_bed_to_exon_bed.xml" />
+        <tool file="maf/interval2maf_pairwise.xml" />
+        <tool file="maf/interval2maf.xml" />
+        <tool file="maf/maf_split_by_species.xml" />
+        <tool file="maf/interval_maf_to_merged_fasta.xml" />
+        <tool file="maf/genebed_maf_to_fasta.xml" />
+        <tool file="maf/maf_stats.xml" />
+        <tool file="maf/maf_thread_for_species.xml" />
+        <tool file="maf/maf_limit_to_species.xml" />
+        <tool file="maf/maf_limit_size.xml" />
+        <tool file="maf/maf_by_block_number.xml" />
+        <tool file="maf/maf_reverse_complement.xml" />
+        <tool file="maf/maf_filter.xml" />
+    </section>
+    <label id="genomics_analysis_label" text="Genomics Analysis" version="" />
+    <section id="annotation" name="Annotation" version="">
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/hmmer3/b5066aa77fea/hmmer3/jackhmmer.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/hmmer3/54b6b4d0613a/hmmer3/jackhmmer.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/mitos/52742626480e/mitos/mitos.xml" hidden="True" />'
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/mitos/f20804c311de/mitos/mitos.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/mitos/96c36179210e/mitos/mitos.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/hmmer3/54b6b4d0613a/hmmer3/nhmmer.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/hmmer3/b5066aa77fea/hmmer3/nhmmer.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/dgidb_annotator/792f3cb0eff4/dgidb_annotator/dgidb_annotator.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/dgidb_annotator/c5bb987015c5/dgidb_annotator/dgidb_annotator.xml" hidden="True" />
+    </section>
+    <section id="multiple_alignments" name="Multiple Alignments" version="">
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/padge/trimal/98944ec4bfc7/trimal/trimal.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/bebatut/cdhit/93f25d52cfa5/cdhit/cd_hit_est.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/bebatut/cdhit/93f25d52cfa5/cdhit/cd_hit_protein.xml" hidden="True" />
+    </section>
+    <section id="ontology" name="Ontology" version="">
+        <label id="onto_toolkit_label" text="ONTO-ToolKit" version="" />
+    </section>
+    <section id="assembly" name="Assembly" version="">
+    </section>
+    <section id="mapping" name="Mapping" version="">
+        <tool file="sr_mapping/bfast_wrapper.xml" />
+        <tool file="sr_mapping/PerM.xml" />
+        <tool file="sr_mapping/srma_wrapper.xml" />
+        <tool file="sr_mapping/mosaik.xml" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/lastz_paired_reads/ecc974513241/lastz_paired_reads/lastz_paired_reads_wrapper.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/disco/6de3e77073ad/disco/disco.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/disco/dfefaf2bab95/disco/disco.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/megablast_wrapper/fb2e0e1dac89/megablast_wrapper/megablast_wrapper.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/bowtie_color_wrappers/a3825c73805c/bowtie_color_wrappers/bowtie_color_wrapper.xml" hidden="True" />
+    </section>
+    <section id="variant_calling" name="Variant Calling" version="">
+        <label id="snpeff_label" text="snpeff" version="" />
+        <label id="snpsift_label" text="snpsift" version="" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/bamleftalign/e65540a91b87/bamleftalign/bamleftalign.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/vcftools_annotate/57a6550df582/vcftools_annotate/vcftools_annotate.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/vcftools_subset/23436d1d0fa1/vcftools_subset/vcftools_subset.xml" hidden="True" />
+    </section>
+    <section id="genome_editing" name="Genome editing" version="">
+    </section>
+    <section id="rna_seq" name="RNA-Seq" version="">
+    </section>
+    <section id="rna_analysis" name="RNA Analysis" version="">
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/trinotate/2b093007fab9/trinotate/trinotate.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/trinotate/4383070d29ed/trinotate/trinotate.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/trinotate/6fd16fad465d/trinotate/trinotate.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/cummerbund/78fcfc04fcfe/cummerbund/cummeRbund.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/cummerbund/c3b54a4b7741/cummerbund/cummeRbund.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/devteam/express/7b0708761d05/express/express_wrapper.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/rnateam/peakachu/886f5adba83d/peakachu/peakachu.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/rnateam/peakachu/940b1d632f4d/peakachu/peakachu.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/scpipe/3ffca09599ca/scpipe/scpipe.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/scpipe/7397e6badc11/scpipe/scpipe.xml" hidden="True" />
+     <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/scpipe/4ec6717872b1/scpipe/scpipe.xml" hidden="True" />
+    </section>
+    <section id="peak_calling" name="Peak Calling" version="">
+        <label id="macs2" text="MACS2" version="" />
+    </section>
+    <section id="epigenetics" name="Epigenetics" version="">
+    </section>
+    <section id="phylogenetics" name="Phylogenetics" version="">
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/nml/mrbayes/905d00fb5243/mrbayes/mrbayes.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/ucsb-phylogenetics/ucsb_phylogenetics/51904e90a6b2/ucsb_phylogenetics/ucsb_phylogenetics/mafft/mafft.xml" hidden="True" />
+    </section>
+    <section id="phenotype_association" name="Phenotype Association" version="">
+        <tool file="evolution/codingSnps.xml" />
+        <tool file="evolution/add_scores.xml" />
+        <tool file="phenotype_association/sift.xml" />
+        <tool file="phenotype_association/linkToGProfile.xml" />
+        <tool file="phenotype_association/linkToDavid.xml" />
+        <tool file="phenotype_association/ldtools.xml" />
+        <tool file="phenotype_association/pass.xml" />
+        <tool file="phenotype_association/gpass.xml" />
+        <tool file="phenotype_association/beam.xml" />
+        <tool file="phenotype_association/lps.xml" />
+        <tool file="phenotype_association/master2pg.xml" />
+    </section>
+    <section id="single-cell" name="Single-cell" version="">
+    </section>
+      <!-- HCA Single Cell tools -->
+    <section id="hca_sc_get-scrna" name="Get scRNAseq data" version="">
+    </section>
+    <section id="hca_sc_seurat_tools" name="Seurat" version="">
+    </section>
+    <section id="hca_sc_sc3_tools" name="SC3" version="">
+    </section>
+    <section id="hca_sc_scanpy_tools" name="Scanpy" version="">
+    </section>
+    <section id="hca_sc_monocle3_tools" name="Monocl3" version="">
+    </section>
+    <section id="hca_sc_scmap_tools" name="SCMap" version="">
+    </section>
+    <section id="hca_sc_sccaf_tools" name="SCCAF" version="">
+    </section>
+    <section id="hca_sc_utils_viz" name="Single Cell Utils and Viz" version="">
+    </section>
+    <label id="genomics_toolkits_label" text="Genomics Toolkits" version="" />
+    <section id="picard" name="Picard" version="">
+    </section>
+    <section id="deeptools" name="deepTools" version="">
+    </section>
+    <section id="gemini" name="Gemini" version="">
+    </section>
+    <section id="emboss" name="EMBOSS" version="">
+    </section>
+    <section id="gatk_tools" name="GATK Tools" version="">
+    </section>
+    <section id="ncbi_blast" name="NCBI Blast" version="">
+    </section>
+    <section id="hicexplorer" name="HiCExplorer" version="">
+    </section>
+    <section id="rad_seq" name="RAD-seq" version="">
+    </section>
+    <section id="graphclust" name="GraphClust" version="">
+    </section>
+    <section id="mimodd" name="MiModD" version="">
+    </section>
+    <label id="metagenomics_label" text="Metagenomics" version="" />
+    <section id="metagenomic_analysis" name="Metagenomic Analysis" version="">
+        
+    </section>
+    <section id="qiime" name="Qiime" version="">
+    </section>
+    <section id="mothur" name="Mothur" version="">
+    </section>
+    <section id="dna_metabarcoding" name="DNA Metabarcoding" version="">
+    </section>
+    <label id="proteomics_metabolomics_chemistry_label" text="Proteomics, Metabolomics, Chemistry" version="" />
+    <section id="proteomics" name="Proteomics" version="">
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/peterjc/tmhmm_and_signalp/e6cc27d182a8/tmhmm_and_signalp/tools/protein_analysis/signalp3.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/peterjc/tmhmm_and_signalp/e1996f0f4e85/tmhmm_and_signalp/tools/protein_analysis/signalp3.xml" hidden="True" />
+    </section>
+    <section id="metabolomics" name="Metabolomics" version="">
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/28ffaaa5739f/msconvert/msconvert.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/3cf310697624/msconvert/msconvert.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/6153e8ada1ee/msconvert/msconvert.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/9ec469ff191a/msconvert/msconvert.xml" hidden="True" />
+        <label id="preprocessing_lcms" text="Preprocessing LCMS" version="" />
+        <label id="preprocessing_fiams" text="Preprocessing FIAMS" version="" />
+        <label id="preprocessing_gcms" text="Preprocessing GCMS" version="" />
+        <label id="preprocessing_nmr" text="Preprocessing NMR" version="" />
+        <label id="normalization_quality_lcms_fiams" text="Normalization quality LCMS FIAMS" version="" />
+        <label id="normalization_quality_all" text="Normalization quality ALL" version="" />
+        <label id="statistics_all" text="Statistics ALL" version="" />
+        <label id="annotation_lcms_fiams" text="Annotation LCMS FIAMS" version="" />
+        <label id="annotation_lcms" text="Annotation LCMS" version="" />
+        <label id="annotation_gcms" text="Annotation GCMS" version="" />
+        <label id="data_handling_all" text="Data handling ALL" version="" />
+    </section>
+    <section id="chemicaltoolbox" name="ChemicalToolBox" version="">
+    </section>
+    <label id="stats_viz" text="Statistics and Visualisation" version="" />
+    <section id="statistics" name="Statistics" version="">
+        <tool file="stats/gsummary.xml" />
+        <tool file="filters/uniq.xml" />
+    </section>
+    <section id="machine_learning" name="Machine Learning" version="">
+    </section>
+    <section id="graph_display_data" name="Graph/Display Data" version="">
+        <tool file="plotting/bar_chart.xml" />
+        <tool file="plotting/boxplot.xml" />
+        <tool file="visualization/LAJ.xml" />
+        <tool file="maf/vcf_to_maf_customtrack.xml" />
+        <tool file="chromatra/chromatral.xml" />
+        <tool file="chromatra/chromatrat.xml" />
+        <tool file="plotting/foldchanges_heatmap.xml" />
+    </section>
+    <label id="other_and_toolsuites_label" text="Miscellaneous Tools" version="" />
+    <section id="evolution" name="Evolution" version="">
+        <tool file="evolution/codingSnps.xml" />
+        <tool file="evolution/add_scores.xml" />
+    </section>
+    <section id="motif_tools" name="Motif Tools" version="">
+    </section>
+    <section id="test_tools" name="Test Tools" version="">
+    </section>
+    <section id="gis_data_handling" name="GIS Data Handling" version="">
+    </section>
+    <section id="animal_detection_on_acoustic_recordings" name="Animal Detection on Acoustic Recordings" version="">
+    </section>
+    <section id="regional_variation" name="Regional Variation" version="">
+    </section>
+    <section id="genome_diversity" name="Genome Diversity" version="">
+    </section>
+    <section id="climate_analysis" name="Climate Analysis" version="">
+    </section>
+    <section id="apollo" name="Apollo" version="">
+    </section>
+    <section id="imaging" name="Imaging" version="">
+    </section>
+    <section id="species_abundance" name="Species abundance" version="">
+    </section>
+    <section id="interactivetools" name="Interactive Tools" version="">
+    </section>
+    <section id="extract_features" name="Extract Features" version="">
+    </section>
+    <section id="other_tools" name="Other Tools" version="">
+    </section>
+    <section id="virology" name="Virology" version="">
+    </section>
+    <section id="spatial_omics" name="Spatial Omics" version="">
+    </section>
+    <section id="quality_control" name="Quality Control" version="">
+    </section>
+    <section id="bio2byte" name="Bio2Byte" version="">
+    </section>
+    <section id="tools_from_workflows" name="Tools from workflows" version="">
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/iuc/metaphlan2/8c82c4d90cc6/metaphlan2/metaphlan2.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/28ffaaa5739f/msconvert/msconvert.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/3cf310697624/msconvert/msconvert.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/6153e8ada1ee/msconvert/msconvert.xml" hidden="True" />
+        <tool file="{{ galaxy_mutable_data_dir }}/shed_data/toolshed.g2.bx.psu.edu/repos/galaxyp/msconvert/9ec469ff191a/msconvert/msconvert.xml" hidden="True" />
+    </section>
+</toolbox>

@@ -1,0 +1,8 @@
+#!/bin/bash
+# Counts systemd units in "failed" state (any unit). Outputs InfluxDB line protocol.
+# Deployed to /usr/bin/galaxy-failed-units, telegraf exec interval 5m.
+
+count=$(systemctl list-units --state=failed --no-legend --plain 2>/dev/null | wc -l)
+count=${count:-0}
+
+printf 'galaxy_failed_units count=%si\n' "$count"

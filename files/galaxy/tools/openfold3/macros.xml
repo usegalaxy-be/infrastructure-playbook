@@ -1,0 +1,17 @@
+<macros>
+    <token name="@TOOL_VERSION@">0.4.0</token>
+    <token name="@VERSION_SUFFIX@">0</token>
+    <token name="@PROFILE@">25.1</token>
+    <xml name="requirements">
+        <requirements>
+            <container type="docker">openfoldconsortium/openfold3:@TOOL_VERSION@</container>
+            <yield/>
+        </requirements>
+    </xml>
+    <xml name="citations">
+        <citations>
+            <citation type="doi">10.5281/zenodo.17485510</citation>
+            <citation type="doi">10.1038/s41586-024-07487-w</citation>
+        </citations>
+    </xml>
+</macros>

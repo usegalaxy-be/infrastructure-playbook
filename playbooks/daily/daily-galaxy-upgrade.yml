@@ -1,0 +1,31 @@
+---
+# WIP: Galaxy version upgrade — git pull + venv reinstall + DB migration + config deploy.
+# TODO: enable the three flags below and add a restart task, then remove this WIP comment.
+#
+# To use: set galaxy_commit_id in host_vars to the target release tag, then run:
+#   ansible-playbook playbooks/daily/daily-galaxy-upgrade.yml --limit <host>
+# Follow with daily-galaxy-handlers.yml to restart services.
+
+- name: Galaxy upgrade
+  hosts: galaxyservers
+  become: true
+  become_user: root
+  pre_tasks:
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/assert-tmpfs-venv.yml"
+  roles:
+    - role: galaxyproject.galaxy
+      galaxy_separate_privileges: no
+      galaxy_manage_clone: no          # TODO: set to yes to pull new code
+      galaxy_manage_static_setup: yes
+      galaxy_manage_mutable_setup: no
+      galaxy_manage_subdomain_static: no
+      galaxy_manage_database: no       # TODO: set to yes to run DB migrations
+      galaxy_fetch_dependencies: no    # TODO: set to yes to reinstall venv deps
+      galaxy_manage_errordocs: no
+      galaxy_build_client: no
+      galaxy_manage_systemd: no
+      galaxy_manage_gravity: no
+
+  post_tasks:
+    # code and/or venv changed (clone / fetch_dependencies) -> refresh this env's worker tmpfs.
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/refresh-worker-tmpfs.yml"

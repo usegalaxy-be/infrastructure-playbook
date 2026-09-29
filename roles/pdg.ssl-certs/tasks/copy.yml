@@ -1,0 +1,44 @@
+---
+
+- name: Copy Shared certs
+  block:
+
+    - name: Create temporary build directory
+      ansible.builtin.file:
+        state: directory
+        path: "{{ tmp_ssl_cert_path }}"
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+
+    - name: Copy over SSL certs to tmp
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ galaxy_shared_certs_dir }}/"
+        dest: "{{ tmp_ssl_cert_path }}/"
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+
+    - name: Copy over SSL certs
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ tmp_ssl_cert_path }}/"
+        dest: "{{ ssl_cert_dir }}/"
+        owner: root
+        group: root
+
+    - name: Copy over SSL user cert
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ tmp_ssl_cert_path }}/privkey.pem"
+        dest: "{{ ssl_cert_user_dir }}/privkey-999:999.pem"
+        owner: 999
+        group: 999
+
+    - name: Remove temporary build directory
+      ansible.builtin.file:
+        state: absent
+        path: "{{ tmp_ssl_cert_path }}"
+      # become: true
+      # become_user: "{{ galaxy_user_name }}"
+
+

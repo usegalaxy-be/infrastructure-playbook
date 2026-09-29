@@ -1,0 +1,13 @@
+---
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart modified rustus instances
+  ansible.builtin.service:
+    name: rustus-{{ item.item.name }}.service
+    state: restarted
+  loop: "{{ __rustus_modified_instances.results }}"
+  loop_control:
+    label: "{{ item.item }}"

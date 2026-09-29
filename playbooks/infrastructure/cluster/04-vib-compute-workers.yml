@@ -1,0 +1,274 @@
+---
+# ============================================================================
+# HTCondor VIB Compute Workers Playbook
+# ============================================================================
+#
+# Purpose: Set up HTCondor worker nodes in the VIB OpenStack project.
+#          These workers join the same Galaxy HTCondor pool as prodcomputeservers
+#          but are reserved exclusively for VIB user jobs via the GalaxyGroup
+#          ClassAd and TPV requirements expressions.
+#
+# Target Hosts: vibcomputeservers
+#
+# How VIB-only job routing works:
+#   - Each worker advertises GalaxyGroup = "vib" in its condor ClassAd
+#     (written to /etc/condor/config.d/10-vib.conf by this playbook).
+#   - The TPV destination condor_vib_tpv carries requirements: 'GalaxyGroup == "vib"'
+#     so VIB user jobs are routed to these workers.
+#   - The TPV destination condor_tpv carries requirements: 'GalaxyGroup != "vib"'
+#     so general jobs cannot land on these workers.
+#
+# Prerequisites:
+#   - VMs must be provisioned via Terraform in the VIB OpenStack project.
+#   - Hosts must be added to [vibcomputeservers] in inventories/hosts.
+#
+# Usage:
+#   ansible-playbook playbooks/infrastructure/cluster/04-vib-compute-workers.yml
+#   ansible-playbook playbooks/infrastructure/cluster/04-vib-compute-workers.yml \
+#     -l vgcn-pulsar-exec-node-0-vib
+#
+# Tags:
+#   base        - OS prep: packages, repos, SSH pin, galaxy user
+#   condor      - HTCondor install + VIB-specific config (GalaxyGroup, CCB)
+#   cvmfs       - CernVM-FS client
+#   nfs         - autofs NFS mounts (removes legacy Pulsar mount, adds prod_duplicate)
+#   docker      - Docker install + restart
+#   services    - firewalld, condor, chrony service state
+#
+# Safety: ✅ Idempotent; restarts condor after config changes.
+# ============================================================================
+
+- hosts: vibcomputeservers
+  become: true
+  become_user: root
+  vars:
+    uninstall_condor: false
+    reset_condor_pool: false
+    # GPU nodes are named condor-worker-gpu-*-vib; v3 nodes carry "gpu-v3".
+    gpu_enabled: "{{ 'gpu' in inventory_hostname }}"
+    gpu_generation: "{{ 'v3' if 'gpu-v3' in inventory_hostname else 'v2' }}"
+  pre_tasks:
+    - name: Install dependencies
+      ansible.builtin.dnf:
+        name:
+          - acl
+          - python3.11       # required: Galaxy 26.0 metadata runner uses Galaxy lib (TypeAlias, Python ≥ 3.10)
+          - python3.11-devel  # required for any C-extension builds against python3.11
+          # openssl-libs is a required dep of python3.11-libs (needs OPENSSL_3.3.0+ symbols).
+          # openssh must be updated in the same transaction to stay in sync — updating
+          # openssl-libs without openssh previously broke SSH on these nodes.
+          - openssl
+          - openssl-libs
+          - openssh
+          - openssh-clients
+          - openssh-server
+        disable_excludes: main
+      tags: [packages]
+
+    - name: Exclude openssh packages from dnf updates
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/dnf.conf
+        regexp: '^exclude='
+        insertafter: '^\[main\]'
+        line: 'exclude=openssh openssh-server openssh-clients openssl openssl-libs'
+      tags: [packages]
+
+    - name: Apply common repo fixes
+      ansible.builtin.include_tasks: ../tasks/fix_repos.yml
+      tags: [packages]
+
+    - name: Set docker_users (Docker role)
+      set_fact:
+        docker_users: "{{ galaxy_user_name }}"
+      tags: [base, docker]
+
+    # Create user without condor/docker groups — those don't exist yet on a
+    # fresh image. Group membership is added in post_tasks after roles run.
+    - name: Create Galaxy user with correct UID (must match NFS file ownership)
+      ansible.builtin.user:
+        name: "{{ galaxy_user_name }}"
+        uid: "{{ galaxy_user_uid }}"
+        create_home: true
+      tags: base
+
+    - name: Remove previous HTCondor installation
+      package:
+        name: condor
+        state: absent
+      when: uninstall_condor
+      tags: condor
+
+    # Used when re-initializing a node from a different pool (e.g. Pulsar → Galaxy HTCondor).
+    # Removes the stale POOL credential and token so grycap.htcondor recreates them with
+    # vault_condor_pass, which matches the Galaxy head CM.
+    # Run once per node: ansible-playbook ... -e reset_condor_pool=true --tags condor
+    - name: Remove stale POOL credential
+      ansible.builtin.file:
+        path: /etc/condor/passwords.d/POOL
+        state: absent
+      when: reset_condor_pool
+      tags: condor
+
+    - name: Remove stale condor token
+      ansible.builtin.file:
+        path: "/etc/condor/tokens.d/condor@{{ htcondor_server }}"
+        state: absent
+      when: reset_condor_pool
+      tags: condor
+
+  roles:
+    # Manage /etc/hosts (head, monitoring, iRODS) as part of standard node init, so a
+    # newly provisioned worker gets it without a separate daily-update-hosts run.
+    - role: pdg.update_hosts
+      tags: hosts
+
+    - role: galaxyproject.cvmfs
+      tags: cvmfs
+
+    - role: grycap.htcondor
+      tags: condor
+
+    - role: pdg.autofs
+      tags: nfs
+
+    - role: geerlingguy.pip
+      tags: docker
+
+    - role: geerlingguy.docker
+      tags: docker
+
+    # GPU workers only (set gpu_enabled: true in host_vars). Runs after condor and
+    # docker so it can drop the GPU discovery snippet and wire the docker runtime.
+    - role: pdg.nvidia_gpu
+      when: gpu_enabled | default(false)
+      tags: gpu
+
+  post_tasks:
+    - name: Add Galaxy user to condor and docker groups (groups created by roles)
+      ansible.builtin.user:
+        name: "{{ galaxy_user_name }}"
+        groups: condor,docker
+        append: true
+      tags: base
+
+    - name: Find condor token files
+      ansible.builtin.find:
+        paths: /etc/condor/tokens.d
+        file_type: file
+      register: condor_token_files
+      tags: condor
+
+    - name: Ensure condor token files have correct permissions
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        mode: '0600'
+      loop: "{{ condor_token_files.files }}"
+      tags: condor
+
+    - name: Write GalaxyGroup and CCB config for VIB workers
+      ansible.builtin.copy:
+        dest: /etc/condor/config.d/10-vib.conf
+        content: |
+          # Advertise GalaxyGroup so TPV rank expressions can prefer/avoid this slot type.
+          # condor_vib_tpv jobs rank "vib" slots higher; condor_tpv jobs rank "prod" slots higher.
+          GalaxyGroup = "vib"
+          STARTD_ATTRS = $(STARTD_ATTRS) GalaxyGroup
+
+          # CONDOR_HOST (htcondor_server) is the CM's identity address ({{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}) and must
+          # match the token issuer. COLLECTOR_HOST overrides the connection address to the
+          # floating IP — needed because VIB workers cannot reach {{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }} directly
+          # (VSC_2024_002_vm and VSC_00003_vm are isolated; floating IP is routable via VSC NAT).
+          COLLECTOR_HOST = {{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_vip_ip }}
+
+          # Galaxy head cannot route to the VIB VM network directly (different VSC subnets, no L3).
+          # CCB lets the schedd reach this worker via the outbound connection the worker
+          # maintains to the CM — no floating IP needed per worker.
+          CCB_ADDRESS = {{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_vip_ip }}
+
+          # Must match the Galaxy head's UID_DOMAIN so jobs run as galaxy_master, not nobody.
+          UID_DOMAIN = vgcn
+          FILESYSTEM_DOMAIN = vgcn
+          TRUST_UID_DOMAIN = TRUE
+
+          # Accept VIB jobs always; accept large compute jobs (≥80% of CPUs) as overflow.
+          # Must use TARGET.RequestCpus, not Cpus: on an unclaimed partitionable slot,
+          # Cpus == TotalCpus so Cpus/TotalCpus = 1.0 → Start=true for every job, which
+          # fools the negotiator into offering this slot even to small non-VIB jobs that
+          # the startd then rejects at claim time. TARGET.RequestCpus is undefined when
+          # there is no job context, making Start undefined (treated as false), so the
+          # negotiator correctly skips this slot for non-VIB jobs.
+          START = (TARGET.GalaxyGroup =?= "vib") || (TARGET.RequestCpus / TotalCpus >= 0.8)
+
+          # NEGOTIATOR_PRE_JOB_RANK = (10000000 * My.Rank) + ... - Memory - ...
+          # VIB workers have more RAM (120 GB) so their natural pre-job rank score is lower than
+          # prod workers (~24 GB). Setting RANK=1 for VIB jobs contributes 10,000,000 to the
+          # pre-job rank formula, completely overriding the memory penalty difference (~96,000).
+          # For non-VIB jobs (TARGET.GalaxyGroup != "vib"), RANK=0 so prod workers win naturally.
+          RANK = (TARGET.GalaxyGroup =?= "vib") ? 1 : 0
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart condor
+      tags: condor
+
+    - name: Advertise GPUs and generation for GPU workers
+      ansible.builtin.copy:
+        dest: /etc/condor/config.d/20-gpu.conf
+        content: |
+          # Advertise GPUs so request_gpus and GPU TPV destinations can target this node.
+          use feature : GPUs
+
+          # Hardware generation so TPV can distinguish GPUv2 (Tesla T4) vs GPUv3 (A2) workers.
+          GPUGeneration = "{{ gpu_generation }}"
+          STARTD_ATTRS = $(STARTD_ATTRS) GPUGeneration
+        owner: root
+        group: root
+        mode: '0644'
+      when: gpu_enabled | default(false)
+      notify: Restart condor
+      tags: [condor, gpu]
+
+    - name: Check if firewalld is installed
+      ansible.builtin.stat:
+        path: /usr/lib/systemd/system/firewalld.service
+      register: firewalld_unit
+      tags: services
+
+    - name: Disable firewalld
+      ansible.builtin.service:
+        name: firewalld
+        enabled: false
+        state: stopped
+      when: firewalld_unit.stat.exists
+      tags: services
+
+    - name: Start condor
+      systemd:
+        name: condor
+        state: started
+        enabled: true
+      tags: [condor, services]
+
+    - name: Ensure chrony is running
+      systemd:
+        name: chronyd
+        state: started
+        enabled: true
+      tags: services
+
+    - name: Force time sync if needed
+      command: chronyc makestep
+      changed_when: false
+      tags: services
+
+    - name: Restart Docker service
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+      tags: docker
+
+  handlers:
+    - name: Restart condor
+      systemd:
+        name: condor
+        state: restarted

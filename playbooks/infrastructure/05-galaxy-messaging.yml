@@ -1,0 +1,102 @@
+---
+# Deploy Galaxy messaging infrastructure on galaxyservers: RabbitMQ (Docker) and Flower dashboard.
+# Run after 04-galaxy.yml.
+
+- name: Deploy Galaxy Messaging Infrastructure
+  hosts: galaxyservers
+  become: true
+  become_user: root
+
+  pre_tasks:
+
+    - name: Verify Docker is installed
+      command: docker --version
+      register: docker_version
+      changed_when: false
+      failed_when: docker_version.rc != 0
+
+    - name: Display Docker version
+      debug:
+        msg: "Docker version: {{ docker_version.stdout }}"
+
+  roles:
+
+    # Message queue for Pulsar/Celery (RabbitMQ via Docker)
+    - role: pdg.rabbitmqserver
+
+    # In-memory cache for Celery (Redis)
+    - role: geerlingguy.redis
+
+    # Celery Task Monitoring Dashboard (Flower)
+    - role: pdg.flower
+
+  tasks:
+    - name: Verify RabbitMQ is running
+      docker_container_info:
+        name: "{{ rabbitmq_container.name }}"
+      register: rabbitmq_status
+      when: deploy_rabbitmq | default(true) | bool
+      tags: ["verify", "rabbitmq"]
+
+    - name: Display RabbitMQ status
+      debug:
+        msg: |
+          RabbitMQ Container Status:
+          - Name: {{ rabbitmq_status.container.Name | default('N/A') }}
+          - State: {{ rabbitmq_status.container.State.Status | default('N/A') }}
+          - Running: {{ rabbitmq_status.container.State.Running | default(false) }}
+      when: deploy_rabbitmq | default(true) | bool
+      tags: ["verify", "rabbitmq"]
+
+    - name: Test RabbitMQ connectivity
+      shell: |
+        docker exec {{ rabbitmq_container.name }} \
+          rabbitmq-diagnostics ping 2>/dev/null | grep -q "ok"
+      register: rabbitmq_ping
+      changed_when: false
+      failed_when: false
+      when: deploy_rabbitmq | default(true) | bool
+      tags: ["verify", "rabbitmq"]
+
+    - name: Verify Redis is running
+      service:
+        name: redis
+        state: started
+      check_mode: true
+      register: redis_status
+
+    - name: Test Redis connectivity
+      command: redis-cli -p {{ redis_port }} ping
+      register: redis_ping
+      changed_when: false
+      failed_when: redis_ping.rc != 0
+
+    - name: Check Flower service (if deployed)
+      uri:
+        url: "http://localhost:{{ flower_port }}/api/workers"
+        method: GET
+      register: flower_status
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    - name: Display Flower status
+      debug:
+        msg: |
+          Flower Status: {{ 'OK' if flower_status.status == 200 else 'Not responding' }}
+          URL: http://{{ inventory_hostname }}:{{ flower_port }}
+
+    - name: Get RabbitMQ queue information
+      shell: |
+        docker exec {{ rabbitmq_container.name }} \
+          rabbitmqctl list_queues name messages consumers 2>/dev/null | tail -10
+      register: rabbitmq_queues
+      changed_when: false
+      check_mode: false
+
+    - name: Display queue information
+      debug:
+        msg: |
+          RabbitMQ Queues:
+          {{ rabbitmq_queues.stdout }}
+

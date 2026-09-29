@@ -1,0 +1,44 @@
+---
+# SSH keys authorized for admin users on all managed hosts.
+# Keys managed by other playbooks (postgres PITR rsync, cert-renewal, etc.)
+# use state: present and are additive — they will not be removed by this list.
+#
+# To rotate a key: add the new entry, verify access, then set the old one to
+# state: absent and re-run the playbook.
+#
+# Algorithm preference: ed25519 (avoid rsa/dsa/ecdsa).
+# Uncomment and populate once you have a new key ready.
+# workenv_ssh_authorized_keys:
+#   - user: galaxy_master
+#     key: "ssh-ed25519 AAAA...  galaxy_master@loginnode"
+#     state: present
+#
+# To remove an old key after rotating: add an entry with state: absent.
+# The loginnode's shared fleet key (galaxy_master@loginnode): used by ansible + manual
+# admin from the loginnode to reach every node. Distributed to the CONNECTION user per
+# group — galaxy_master everywhere (via _common; it exists on all hosts), plus test on
+# vgcn and rocky on VIB/monitoring (see prod/vibcomputeservers group_vars).
+loginnode_infra_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIsQThIQfVuY0+EuT0jlo1GSHwsjI1t5Aqr7v5vB3HsW galaxy_master@loginnode"
+
+# Base set, galaxy_master exists on ALL hosts so these are always valid. Worker groups
+# extend this list (list-vars don't merge) with their own connection user.
+workenv_ssh_authorized_keys_common:
+  - user: galaxy_master
+    key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJcsN/tuCA6hyV/kUOiakJwp3sQPe7mzEeisP/WDoA4 padge@mac0208"
+    state: present
+  - user: galaxy_master
+    key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB93bzXS2aw2B1PTUntLRWt1UGBbMnorQ1wwHYvlwJUr padge@desktop"
+    state: present
+  - user: galaxy_master
+    key: "{{ loginnode_infra_key }}"
+    state: present
+
+workenv_ssh_authorized_keys: "{{ workenv_ssh_authorized_keys_common }}"
+
+workenv_users:
+  - uname: galaxy_master
+    uhome: /home/galaxy_master
+    uid: 1001
+    password: "{{ vault_galaxy_master_console_password }}"
+    groups: [ wheel, adm ]
+

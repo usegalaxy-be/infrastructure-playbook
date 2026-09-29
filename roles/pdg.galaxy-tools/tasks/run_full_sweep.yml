@@ -1,0 +1,42 @@
+---
+# Trigger the full tool-test sweep (every installed tool) on demand.
+# Entry point for include_role tasks_from; not part of main.yml, which only deploys.
+# The unit itself is deployed by test_tool_list.yml.
+
+- name: Check the full sweep unit is deployed
+  ansible.builtin.command: "systemctl show -p LoadState --value {{ galaxy_tools_full_sweep_unit }}"
+  register: full_sweep_load_state
+  changed_when: false
+  check_mode: false
+
+- name: Fail if the full sweep unit is missing
+  ansible.builtin.fail:
+    msg: >-
+      {{ galaxy_tools_full_sweep_unit }} is {{ full_sweep_load_state.stdout }} on
+      {{ inventory_hostname }}; deploy it by running this role with test_tools: yes
+  when: full_sweep_load_state.stdout != 'loaded'
+
+- name: Check whether a sweep is already running
+  ansible.builtin.command: "systemctl is-active {{ galaxy_tools_full_sweep_unit }}"
+  register: full_sweep_active
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+# --no-block: the unit is Type=oneshot with no timeout and sweeps the whole catalog.
+- name: Start the full tool-test sweep
+  ansible.builtin.command: "systemctl start --no-block {{ galaxy_tools_full_sweep_unit }}"
+  when: full_sweep_active.stdout not in ['active', 'activating']
+  changed_when: true
+
+- name: Report
+  ansible.builtin.debug:
+    msg:
+      - >-
+        {{ ansible_check_mode | ternary('check mode, nothing started',
+           (full_sweep_active.stdout in ['active', 'activating'])
+           | ternary('sweep already running, left alone', 'sweep started')) }}
+      - "re-testing already-tested tools: {{ galaxy_tools_full_sweep_force }}"
+      - "follow: sudo journalctl -u {{ galaxy_tools_full_sweep_unit }} -f"
+      - "results: {{ tool_install_dir }}/tool_summary.csv and {{ tool_install_dir }}/tool_summary_new_failures.csv"
+      - "per-tool JSON: {{ tool_test_dir }}/"

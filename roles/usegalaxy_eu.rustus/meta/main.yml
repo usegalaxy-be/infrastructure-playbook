@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  namespace: usegalaxy_eu
+  role_name: rustus
+  author: José Manuel Domínguez
+  description: Install and run instances of rustus, an implementation of the tus file upload protocol in Rust.
+  company: The Galaxy Project
+  license: MIT
+  min_ansible_version: "2.11"
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+    - name: macOS
+      versions:
+        - all
+    - name: MacOSX
+      versions:
+        - all
+  galaxy_tags:
+    - system
+    - web
+    - tus
+    - upload
+    - http
+dependencies: []

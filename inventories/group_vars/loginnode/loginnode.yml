@@ -1,0 +1,10 @@
+---
+# pdg.update_hosts variables for proxyservers group.
+# /etc/hosts overrides for proxy servers.
+#
+# The pdg.update_hosts role (used in 00-proxy.yml) sets manage_etc_hosts: false
+# in /etc/cloud/cloud.cfg to prevent cloud-init from regenerating /etc/hosts on
+# boot and wiping custom entries, then applies host_mappings / host_mappings_absent.
+#
+# Sensitive entries are stored in vault.yml
+host_mappings: "{{ vault_host_mappings }}"

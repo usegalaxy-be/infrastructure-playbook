@@ -1,0 +1,200 @@
+<tool id="protein_calculator" name="Protein Calculator" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@" license="MIT">
+    <description>compute mass, pI, extinction coefficient and titration curve from a protein sequence</description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <edam_topics>
+        <edam_topic>topic_0123</edam_topic>
+    </edam_topics>
+    <edam_operations>
+        <edam_operation>operation_0250</edam_operation>
+    </edam_operations>
+    <expand macro="requirements"/>
+    <required_files>
+        <include path="protein_calculator.py"/>
+        <include path="Calculate_protein_properties.py"/>
+        <include path="Sequence_functions.py"/>
+        <include path="references.py"/>
+        <include path="templates/index.html"/>
+        <include path="templates/results.html"/>
+        <include path="templates/export_view.html"/>
+        <include path="templates/protein_calc_error.html"/>
+    </required_files>
+    <stdio>
+        <regex match="invalid character" source="both" level="fatal" description="Protein sequence contains invalid character(s). Please enter a valid Protein Sequence."/>
+        <regex match="DNA sequence" source="both" level="fatal" description="DNA sequence detected. Please enter a valid Protein Sequence."/>
+        <regex match="minimum length" source="both" level="fatal" description="Protein sequence should have a minimum length of 10 residues. Please enter a valid Protein Sequence."/>
+        <regex match="maximum allowed length" source="both" level="fatal" description="Protein sequence should have a maximum length of 3000 residues. Please enter a valid Protein Sequence."/>
+        <regex match="Failed to fetch" source="both" level="warning" description="Failed to fetch Galaxy BE version."/>
+    </stdio>
+    <version_command>python '$__tool_directory__/protein_calculator.py' --version</version_command>
+    <command detect_errors="aggressive"><![CDATA[
+        cp -r '$__tool_directory__/templates' . &&
+        python '$__tool_directory__/protein_calculator.py'
+            --sequence '$fasta_or_text.sequence'
+            --galaxy-root '$__root_dir__'
+            #if str($fasta_or_text.name).strip():
+                --name '$fasta_or_text.name'
+            #end if
+    ]]></command>
+    <inputs>
+        <conditional name="fasta_or_text">
+            <param name="input_mode" type="select" label="FASTA Input" help="Protein sequence(s) to calculate protein properties of. Input can be a FASTA file from history, or text.">
+                <option value="textbox">Paste sequence into textbox</option>
+                <option value="history">Use FASTA from history</option>
+            </param>
+            <when value="history">
+                <param argument="--name" type="text" value="" optional="true" label="Protein name" help="Name of the protein (optional; ignored if the FASTA contains multiple sequences as then headers will automatically be used)."/>
+                <param argument="--sequence" type="data" format="fasta" multiple="false" label="FASTA file from your current history" help="Select a FASTA protein file containing one or more protein sequences. Output filenames are derived from the first word of each sequence header."/>
+            </when>
+            <when value="textbox">
+                <param argument="--name" type="text" value="" label="Protein name" help="Name of the protein.">
+                    <validator type="empty_field" message="A protein name is required when using a pasted sequence."/>
+                </param>
+                <param argument="--sequence" type="text" value="" label="Protein sequence" help="Sequence to be processed. Protein sequence should have a minimum length of 10 residues.">
+                    <validator type="empty_field" message="A protein sequence is required."/>
+                </param>
+            </when>
+        </conditional>
+    </inputs>
+    <outputs>
+        <data name="output1" format="html" label="${tool.name}: report">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)_report\.html" visible="true" match_relative_path="true" assign_primary_output="true" format="html"/>
+        </data>
+        <data name="output2" format="png" label="${tool.name}: titration curve">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)_plot\.png" visible="true" match_relative_path="true" assign_primary_output="true" format="png"/>
+        </data>
+        <data name="output3" format="html" label="${tool.name}: interactive titration curve">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)_interactive_plot\.html" visible="true" match_relative_path="true" assign_primary_output="true" format="html"/>
+        </data>
+    </outputs>
+    <tests>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="history"/>
+                <param name="sequence" value="test_protein.fasta"/>
+            </conditional>
+            <output name="output1" count="1" ftype="html">
+                <assert_contents>
+                    <has_text text="crab_anapl"/>
+                    <has_text text="Amino Acid"/>
+                    <has_text text="pI"/>
+                </assert_contents>
+            </output>
+            <output name="output2" count="1" ftype="png">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="output3" count="1" ftype="html">
+                <assert_contents>
+                    <has_text text="plotly"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="history"/>
+                <param name="sequence" value="test_protein.fasta"/>
+            </conditional>
+            <output name="output1" count="1" ftype="html">
+                <assert_contents>
+                    <has_text text="crab_anapl"/>
+                </assert_contents>
+            </output>
+            <output name="output2" count="1" ftype="png">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="output3" count="1" ftype="html">
+                <assert_contents>
+                    <has_text text="plotly"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="textbox"/>
+                <param name="name" value="test_name"/>
+                <param name="sequence" value="EASTEREGGEGG"/>
+            </conditional>
+            <output name="output1" count="1" ftype="html">
+                <assert_contents>
+                    <has_text text="test_name"/>
+                    <has_text text="pI"/>
+                </assert_contents>
+            </output>
+            <output name="output2" count="1" ftype="png">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="output3" count="1" ftype="html">
+                <assert_contents>
+                    <has_text text="plotly"/>
+                </assert_contents>
+            </output>
+        </test>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="history"/>
+                <param name="sequence" value="test_multiple_proteins.fasta"/>
+                <param name="name" value="ignored_test_name"/>
+            </conditional>
+            <output name="output1" count="2" ftype="html">
+                <assert_contents>
+                    <has_text text="protein1"/>
+                    <not_has_text text="ignored_test_name"/>
+                </assert_contents>
+            </output>
+            <output name="output2" count="2" ftype="png">
+                <assert_contents>
+                    <has_size min="1000"/>
+                </assert_contents>
+            </output>
+            <output name="output3" count="2" ftype="html">
+                <assert_contents>
+                    <has_text text="plotly"/>
+                </assert_contents>
+            </output>
+        </test>
+    </tests>
+    <help><![CDATA[
+This Python-based tool determines protein properties from an amino acid sequence and summarizes them in an HTML report with a Plotly titration curve. The tool originates from the VIB Protein Core.
+
+-----
+
+**Input**
+
+Either:
+
+- A protein sequence pasted into a textbox (a name is required).
+- A FASTA file from history with one or more sequences. Output filenames are derived from the first word of each FASTA header. When a single sequence is provided, an optional ``--name`` overrides the header. When multiple sequences are provided, ``--name`` is ignored.
+
+        .. class:: warningmark 
+
+Although FASTA files containing multiple sequences are possible as input, it does not handle wrong sequences well. Make sure to ensure beforehand that all sequences are valid protein sequences.
+
+-----
+
+**Output**
+
+For each input sequence the tool produces three datasets:
+
+- ``report``: full protein report (HTML).
+- ``titration curve``: static titration curve (PNG).
+- ``interactive titration curve``: interactive Plotly titration curve (HTML).
+
+-----
+
+    .. class:: infomark 
+
+    **Notes**
+
+- Maximum sequence length: 3000 residues.
+- Minimum sequence length: 10 residues.
+- Valid amino-acid letters only (DNA sequences are rejected).
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

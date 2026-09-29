@@ -1,0 +1,3 @@
+# The monitoring VM connects as `rocky` (see inventory). Extend the common galaxy_master
+# set with the loginnode fleet key for rocky, so the loginnode can reach it via id_infra.
+workenv_ssh_authorized_keys: "{{ workenv_ssh_authorized_keys_common + [{'user': 'rocky', 'key': loginnode_infra_key, 'state': 'present'}] }}"

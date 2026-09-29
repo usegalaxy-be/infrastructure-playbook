@@ -1,0 +1,13 @@
+categories:
+- Proteomics
+- Computational chemistry
+description: OpenFold3 biomolecular structure prediction (open-source AlphaFold3 reproduction)
+long_description: |
+  OpenFold3 is an open-source (Apache 2.0) reproduction of DeepMind's AlphaFold3,
+  developed by the AlQuraishi Lab at Columbia University and the OpenFold consortium.
+  It predicts the 3D structure of standard and non-canonical protein, RNA, and DNA chains, and small molecules. This wrapper runs inference
+  using the official OpenFold3 Docker image (and optionally the ColabFold MSA server).
+name: openfold3
+owner: B0r1sD
+homepage_url: https://github.com/aqlaboratory/openfold-3
+type: unrestricted

@@ -1,0 +1,64 @@
+---
+backup_path: /data/backups
+minio_backup_path: "{{ minio_alias }}/{{ minio_buckets[0].name }}/backups"
+keep_daily_months_backups: 10
+keep_recent_db_backups: 10 
+keep_oldest_db_backups: 10
+
+minio_client_release: "20240731155833.0.0-1"
+minio_architecture: amd64
+disable_yum_gpg_check: true
+
+# minio unix user
+minio_user: minio
+
+# minio data directories
+minio_server_make_datadirs: true
+minio_server_datadirs:
+  - /var/lib/minio
+# Minio server cluster node list.
+minio_server_cluster_nodes: []
+
+# minio bin path
+minio_temp_rpm_dest: /tmp/mc.rpm
+minio_client_bin: /usr/local/bin/mc
+
+# TLS
+minio_enable_tls: false
+minio_key: ""
+minio_cert: ""
+
+minio_url: https://minio
+
+# Buckets
+minio_buckets: []
+# minio_buckets:
+#  - name: bucket1
+#    policy: private
+#    object_lock: false
+
+# Replication Sites
+replication_sites: []
+# replication_sites:
+#     - name: myminio2
+#       url: ""
+#       admin_user: ""
+#       admin_password: ""
+
+minio_users: []
+# minio_users:
+#  - name: user1
+#    password: supers1cret0
+
+# Minio client
+minio_validate_certificate: true
+minio_alias: "myminio"
+minio_access_key: "changeme"
+minio_private_key: "changeme"
+
+# Prometheus bearer token
+minio_prometheus_bearer_token: false
+prometheus_bearer_token_output: "{{ minio_etc_dir }}/prometheus_bearer.json"
+
+# Environment variables to use when calling Pip
+minio_pip_environment_vars: {}

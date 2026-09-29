@@ -1,0 +1,356 @@
+import argparse
+from datetime import datetime
+import json
+import os
+# import os.path
+import re
+from urllib.parse import urlparse, unquote
+import sqlite3
+import subprocess
+import sys
+import time
+import yaml
+import logging
+from pathlib import Path
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s', stream=sys.stdout)
+logger = logging.getLogger(__name__)
+
+# Global counter for tools tested
+tools_tested_counter = 0
+
+def normalize_sqlite_uri(uri: str) -> str:
+    if uri.startswith("sqlite:"):
+        return uri.replace("sqlite:", "file:", 1)
+    return uri
+
+def parse_toolshed_url(url: str) -> str:
+    """
+    Extract tool name from a toolshed URL.
+    Example: toolshed.g2.bx.psu.edu/repos/devteam/bwa/bwa_mem/0.7.17.1 -> bwa_mem
+    """
+    parts = url.strip().split('/')
+    if len(parts) >= 4:
+        # The tool name is typically the 4th part (after repos/owner/repo_name)
+        return parts[3]
+    return url.strip()
+
+def load_tools_from_input(input_path: str) -> list:
+    """
+    Load tools from either a YAML file or a plain text file with toolshed URLs.
+    Returns a list of tool names/identifiers.
+    """
+    if not os.path.exists(input_path):
+        logger.error(f"Input file does not exist: {input_path}")
+        return []
+    
+    try:
+        with open(input_path, 'r') as f:
+            content = f.read().strip()
+        
+        # Try to parse as YAML first
+        try:
+            data = yaml.safe_load(content)
+            if isinstance(data, dict) and "tools" in data:
+                # Standard ephemeris YAML format
+                return [tool.get("name") for tool in data.get("tools", []) if "name" in tool]
+            elif isinstance(data, list):
+                # Could be a list of dicts (YAML) or list of strings
+                result = []
+                for item in data:
+                    if isinstance(item, dict) and "name" in item:
+                        result.append(item["name"])
+                    elif isinstance(item, str):
+                        # Toolshed URL format
+                        result.append(parse_toolshed_url(item))
+                return result
+        except yaml.YAMLError:
+            pass
+        
+        # If YAML parsing fails or doesn't match expected format, try as plain text
+        lines = content.split('\n')
+        tools = []
+        for line in lines:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                tools.append(parse_toolshed_url(line))
+        
+        if tools:
+            logger.info(f"Loaded {len(tools)} tools from toolshed URL list")
+            return tools
+        
+        logger.error(f"Could not parse input file as YAML or toolshed URL list: {input_path}")
+        return []
+        
+    except Exception as e:
+        logger.error(f"Error loading tools from {input_path}: {e}")
+        return []
+
+# Keep track of the status of each tool test
+def test_passed(output_path, tool_name):
+    """Parse the JSON output to determine if the tool passed."""
+    if not os.path.exists(output_path):
+        logger.warning(f"Output file does not exist: {output_path}")
+        return False
+    try:
+        with open(output_path) as f:
+            results = json.load(f)
+        for result in results["tests"]:
+            if tool_name in result.get("id", "") and result.get("status") == "success":
+                return True
+    except Exception as e:
+        logger.error(f"Error parsing test result for {tool_name}: {e}")
+    return False
+
+# Append current test result to tool_test_output_all.json
+def append_tests_to_master(current_output_path, master_output_path):
+    if not os.path.exists(current_output_path):
+        logger.warning(f"Current output file does not exist: {current_output_path}")
+        return
+
+    try:
+        # Load the current output JSON
+        with open(current_output_path) as f:
+            current_data = json.load(f)
+
+        new_entries = current_data.get("tests", [])
+        timestamp = datetime.now().isoformat()
+
+        # Determine user_type from filename (e.g. _singularity_test.json)
+        user_type = None
+        m = re.search(r'_([a-zA-Z0-9]+)_test\\.json$', current_output_path)
+        if m:
+            user_type = m.group(1)
+
+        # Add timestamp and user_type to each test entry
+        for test in new_entries:
+            test["appended_at"] = timestamp
+            if user_type:
+                test["user_type"] = user_type
+
+        # Load or initialize the master log
+        if os.path.exists(master_output_path):
+            with open(master_output_path) as f:
+                master_data = json.load(f)
+        else:
+            master_data = []
+
+        # Append all new entries
+        master_data.extend(new_entries)
+
+        # Save updated master log
+        with open(master_output_path, "w") as f:
+            json.dump(master_data, f, indent=2)
+
+        logger.info(f"Appended {len(new_entries)} tests to master log: {master_output_path}")
+
+    except Exception as e:
+        logger.error(f"Error while appending to master log: {e}")
+
+def get_tools_since_date(db_path, since_date):
+    """Query SQLite DB for tools installed since the given date."""
+
+    if not since_date:
+        logger.warning(f"{since_date}")
+        logger.warning(f"{db_path}")
+        logger.warning("No since_date provided")
+        return None
+
+    db_uri = normalize_sqlite_uri(db_path)
+    parsed_db_uri = urlparse(db_uri)
+
+    if parsed_db_uri.scheme != "file":
+        raise ValueError("Not a file:// URI")
+
+    # Extract and decode the filesystem path
+    db_path = unquote(parsed_db_uri.path)
+    logger.warning(f"SQLite DB path: {db_path}")
+
+    if not os.path.exists(db_path):
+        logger.warning(f"SQLite DB {parsed_db_uri} does not exist at path: {db_path}")
+        return None
+
+    try:
+        # sqlite_url = url.replace("sqlite:", "file:", 1)
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        # select id, create_time, update_time, name, owner, changeset_revision, installed_changeset_revision
+        # from tool_shed_repository order by create_time desc limit 100
+        cursor.execute("SELECT name FROM tool_shed_repository WHERE create_time >= ?", (since_date,))
+        tools = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        logger.info(f"Found {len(tools)} tools installed since {since_date}")
+        return tools
+    except Exception as e:
+        logger.error(f"Error querying SQLite DB: {e}")
+        return None
+
+SINCE_DATE_CHECKPOINT_FILE = "{{ tool_install_dir }}/.last_test_since_date"
+
+def read_since_date_checkpoint():
+    """Last date checked; no checkpoint means check everything ever installed."""
+    try:
+        with open(SINCE_DATE_CHECKPOINT_FILE) as f:
+            return f.read().strip() or None
+    except FileNotFoundError:
+        return None
+
+def write_since_date_checkpoint(date_str):
+    with open(SINCE_DATE_CHECKPOINT_FILE, "w") as f:
+        f.write(date_str)
+
+def run_tool_test(tool_name, api_key, user_type, force=False):
+    """Run test for a single tool with given API key."""
+    global tools_tested_counter
+
+    tool_test_json = "{{ tool_test_dir }}/" + tool_name + f"_{user_type}_test.json"
+    tool_test_log = "{{ tool_test_dir }}/" + tool_name + f"_{user_type}_test.log"
+
+    if os.path.isfile(tool_test_json):
+        if not force:
+            logger.info(f"Test JSON file already exists for {tool_name} ({user_type}), skipping.")
+            return
+        # Drop the stale result first, so a re-run that fails cannot leave the
+        # previous result behind looking current.
+        logger.info(f"Re-testing {tool_name} ({user_type}), discarding previous result.")
+        os.remove(tool_test_json)
+
+    logger.info(f"Starting test for: {tool_name} ({user_type})")
+
+    cmd_args = ["{{ galaxy_tool_util_venv_dir }}/bin/galaxy-tool-test",
+                "-k", api_key,
+                "-a", api_key,
+                "-u", "{{ galaxy_tools_galaxy_instance_url }}",
+                "--parallel-tests", "{{ parallel_tests }}",
+                "-t", tool_name,
+                "-o", "{{ tool_test_dir }}",
+                "-j", tool_test_json,
+                "--no-history-cleanup",
+                "--download-attempts", "16",
+                "--download-sleep", "8",
+                "--test-data", "{{ tool_test_data }}",
+               ]
+
+    # Add file handler for this tool's log
+    file_handler = logging.FileHandler(tool_test_log)
+    file_handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    cmd_str = " ".join(cmd_args)
+    logger.info(f"Executing cmd: {cmd_str}")
+    try:
+        subprocess.run(cmd_args, check=True)
+        logger.info(f"Test completed successfully for {tool_name} ({user_type})")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Test failed for {tool_name} ({user_type}): {e}")
+        raise
+    finally:
+        # Remove the file handler to avoid duplicate logs
+        logger.removeHandler(file_handler)
+
+    # Load the current output JSON
+    with open(tool_test_json) as f:
+        current_data = json.load(f)
+
+    # Format the current data
+    with open(tool_test_json, "w") as f:
+        json.dump(current_data, f, indent=4)
+
+    # Append to master JSON
+    append_tests_to_master(tool_test_json, "{{ galaxy_master_tool_test_file }}")
+
+def main(tools: str, parallel: int, mode: str = "ephemeris", since_date: str = None, db_path: str = None, force: bool = False) -> None:
+
+    """Run tool tests using one of three modes:
+    - 'since_date': query the sqlite DB for tools installed since `since_date` (requires `db_path`)
+    - 'tools_file': load tools from a provided file (txt or YAML) via `tools`
+    - 'ephemeris': load all installed tools from ephemeris YAML file provided in `tools`
+    """
+    logger.info("Starting tool tests (mode=%s, force=%s)", mode, force)
+
+    db_tools = []
+    since_date_explicit = since_date is not None
+
+    if mode == "since_date":
+        if not db_path:
+            logger.error("since_date mode requires --db-path")
+            return
+        run_start = datetime.now().strftime("%Y-%m-%d")
+        if not since_date_explicit:
+            since_date = read_since_date_checkpoint() or "1970-01-01"
+            logger.info("No --since-date given, using checkpoint: %s", since_date)
+        db_tools = get_tools_since_date(db_path, since_date) or []
+        logger.info("Loaded %d tools from sqlite DB since %s", len(db_tools), since_date)
+        # Only auto-advance on unattended runs; an explicit date is a manual rerun.
+        if not since_date_explicit:
+            write_since_date_checkpoint(run_start)
+
+    elif mode == "tools_file":
+        if not tools:
+            logger.error("tools_file mode requires a path to a tools file")
+            return
+        db_tools = load_tools_from_input(tools)
+
+    else:  # ephemeris (default)
+        if not tools:
+            logger.error("ephemeris mode requires a path to the ephemeris YAML file")
+            return
+        db_tools = load_tools_from_input(tools)
+
+    if not db_tools:
+        logger.info("No tools to test after loading/filtering")
+        return
+
+    total_tools = len(db_tools)
+    tested_count = 0
+
+    # First pass: Run tests with Singularity user
+    failed_tools = []
+    for tool in db_tools:
+        try:
+            run_tool_test(tool, "{{ galaxy_singularity_user_api_key }}", "singularity", force=force)
+            tested_count += 1
+            logger.info(f"Tested {tested_count}/{total_tools} tools")
+        except subprocess.CalledProcessError:
+            failed_tools.append(tool)
+
+    # Check if most tests failed (>80%), if so, resubmit with Conda user
+    conda_key = "{{ galaxy_conda_user_api_key }}"
+    if conda_key and len(failed_tools) / len(db_tools) > 0.8:
+        logger.warning(f"High failure rate ({len(failed_tools)}/{len(db_tools)}), resubmitting with Conda user.")
+        for tool in failed_tools:
+            try:
+                run_tool_test(tool, conda_key, "conda", force=force)
+                tested_count += 1
+                logger.info(f"Tested {tested_count}/{total_tools} tools (retry)")
+            except subprocess.CalledProcessError:
+                logger.error(f"Test for {tool} failed even with Conda user.")
+
+    logger.info(f"Total tools tested: {tested_count}")
+    logger.info("All tests attempted.")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Galaxy Tool Testing with galaxy-tool-test. Modes: since_date, tools_file, ephemeris"
+    )
+    parser.add_argument(
+        "tools",
+        nargs='?',
+        default=None,
+        help="Path to YAML file (ephemeris) or text file with toolshed URLs (one per line). Optional for since_date mode."
+    )
+    parser.add_argument("--mode", choices=["since_date", "tools_file", "ephemeris"], default="ephemeris",
+                        help="Mode to run tests: select tools from sqlite since date, from a file, or from ephemeris YAML.")
+    parser.add_argument("--since-date", dest="since_date", default=None,
+                        help="Since date (YYYY-MM-DD) for since_date mode")
+    parser.add_argument("--db-path", dest="db_path", default=None,
+                        help="SQLite DB path (file://... or sqlite:...) for since_date mode")
+    parser.add_argument("--parallel", "-p", type=int, default=1, help="Number of tests to run in parallel.")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-test tools that already have a result JSON instead of skipping them.")
+    args = parser.parse_args()
+
+    main(args.tools, args.parallel, mode=args.mode, since_date=args.since_date, db_path=args.db_path, force=args.force)

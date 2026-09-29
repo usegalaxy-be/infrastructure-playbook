@@ -1,0 +1,22 @@
+---
+# galaxyproject.galaxy
+
+# Galaxy system user configuration
+# This ends up being assigned to the ansible_user_id, which is defined
+# for each destination, normally galaxy_master
+galaxy_user_name: galaxy_master
+# Home of the admin/galaxy user on every managed host, including proxyservers
+# (certbot_post_renewal renders it; keep it in "all" so the template resolves there)
+galaxy_user_home: "/home/{{ galaxy_user_name }}"
+
+# Galaxy Interactive Tools (GxIT) - Path-based routing
+# Session state stored in dedicated PostgreSQL DB (HA-ready)
+
+gxit_db_name: gxitproxy
+
+# NOTE: the DB variables are set per host (prod/test) in host_vars/*_server/db_config.yml
+galaxy_db_connection: 'postgresql://{{postgres_user}}:{{postgres_pass}}@{{postgres_host}}:{{postgres_port}}/{{galaxy_db_name}}'
+
+conda_prefix: "{{ miniconda_prefix }}"
+galaxy_python_version: "3.11"
+galaxy_virtualenv_command: "/usr/bin/python{{ galaxy_python_version }} -m venv"

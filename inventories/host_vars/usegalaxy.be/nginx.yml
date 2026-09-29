@@ -1,0 +1,11 @@
+---
+# galaxyproject.nginx 
+
+nginx_servers:
+#   - redirect-ssl
+# nginx_ssl_servers:
+  - galaxy
+  # - galaxy
+  # - sentry
+  # - galaxy-test-proxy
+  - biodiversity

@@ -1,0 +1,31 @@
+[Unit]
+Description=Galaxy Celery
+After=network.target
+After=time-sync.target
+
+[Service]
+UMask=022
+Type=simple
+User={{ galaxy_user.name }}
+Group={{ __galaxy_user_group }}
+WorkingDirectory={{ galaxy_root }}
+TimeoutStartSec=10
+ExecStart={% if galaxy_systemd_watchdog %}{{ galaxy_venv_dir }}/bin/watchmedo auto-restart --directory={{ galaxy_root }}/config \
+    --directory={{ galaxy_root }}/server --directory={{ galaxy_root }}/mutable-config \
+    --recursive --pattern={{ galaxy_systemd_watchdog_patterns }} -- {% endif %}{{ galaxy_venv_dir }}/bin/celery \
+    --app galaxy.celery worker{% if galaxy_systemd_celery_external_pool == 'threads' %} \
+    --concurrency {{ galaxy_systemd_celery_external_concurrency }}{% else %} \
+    --autoscale={{ galaxy_systemd_celery_external_autoscale }}{% endif %} \
+    --max-tasks-per-child {{ galaxy_systemd_celery_external_max_tasks }} \
+    -n worker-external%I.%H --loglevel {{ galaxy_systemd_celery_external_log_level }} \
+    --pool {{ galaxy_systemd_celery_external_pool }} --queues celery,galaxy.external
+Environment=PYTHONPATH=server/lib GALAXY_CONFIG_FILE={{ galaxy_config_file }} {{ galaxy_systemd_celery_env }}
+MemoryLimit={{ galaxy_systemd_memory_limit_celery_external }}G
+Restart=always
+
+MemoryAccounting=yes
+CPUAccounting=yes
+BlockIOAccounting=yes
+
+[Install]
+WantedBy=multi-user.target

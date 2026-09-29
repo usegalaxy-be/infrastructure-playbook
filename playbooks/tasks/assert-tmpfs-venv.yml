@@ -1,0 +1,20 @@
+---
+# Pre-flight guard for the per-env Galaxy code tmpfs (see refresh-worker-tmpfs.yml).
+# When tmpfs is enabled, the post-deploy worker refresh delegates to groups['computeservers']
+# (vgcn + VIB). The VIB workers only appear when the OpenStack dynamic inventory
+# (inventories/vib.openstack.yml) is loaded, which needs the .openstack venv active.
+# Run this as a pre_task so a forgotten venv fails the play in the first seconds, before any
+# clone/config/restart, instead of after (a stale VIB tmpfs means broken metadata there).
+- name: Fail fast if tmpfs is enabled but the OpenStack venv / VIB inventory is not loaded
+  ansible.builtin.assert:
+    that: (groups['vibcomputeservers'] | default([]) | length) > 0
+    fail_msg: >-
+      galaxy_code_tmpfs_enabled is true but no vibcomputeservers are in inventory
+      (the OpenStack dynamic inventory did not load). Activate the venv and re-run:
+        source /home/galaxy_master/usegalaxy-be-admin/.openstack/bin/activate
+      Otherwise only the vgcn workers refresh and the VIB workers' tmpfs goes stale,
+      breaking metadata on VIB jobs.
+    quiet: true
+  run_once: true
+  when: galaxy_code_tmpfs_enabled | default(false)
+  tags: [galaxy_code_tmpfs]

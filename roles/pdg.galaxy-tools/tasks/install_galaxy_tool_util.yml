@@ -1,0 +1,12 @@
+---
+- name: Create galaxy-tool-util virtualenv
+  pip:
+    name:
+      - pip
+      - galaxy-tool-util
+    virtualenv: "{{ galaxy_tool_util_venv_dir }}"
+    extra_args: "{{ pip_extra_args | default(omit) }}"
+    virtualenv_command: "{{ galaxy_virtualenv_command | default(pip_virtualenv_command | default(omit)) }}"
+    virtualenv_python: "{{ galaxy_virtualenv_python | default(omit) }}"
+  environment:
+    VIRTUAL_ENV: "{{ galaxy_tool_util_venv_dir }}"

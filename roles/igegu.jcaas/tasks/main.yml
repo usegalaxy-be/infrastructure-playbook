@@ -1,0 +1,98 @@
+- name: Ensure directory is available
+  file:
+    path: /usr/local/galaxy/galaxy-jobconf/
+    state: directory
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0750
+#    sudo: yes
+
+- name: Send files
+  copy:
+    src: "{{ item }}"
+    dest: "/usr/local/galaxy/galaxy-jobconf/{{ item }}"
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0640
+    directory_mode: true
+  with_items:
+    - flask_job_conf.py
+    - job_conf.py
+    - requirements.txt
+#these are now deployed with templates
+#    - destination_specifications.yaml
+#    - tool_destinations.yaml
+  register: jobconf_task
+
+- name: Send templates
+  template:
+    src: "{{ item }}"
+    dest: "/usr/local/galaxy/galaxy-jobconf/{{ item }}"
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0640
+  with_items:
+    - conf.yaml
+    - tool_destinations.yaml
+    - destination_specifications.yaml
+  register: jobconf_tpl
+
+
+
+## ****TODO
+## Create venv 
+# shell: "virtualenv {{ jobconf_venv }}"
+# when: not venv_created
+
+- name: Install all of the necessary dependencies
+  pip:
+    virtualenv: "{{ jobconf_venv }}" 
+    virtualenv_command: virtualenv
+    requirements: "{{ jobconf_directory }}/requirements.txt"
+  register: jobconf_dep
+
+
+
+- name: "Send files to lib/galaxy/jobs/rules"
+  copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0640
+    directory_mode: true
+  with_items:
+    - src: job_conf.py
+      dst: "{{ galaxy_server_dir }}/lib/galaxy/jobs/rules/gateway.py"
+
+
+
+- name: "Copy templates to lib/galaxy/jobs/rules"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dst }}"
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0640
+  with_items:
+    - src: tool_destinations.yaml
+      dst: "{{ galaxy_server_dir }}/lib/galaxy/jobs/rules/tool_destinations.yaml"
+    - src: destination_specifications.yaml
+      dst: "{{ galaxy_server_dir }}/lib/galaxy/jobs/rules/destination_specifications.yaml"
+
+
+
+- name: Send runner script
+  copy:
+    src: "run.sh"
+    dest: "/usr/local/galaxy/galaxy-jobconf/run.sh"
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0750
+    directory_mode: true
+  register: jobconf_runner
+
+
+- name: "Restart jobconf process"
+  shell: "/usr/local/galaxy/galaxy-dist/.venv/bin/supervisorctl-wrapper restart job_conf_service"
+  when: jobconf_task.changed or jobconf_tpl.changed or jobconf_runner.changed or jobconf_dep.changed

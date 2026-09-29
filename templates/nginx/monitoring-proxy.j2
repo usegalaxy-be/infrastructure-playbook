@@ -1,0 +1,43 @@
+# Reverse proxy for monitoring.usegalaxy.be
+#
+# TLS terminated here; all backends are plain HTTP on the internal network.
+# No certs needed on the monitoring VM or any of its containers.
+#
+# Routing:
+#   /query, /write, /ping, /health, /metrics  → InfluxDB  :8086
+#   /                                         → Grafana   :3000
+
+server {
+    listen *:443 ssl;
+    server_name monitoring.usegalaxy.be;
+
+    access_log  /var/log/nginx/access.log;
+    error_log   /var/log/nginx/error.log;
+
+    ssl_certificate     {{ nginx_conf_ssl_certificate }};
+    ssl_certificate_key {{ nginx_conf_ssl_certificate_key }};
+
+    # InfluxDB v1 API — matched before the Grafana catch-all
+    # Allows: influx -host monitoring.usegalaxy.be -port 443 -ssl
+    location ~ ^/(query|write|ping|health|metrics) {
+        proxy_pass http://monitoring.usegalaxy.be:8086;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Grafana — catch-all
+    location / {
+        proxy_pass http://monitoring.usegalaxy.be:3000;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support for Grafana Live (alert state, live dashboards)
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}

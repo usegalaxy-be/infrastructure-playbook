@@ -1,0 +1,52 @@
+---
+
+# openssl 3.5.5-5.el9_8 breaks ansible get_url with SSL [ASN1: NOT_ENOUGH_DATA]
+# (ansible/ansible#87251). fix_repos.yml downgrades to this known-good build wherever the
+# broken one is found, so package/repo get_url tasks keep working across playbooks.
+# TODO: drop the pin (here and in pdg.nvidia_gpu) once a fixed openssl ships.
+openssl_broken_version: "3.5.5-5.el9_8"
+openssl_safe_version: "3.5.5-4.el9_8"
+
+# dj-wasabi.telegraf's role default (influxdata-archive_compat.key) predates InfluxData's
+# signing key rotation and lacks the subkey needed to verify newer packages (e.g.
+# influxdata-archive-keyring) on RHEL9-family hosts, causing "Public key ... is not
+# installed" on any fresh Rocky 9 install. influxdata-archive.key is the current key for
+# OS releases that support subkey verification (all of our fleet, RHEL9-family).
+# https://docs.influxdata.com/telegraf/v1/install/
+telegraf_yum_gpgkey: "https://repos.influxdata.com/influxdata-archive.key"
+
+# pdg.update_hosts
+# /etc/hosts overrides applied to all hosts. vault_host_mappings is defined in
+# all/vault/ (general infrastructure entries). Groups that need additional entries
+# (galaxyservers, proxyservers) define their own vault_host_mappings which override this.
+#
+# Current entries in all/vault/:
+#   - monitoring.usegalaxy.be → internal IP (InfluxDB port 8086 unreachable via public DNS)
+#   - vsc-galaxy.irods.hpc.kuleuven.be → <kuleuven-irods-internal-ip-1>/138 (KU Leuven firewalled public
+#     iRODS IPs on 2026-06-01; revert when KU Leuven notifies us)
+#
+# NOTE: galaxyservers and proxyservers define their own vault_host_mappings — entries
+# added here must also be added to those group vaults.
+host_mappings: "{{ vault_host_mappings }}"
+
+# influxdata.chrony
+
+# Chrony NTP configuration for all servers, including monitoring. This ensures accurate timekeeping for all components, which is critical for monitoring and logging.
+
+chrony_server: 'ntp.ugent.be iburst'
+chrony_acquisitionport: 
+chrony_conf_file: '/etc/chrony.conf'
+chrony_keyfile: '/etc/chrony.keys'
+
+# geerlingguy.docker
+
+# TODO: create a root owned directory for docker to use as data-root, and set permissions for the galaxy user to write to it, instead of using /srv/galaxy_test/shared/database/docker_root which is owned by root and has 700 permissions
+
+# Install pip docker package for ansible
+pip_install_packages:
+  - name: docker
+docker_install_compose: false
+docker_users:
+  - "{{ galaxy_user_name }}"
+docker_daemon_options:
+  data-root: "/var/lib/docker/"

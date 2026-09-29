@@ -1,0 +1,60 @@
+---
+# NOTE: we currently don't need re-assign any user files besides the home dirs
+# - sudo groupmod -g 1004 condor
+# - sudo usermod -u 1004 -g 1004 condor
+# - sudo find / -path "/srv" -prune -o -gid 1001 -exec chgrp -v 1004 '{}' \;
+# - sudo find / -path "/srv" -prune -o -uid 1001 -exec chown -v -h 1004 '{}' \;
+# - sudo groupadd -g 1001 galaxy_master
+# - sudo useradd -u 1001 -g 1001 -G 999 galaxy_master
+
+
+- name: Remap Unix user
+  block:
+    # We don't want to remap files on the NFS so unmount
+    # - name: autofs service stop
+    #   ansible.builtin.service:
+    #     name: autofs
+    #     enabled: yes
+    #     state: stopped
+
+    - name: Stop processes owned by users
+      shell: pkill -u {{item.uname}}
+      ignore_errors: true
+      loop: "{{remap_users}}"
+      
+    - name: Change the uid
+      ansible.builtin.user:
+        name: "{{item.uname}}"
+        uid: "{{item.newuid}}"
+        # group: "{{item.newgid}}"
+        home: "/home/{{item.uname}}"
+      loop: "{{remap_users}}"
+
+    - name: Change the gid
+      ansible.builtin.group:
+        name: "{{item.uname}}"
+        gid: "{{item.newgid}}"
+      loop: "{{remap_users}}"
+    
+    - name: Update ownership of home directory
+      file:
+        path: "/home/{{item.uname}}"
+        owner: "{{ item.uname }}"
+        group: "{{ item.uname }}"
+        state: directory
+        recurse: yes
+      loop: "{{remap_users}}"
+
+    # - name: autofs start
+    #   ansible.builtin.service:
+    #     name: autofs
+    #     state: started
+
+    # - name: Update ownership of home directory
+    #   command: usermod -m -d /home/new_user new_user
+
+    # - name: Start processes with the new user
+    #   shell: su - new_user -c "echo hello"
+  
+  become: yes
+  become_user: root

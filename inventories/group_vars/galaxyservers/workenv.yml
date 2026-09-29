@@ -1,0 +1,3 @@
+---
+# Galaxy servers run the HTCondor schedd — deploy the condor helper scripts.
+workenv_deploy_condor_scripts: true

@@ -1,0 +1,8 @@
+---
+
+- name: Import install tasks
+  ansible.builtin.import_tasks: install.yml
+
+- name: Include systemd tasks
+  ansible.builtin.include_tasks: systemd.yml
+  when: rustus_systemd

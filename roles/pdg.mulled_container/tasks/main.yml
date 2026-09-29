@@ -1,0 +1,41 @@
+---
+- name: Verify Docker and Apptainer are available on the build host
+  ansible.builtin.command: "{{ item }} --version"
+  changed_when: false
+  loop: [docker, apptainer]
+  tags: [mulled_container]
+
+- name: Ensure the mulled build venv exists (galaxy-tool-util)
+  become: true
+  become_user: "{{ mulled_container_build_user }}"
+  ansible.builtin.pip:
+    name: "galaxy-tool-util{{ ('==' ~ mulled_container_tool_util_version) if mulled_container_tool_util_version else '' }}"
+    virtualenv: "{{ mulled_container_build_venv }}"
+    virtualenv_command: "python3 -m venv"
+    state: present
+  tags: [mulled_container]
+
+- name: Ensure the shared mulled cache directory exists
+  ansible.builtin.file:
+    path: "{{ mulled_container_cache_dir }}"
+    state: directory
+    owner: "{{ mulled_container_cache_owner }}"
+    group: "{{ mulled_container_cache_group }}"
+    mode: "0755"
+  tags: [mulled_container]
+
+- name: Ensure the local build workdir exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ mulled_container_workdir }}"
+    state: directory
+    mode: "0755"
+  tags: [mulled_container]
+
+- name: Build each container
+  ansible.builtin.include_tasks: build_one.yml
+  loop: "{{ mulled_container_specs }}"
+  loop_control:
+    loop_var: spec
+    label: "{{ spec.name }}"
+  tags: [mulled_container]

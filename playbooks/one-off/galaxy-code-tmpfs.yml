@@ -1,0 +1,36 @@
+---
+# Set up / refresh the node-local RAM copies of the Galaxy codebase on the condor
+# workers. Workers are shared between test and prod, so each env gets its OWN tmpfs
+# (/opt/galaxy_test, /opt/galaxy_prod) with its own populate script/service.
+#
+# The set of environments is DERIVED from the galaxyservers that opted in (i.e. define
+# galaxy_code_tmpfs_mount in host_vars); mount + sources are read from each head's own
+# vars (galaxy_code_tmpfs_mount, galaxy_server_dir, galaxy_venv_dir). No per-run -e needed.
+#
+#   # both envs on all workers (venv active so VIB is in computeservers):
+#   ansible-playbook playbooks/one-off/galaxy-code-tmpfs.yml \
+#     -i inventories/hosts -i inventories/vib.openstack.yml --limit computeservers
+#
+#   # limit to one env: -e '{"galaxy_code_tmpfs_heads":["test.usegalaxy.be"]}'
+- name: Node-local tmpfs copies of the Galaxy codebase (per env)
+  hosts: "{{ galaxy_code_tmpfs_hosts | default('computeservers') }}"
+  gather_facts: true
+  vars:
+    # Galaxy heads that have opted into tmpfs (galaxy_code_tmpfs_mount defined).
+    galaxy_code_tmpfs_heads: >-
+      {{ groups['galaxyservers'] | map('extract', hostvars)
+         | selectattr('galaxy_code_tmpfs_mount', 'defined')
+         | map(attribute='inventory_hostname') | list }}
+  tasks:
+    - name: Set up + populate each env's tmpfs
+      ansible.builtin.include_role:
+        name: pdg.galaxy_code_tmpfs
+      vars:
+        galaxy_code_tmpfs_mount: "{{ hostvars[tmpfs_head].galaxy_code_tmpfs_mount }}"
+        galaxy_code_tmpfs_src_lib: "{{ hostvars[tmpfs_head].galaxy_server_dir }}/lib"
+        galaxy_code_tmpfs_src_venv: "{{ hostvars[tmpfs_head].galaxy_venv_dir }}"
+      loop: "{{ galaxy_code_tmpfs_heads }}"
+      # Distinct loop_var so the role's own internal `item` loops don't collide.
+      loop_control:
+        loop_var: tmpfs_head
+        label: "{{ tmpfs_head }} -> {{ hostvars[tmpfs_head].galaxy_code_tmpfs_mount }}"

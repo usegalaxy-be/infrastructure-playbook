@@ -1,0 +1,11 @@
+[Unit]
+Description=Yearly full tool-test sweep timer
+
+[Timer]
+# Arbitrary yearly slot (mid-January, avoiding New Year's Day maintenance
+# windows). Move freely if it collides with anything else.
+OnCalendar=*-01-15 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

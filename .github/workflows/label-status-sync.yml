@@ -1,0 +1,15 @@
+name: Label status sync
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+
+jobs:
+  sync:
+    uses: usegalaxy-be/.github/.github/workflows/label-status-sync.yml@main
+    with:
+      issue_number: ${{ github.event.issue.number }}
+      repo: ${{ github.event.repository.name }}
+      label: ${{ github.event.label.name }}
+      action: ${{ github.event.action }}
+    secrets: inherit

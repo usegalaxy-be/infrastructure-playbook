@@ -1,0 +1,45 @@
+---
+# Install location and ownership of the probe (script, venv, config, cron).
+galaxy_healthcheck_dir: "/opt/galaxy-healthcheck"
+galaxy_healthcheck_venv: "{{ galaxy_healthcheck_dir }}/venv"
+galaxy_healthcheck_user: root
+galaxy_healthcheck_group: "{{ galaxy_healthcheck_user }}"
+galaxy_healthcheck_log: "/var/log/galaxy-job-healthcheck.log"
+
+# Galaxy instance to probe, and the admin API key. Both required from the caller.
+galaxy_healthcheck_url: ""
+galaxy_healthcheck_api_key: ""
+
+# Test tools to exercise: a list of {tool_id, inputs}.
+galaxy_healthcheck_tools: []
+
+galaxy_healthcheck_job_timeout: 600
+galaxy_healthcheck_poll_interval: 15
+
+# A tool is only reported failed after failing this many attempts in a row (initial + retries),
+# so transient blips do not page. Failed tools are re-run after galaxy_healthcheck_retry_delay
+# seconds. Note: a genuinely stuck tool costs up to job_timeout per attempt.
+galaxy_healthcheck_retries: 3
+galaxy_healthcheck_retry_delay: 30
+
+# Optional InfluxDB target for per-tool result metrics. Leave the URL empty to disable.
+galaxy_healthcheck_influx_url: ""
+galaxy_healthcheck_influx_db: "galaxy"
+galaxy_healthcheck_influx_user: ""
+galaxy_healthcheck_influx_pass: ""
+# Measurement names written to InfluxDB (override to match an existing dashboard schema).
+galaxy_healthcheck_influx_measurement: "galaxy_job_healthcheck"
+galaxy_healthcheck_influx_error_measurement: "galaxy_job_healthcheck_error"
+
+# On-demand run (tasks_from: run.yml): fail unless every tool passed; keep the history for inspection.
+galaxy_healthcheck_run_require_ok: true
+galaxy_healthcheck_keep_history: false
+
+# Cron cadence.
+galaxy_healthcheck_cron_hour: "*/2"
+galaxy_healthcheck_cron_minute: "0"
+
+# BioBlend package spec and the command used to create the virtualenv.
+galaxy_healthcheck_pip_packages:
+  - bioblend
+galaxy_healthcheck_virtualenv_command: "python3 -m venv"

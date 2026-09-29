@@ -1,0 +1,19 @@
+---
+# Run the provisioned Galaxy job healthcheck once and fail unless every probe tool passed.
+# Use as the end-to-end check after a deploy. Provisioning: infrastructure/09-galaxy-healthcheck.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/daily/daily-galaxy-healthcheck.yml --limit testgalaxyservers
+#   -e galaxy_healthcheck_run_require_ok=false  report the result, never fail
+#   -e galaxy_healthcheck_keep_history=true     keep the test history for inspection
+- name: Galaxy job healthcheck (on demand)
+  hosts: galaxyservers
+  become: true
+  vars:
+    galaxy_healthcheck_run_require_ok: true
+    galaxy_healthcheck_keep_history: false
+  tasks:
+    - name: Run the healthcheck
+      ansible.builtin.include_role:
+        name: pdg.galaxy_healthcheck
+        tasks_from: run.yml

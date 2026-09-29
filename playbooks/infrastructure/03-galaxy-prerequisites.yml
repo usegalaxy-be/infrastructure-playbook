@@ -1,0 +1,156 @@
+---
+# Install Galaxy server prerequisites: NTP (chrony), tusd, /etc/hosts, Miniconda, Nginx, CVMFS.
+# Run before 04-galaxy.yml on fresh Galaxy VMs.
+
+- name: Deploy Galaxy Core Application
+  hosts: galaxyservers
+  become: true
+  become_user: root
+
+  pre_tasks:
+
+    - name: Install system dependencies
+      package:
+        name:
+          - bzip2
+          - make
+          - tar
+          - git
+          - sqlite-devel
+          - postgresql
+          - python3-setuptools
+          - python3-psycopg2
+          - python3-virtualenv
+          - python3-devel
+          - python3.11
+          - python3.11-devel
+          - bc
+          - firewalld
+          - gcc-c++      # required for node-gyp to compile native Node.js modules (sqlite3, pg-native)
+          - libpq-devel  # required for pg-native (gx-it-proxy PostgreSQL session backend)
+        state: present
+      tags: [packages]
+
+    # NOTE: SELinux disabled to avoid complications with Galaxy and its services
+    - name: Disable SELinux
+      selinux:
+        state: disabled
+      tags: [selinux]
+
+    # NOTE: firewalld disabled to avoid complications with Galaxy and its services
+    - name: Disable firewalld service
+      ansible.builtin.service:
+        name: firewalld
+        enabled: false
+        state: stopped
+      tags: [firewalld]
+
+    - name: Install docker pip package
+      ansible.builtin.pip:
+        name: docker
+      tags: [docker]
+
+    - name: Set docker_users (Docker role)
+      set_fact:
+        docker_users: "{{ galaxy_user_name }}"
+      tags: [docker]
+
+    - name: Add groups to Galaxy user
+      ansible.builtin.user:
+        name: "{{ galaxy_user_name }}"
+        groups: condor,docker
+        append: true
+      tags: [galaxy_user]
+
+    - name: Install RHEL/CentOS/Rocky specific dependencies
+      package:
+        name: ['tmpwatch']
+      become: true
+      become_user: root
+      when: ansible_os_family == 'RedHat'
+      tags: [packages]
+
+    - name: Install Debian/Ubuntu specific dependencies
+      package:
+        name: ['tmpreaper']
+      when: ansible_os_family == 'Debian'
+      tags: [packages]
+
+  roles:
+      # Set NTP
+      - role: influxdata.chrony
+        tags: [chrony]
+
+      # Installs and configures the tusd server
+      # NOTE: Rocky 9 has GLIBC_2.34 built-in, so no compatibility issues
+      - role: galaxyproject.tusd
+        tags: [tusd]
+        vars:
+          tusd_version: latest
+          tusd_instances:
+            - name: uploads
+              user: "{{ galaxy_user_name }}"
+              group: "{{ galaxy_user_name }}"
+              args:
+                - "-host=localhost"
+                - "-port={{ galaxy_tusd_port }}"
+                - "-upload-dir={{ galaxy_tus_upload_store }}"
+                - "-hooks-http=http://{{ inventory_hostname }}/api/upload/hooks"
+                - "-hooks-http-forward-headers=X-Api-Key,Cookie"
+
+      # Manage /etc/hosts entries (e.g. pin broken DNS round-robin entries)
+      - role: pdg.update_hosts
+        tags: [hosts]
+
+      # Role for installing and managing Miniconda installation and Conda environments
+      # Manages the conda installation used for Galaxy tool dependency resolution
+      - role: galaxyproject.miniconda
+        tags: [miniconda]
+        become: true
+        become_user: "{{ galaxy_user_name }}"
+
+      # NOTE: Docker and Apptainer are pre-installed on VGCN images — roles not needed
+      # # - role: geerlingguy.docker
+      # # - role: usegalaxy_eu.apptainer
+
+      # Sets up a webserver
+      - role: galaxyproject.nginx
+        tags: [nginx]
+
+      # Writes ~/.pgpass and PGUSER/PGHOST/PGDATABASE bashrc exports for the
+      # galaxy user, so gxadmin/psql work without a password prompt.
+      - role: hxr.postgres-connection
+        tags: [pgpass]
+
+      # Install and configure CernVM-FS (CVMFS) client for Galaxy servers.
+      # Ensures /etc/cvmfs/default.local and autofs are always in the correct state.
+      - role: galaxyproject.cvmfs
+        tags: [cvmfs]
+
+  # NOTE: add service restarts as post tasks (firewall, galaxy, condor, ...)
+  post_tasks:
+    # NOTE: vcgn images are shipped with several services including pulsar, which is not currently necessary for our galaxy server
+    - name: Disable pulsar
+      systemd:
+        name: pulsar
+        state: stopped
+      tags: [pulsar]
+
+    # galaxyproject.tusd installs the binary but also creates tusd-uploads.service.
+    # Galaxy now manages tusd via Gravity (galaxy-tusd.service, part of galaxy.target).
+    # Mask tusd-uploads to prevent it winning port 1080 at boot before Gravity starts.
+    - name: Mask tusd-uploads service (superseded by Gravity-managed galaxy-tusd)
+      ansible.builtin.systemd:
+        name: tusd-uploads
+        masked: true
+        enabled: false
+        state: stopped
+      failed_when: false
+    # TODO: a similar cron job for apptainer
+    - name: Set temporary cron for cleaning docker images
+      ansible.builtin.cron:
+        name: "Temporary docker cleanup for involucro container building"
+        minute: "0"
+        hour: "*/3"
+        job: "/bin/docker system prune --all -f > /dev/null"
+      tags: [docker]

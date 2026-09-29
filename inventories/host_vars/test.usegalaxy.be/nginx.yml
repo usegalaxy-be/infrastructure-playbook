@@ -1,0 +1,17 @@
+---
+# galaxyproject.nginx 
+
+nginx_servers:
+  - galaxy-test
+  # - sentry
+
+# pdg.ssl-certs
+# TODO: do we still need this?
+# We share certificates from the praxy instance to the test instance.
+# local paths created with pdg.create-paths
+ssl_cert_dir: /etc/ssl/certs
+ssl_cert_user_dir: /etc/ssl/user
+
+galaxy_local_ssl_dirs:
+  - "{{ ssl_cert_dir }}"
+  - "{{ ssl_cert_user_dir }}"

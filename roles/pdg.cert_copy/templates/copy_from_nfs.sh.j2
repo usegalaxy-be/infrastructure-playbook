@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Define paths
+SOURCE_DIR="{{ source_certs_dir }}"
+NFS_DIR="{{ shared_certs_dir }}"
+DEST_DIR="{{ source_certs_dir }}"
+VM2="vm2.example.com"
+
+
+# Copy certificates to NFS directory
+echo "Copying certificates to NFS directory..."
+rsync -avz --delete "$LETSENCRYPT_DIR" "$NFS_DIR"
+
+# Copy certificates from NFS directory to VM 2
+echo "Copying certificates from NFS directory to VM 2..."
+ssh root@$VM2 "mkdir -p $DEST_DIR"
+rsync -avz --delete "$NFS_DIR" root@$VM2:"$DEST_DIR"
+
+echo "Certificate copy process completed."

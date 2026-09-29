@@ -1,0 +1,14 @@
+# pdg.galaxy-tools
+# Move to monitoring?
+# Automated tool installation and testing
+# Run modes (install_tools/test_tools/galaxy_tools_test_mode/parallel_tests) are set in
+# playbooks/daily/daily-galaxy-tools.yml, not here.
+
+galaxy_tools_galaxy_instance_url: "{{ galaxy_instance_url }}"
+galaxy_singularity_user_api_key: "{{ vault_tool_admin_api_key }}"
+galaxy_conda_user_api_key: "{{ vault_conda_user_api_key }}"
+
+tools_user: root
+tools_group: root
+
+# tool_test_data: "/srv/galaxy_test/local/galaxy-tools/galaxy-test-data"

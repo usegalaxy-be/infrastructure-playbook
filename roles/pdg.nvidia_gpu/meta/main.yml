@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  author: pdg
+  description: Install NVIDIA drivers, wire the container runtime into Docker, and enable HTCondor GPU discovery on Rocky/RHEL 9 workers
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags:
+    - nvidia
+    - gpu
+    - htcondor
+    - docker
+
+dependencies: []

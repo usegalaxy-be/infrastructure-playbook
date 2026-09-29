@@ -1,0 +1,10 @@
+<tool id="test-condor-gpu" name="TPV test: Condor GPU v2" version="1.0" hidden="true">
+    <description>Routing test for the GPUv2 condor destination (admin use only)</description>
+    <command><![CDATA[
+        echo "TPV test GPU OK" > '$output'
+    ]]></command>
+    <inputs/>
+    <outputs>
+        <data name="output" format="txt" label="tpv-test-condor-gpu"/>
+    </outputs>
+</tool>

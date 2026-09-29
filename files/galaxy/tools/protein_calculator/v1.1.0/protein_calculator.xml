@@ -1,0 +1,162 @@
+<tool id="protein_calculator" name="Protein Calculator" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" python_template_version="3.5" profile="25.0" license="MIT">
+    <description>by the VIB Protein Core</description>
+    <macros>
+        <token name="@TOOL_VERSION@">1.1.0</token>
+        <token name="@VERSION_SUFFIX@">1</token>
+    </macros>
+    <edam_topics>
+        <edam_topic>topic_0123</edam_topic>
+    </edam_topics>
+    <edam_operations>
+        <edam_operation>operation_0250</edam_operation>
+    </edam_operations>
+    <requirements>
+        <requirement type="package" version="3.13.3">python</requirement>
+        <requirement type="package" version="2.2.3">pandas</requirement>
+        <requirement type="package" version="6.0.1">plotly</requirement>
+        <requirement type="package" version="1.85">biopython</requirement>
+        <requirement type="package" version="3.1.6">jinja2</requirement>
+        <requirement type="package" version="0.2.1">python-kaleido</requirement>
+        <requirement type="package" version="2.32.3">requests</requirement>
+
+    </requirements>
+    <stdio>
+        <regex match="invalid character" source="both" level="fatal" description="Protein sequence contains invalid character(s). Please enter a valid Protein Sequence."/>
+        <regex match="DNA sequence" source="both" level="fatal" description="DNA sequence detected. Please enter a valid Protein Sequence."/>
+        <regex match="minimum length" source="both" level="fatal" description="Protein sequence should have a minimum length of 10 residues. Please enter a valid Protein Sequence."/>
+        <regex match="maximum allowed length" source="both" level="fatal" description="Protein sequence should have a maximum length of 3000 residues. Please enter a valid Protein Sequence."/>
+        <regex match="Failed to fetch" source="both" level="warning" description="Failed to fetch Galaxy BE version."/>
+    </stdio>
+    <version_command>python '$__tool_directory__/protein_calculator.py' --version</version_command>
+    <command detect_errors="exit_code"><![CDATA[
+        cp -r '$__tool_directory__/templates' . &&
+        python '$__tool_directory__/protein_calculator.py'
+    #if $name:
+        --name '$name'
+    #end if
+
+    #if $sequence:
+        --sequence '$sequence'
+    #else:
+        echo 'Error: Protein sequence is required.' >&2
+    #end if
+    ]]></command>
+    <inputs>
+        <conditional name="fasta_or_text">
+            <param name="input_mode" type="select" label="FASTA Input" help="Protein sequence(s) to calculate protein properties of. Input can be a FASTA file from history, or text.">
+                <option value="textbox">
+                    Paste sequence into textbox
+                </option>
+                <option value="history">
+                    Use FASTA from history
+                </option>
+            </param>
+            <when value="history">
+                <param argument="--name" type="text" label="Protein name" help="Name of the protein (optional if FASTA has headers)." optional="true" />
+                <param argument="--sequence" format="fasta" type="data" multiple="false" label="Fasta file from your current history" help="Select a FASTA protein file containing one or more protein sequences from your history. Name of the output files is derived from first word of the sequence title." />
+            </when>
+            <when value="textbox">
+                <param argument="--name" type="text" label="Protein name" help="Name of the protein" optional="false" />
+                <param argument="--sequence" type="text" area="false" label="Protein sequence" help="Sequence to be processed. Protein sequence should have a minimum length of 10 residues. " optional="false" />
+            </when>
+        </conditional>
+    </inputs>
+    <outputs>
+        <data name="output1" format="html" label="report">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)_report.html" visible="true" match_relative_path="true" assign_primary_output="true" format="html"/>
+        </data>
+        <data name="output2" format="png" label="titration curve">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)_plot.png" visible="true" match_relative_path="true" assign_primary_output="true" format="png"/>
+        </data>
+        <data name="output3" format="html" label="interactive titration curve">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+)_interactive_plot.html" visible="true" match_relative_path="true" assign_primary_output="true" format="html"/>
+        </data>
+    </outputs>
+    <tests>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="history"/>
+                <param name="sequence" value="test_protein.fasta"/>
+            </conditional>
+            <output name="output1" file="crab_anapl_report.html" count="1"/>
+            <output name="output2" file="crab_anapl_plot.png" count="1"/>
+            <output name="output3" file="crab_anapl_interactive_plot.html" count="1"/>
+        </test>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="history"/>
+                <param name="sequence" value="test_protein.fasta"/>
+                <param name="name" value="ignored_test_name"/>
+            </conditional>
+            <output name="output1" file="crab_anapl_report.html" count="1"/>
+            <output name="output2" file="crab_anapl_plot.png" count="1"/>
+            <output name="output3" file="crab_anapl_interactive_plot.html" count="1"/>
+        </test>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="textbox"/>
+                <param name="name" value="test_name"/>
+                <param name="sequence" value="EASTEREGGEGG"/>
+            </conditional>
+            <output name="output1" file="report.html" count="1"/>
+            <output name="output2" file="plot.png" count="1"/>
+            <output name="output3" file="plot.html" count="1"/>
+        </test>
+        <test expect_num_outputs="3">
+            <conditional name="fasta_or_text">
+                <param name="input_mode" value="history"/>
+                <param name="sequence" value="test_multiple_proteins.fasta"/>
+            </conditional>
+            <output name="output1" file="protein1_report.html" count="2"/>
+            <output name="output2" file="protein1_plot.png" count="2"/>
+            <output name="output3" file="protein1_interactive_plot.html" count="2"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+This Python-based tool will determine protein properties based on the amino acid sequence, which it summarizes in an HTML report and Plotly graph. 
+
+    .. class:: warningmark
+
+The maximum allowed sequence is set at 3.000 amino acids. 
+
+    .. class:: infomark
+
+    Usage:
+
+    - Raw sequence:  ``protein_calculator.py [-h] --name NAME --sequence SEQUENCE`` 
+
+    - FASTA input file: ``protein_calculator.py [-h] [--name NAME] --fasta /path/to/file.fasta``
+
+        Although FASTA files containing multiple sequences are possible as input, it does not handle wrong sequences well. Make sure to ensure beforehand that all sequences are valid protein sequences.
+
+Arguments:
+
+-h, --help                           
+            Show this help message and exit  
+
+--name                      
+            Name of the protein, in text format. When using a FASTA file, this argument is optional as the name will be derived from the FASTA header and will be ignored when the FASTA contains multiple sequences
+
+--sequence                       
+            Sequence to be processed, in text format
+
+--fasta
+            Location of the .fasta file, in FASTA format
+
+-v, --version                        
+            Show the version of the tool and exit
+  
+
+    ]]></help>
+    <citations>
+        <citation type="bibtex">
+        @misc{githubProtein_Calculator,
+        author = {Balcaen, Kevin and Fonteyn, Robbe},
+        year = {2025},
+        title = {Protein_Calculator},
+        publisher = {GitHub},
+        journal = {GitHub repository},
+        url = {https://github.com/KBalcaen/Protein_Calculator},
+}</citation>
+    </citations>
+</tool>

@@ -1,0 +1,15 @@
+---
+- name: Ensure the shared certs directory exists
+  file:
+    path: "{{ shared_certs_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy SSL certs to the shared NFS directory
+  copy:
+    src: "{{source_certs_dir}}"
+    dest: "{{shared_certs_dir}}"
+    owner: root
+    group: root
+    mode: '0644'
+    remote_src: yes

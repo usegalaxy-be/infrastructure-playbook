@@ -1,0 +1,107 @@
+galaxy_subsite_default_welcome: "https://galaxyproject.org"
+galaxy_subsite_base_domain: "usegalaxy.org"
+galaxy_subsite_dir: /srv/subsite
+galaxy_subsite_base_css: "#masthead { background-color: #2c3143;}" # Standard Galaxy colour. Override for others
+galaxy_subsites: []
+#  - name: test # Accessible at test.usegalaxy.org
+#    brand: Testing
+#    iframe: "https://example.com"
+#    # If wallpaper is true, then files/subsites/{name}.png will be copied to
+#    # /static/dist/{name}.png, and can be used exactly like that in the CSS.
+#    wallpaper: false 
+#    tool_sections:
+#       - "hicexplorer"
+#       - "graph_display_data"
+#       - "peak_calling"
+#       - "assembly"
+#       - "annotation"
+#       - "genome_diversity"
+#       - "multiple_alignments"
+#    extra_tool_labels:
+#       - "proteomics"
+#    custom_css: |
+#        #masthead {
+#            background: linear-gradient(to bottom,#e2453c 0,#e2453c 16%,#e07e39 16%,#e07e39 32%,#e5d667 32%,#e5d667 48%,#51b95b 48%,#51b95b 66%,#1e72b7 66%,#1e72b7 86%,#6f5ba7 86%) no-repeat;
+#        }
+#        #masthead .navbar-brand {
+#          background: #3337;
+#          height: 100%;
+#          padding: 0.5em;
+#          left: 0px;
+#        }
+#        #masthead .navbar-nav > li .nav-link {
+#            color: white;
+#        }
+#        #masthead .navbar-nav > li {
+#            background: #3337;
+#        }
+#        #masthead .navbar-nav > li.active {
+#            background: #333e;
+#        }
+
+galaxy_subsite_nginx_routes: |
+    location /static/welcome.html {
+        alias {{ galaxy_subsite_dir }}/$host.html;
+    }
+
+    location ~ /static/dist/base.css {
+        root {{ galaxy_subsite_dir }};
+        # Fall back to base version if a per-host version can't be found.
+        try_files /$host.css /{{ galaxy_subsite_base_domain }}.css =404;
+    }
+
+    {% for item in galaxy_subsites %}
+    {% if item.wallpaper %}
+        location ~ /static/dist/{{ item.name }}.png {
+            alias {{ galaxy_subsite_dir }}{{ item.name }}.png;
+        }
+    {% endif %}
+    {% endfor %}
+
+#########################################################################
+# Tool sections variables
+# Overide these tool sections with your own tool section ids.
+# The ones below are used by usegalaxy.org and usegalaxy.org.au
+#########################################################################
+
+# These sections will be displayed in the tool panel for every subdomain
+tool_base_sections:
+    - "getext"
+    - "send"
+    - "collection_operations"
+    - "textutil"
+    - "convert"
+    - "filter"
+    - "group"
+    - "expression_tools"
+
+# There sections are a collection of general NGS tools and will be used in most but not all subdomains
+tool_ngs_sections:
+    - "deeptools"
+    - "bed"
+    - "sambam"
+    - "bxops"
+    - "fastafastq"
+    - "fastq_quality_control"
+    - "picard"
+    - "mapping"
+    - "sambam"
+
+#########################################################################
+# Tool Label variables
+# Overide these Tool Labels with your own tool label ids.
+# The ones below are used by usegalaxy.org and usegalaxy.org.au
+#########################################################################
+
+# These tool labels will be displayed for every subdomain
+tool_base_labels:
+    - "file_and_meta_tools"
+    - "general_text_tools"
+    - "genomic_file_manipulation"
+    - "gff"
+    - "common_genomics"
+
+# These tool labels will be displayed for most subdomains
+tool_ngs_labels:
+    - "specific_genomics"
+    - "genomics_toolkits"

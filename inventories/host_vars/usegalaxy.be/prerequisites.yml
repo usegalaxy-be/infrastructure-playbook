@@ -1,0 +1,14 @@
+---
+# Secondary IPs to configure persistently via NetworkManager (were previously added by cloud-init
+# from OpenStack port metadata). conn_name must match `nmcli connection show` output.
+network_secondary_ips:
+  - conn_name: "Wired connection 1"
+    address: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_vip_ip }}/20"
+
+# prod db vars for galaxy
+galaxy_db_name: '{{ vault_prod_db_name }}'
+db_name: '{{ galaxy_db_name }}'
+postgres_user: '{{ vault_prod_postgres_user }}'
+postgres_pass: '{{ vault_prod_postgres_pass }}'
+postgres_host: '{{ vault_prod_postgres_host }}'
+postgres_port: '{{ vault_postgres_port }}'

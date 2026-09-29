@@ -1,0 +1,82 @@
+#!/usr/bin/env python3
+"""
+Telegraf exec plugin — Galaxy internal metrics.
+
+Queries the Galaxy PostgreSQL database and emits InfluxDB line protocol to
+stdout. Telegraf handles timestamping and shipping to InfluxDB.
+
+Database connection is handled by libpq (psycopg2 uses it under the hood):
+PGHOST, PGDATABASE, PGUSER are set by custom_telegraf_env; PGPASSWORD is
+resolved via ~/.pgpass. No credential handling needed here.
+
+SQL queries are loaded from GALAXY_METRICS_QUERIES_FILE (default:
+/usr/local/share/galaxy-metrics/queries_daily.sql).
+
+Each query category becomes an InfluxDB measurement. String columns become
+tags; numeric columns (int/float/Decimal) become fields.
+"""
+
+import os
+import psycopg2
+from decimal import Decimal
+
+QUERIES_FILE = os.environ.get(
+    'GALAXY_METRICS_QUERIES_FILE',
+    '/usr/local/share/galaxy-metrics/queries_daily.sql',
+)
+
+
+def load_queries(path):
+    queries = {}
+    current_category = current_description = None
+    current_query = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('-- CATEGORY: '):
+                if current_category and current_query:
+                    queries[current_category] = (current_description, '\n'.join(current_query))
+                current_category = line[len('-- CATEGORY: '):]
+                current_description = None
+                current_query = []
+            elif line.startswith('-- DESCRIPTION: '):
+                current_description = line[len('-- DESCRIPTION: '):]
+            elif line:
+                current_query.append(line)
+    if current_category and current_query:
+        queries[current_category] = (current_description, '\n'.join(current_query))
+    return queries
+
+
+def escape_tag(value):
+    """Escape spaces, commas, and equals signs in InfluxDB tag values."""
+    return str(value).replace('\\', '\\\\').replace(' ', '\\ ').replace(',', '\\,').replace('=', '\\=')
+
+
+def main():
+    # libpq reads PGHOST, PGDATABASE, PGUSER from env and PGPASSWORD from
+    # ~/.pgpass — no explicit credential handling needed.
+    conn = psycopg2.connect('')
+    try:
+        queries = load_queries(QUERIES_FILE)
+        with conn.cursor() as cur:
+            for category, (_description, query) in queries.items():
+                measurement = category.replace(' ', '_').lower()
+                cur.execute(query)
+                col_names = [d[0] for d in cur.description]
+                for row in cur.fetchall():
+                    tags, fields = [], []
+                    for col, val in zip(col_names, row):
+                        if isinstance(val, (int, float, Decimal)):
+                            fields.append(f'{col}={float(val)}')
+                        elif val is not None:
+                            tags.append(f'{col}={escape_tag(val)}')
+                    if fields:
+                        tag_str = (',' + ','.join(tags)) if tags else ''
+                        print(f'{measurement}{tag_str} {",".join(fields)}')
+    finally:
+        conn.close()
+
+
+if __name__ == '__main__':
+    main()

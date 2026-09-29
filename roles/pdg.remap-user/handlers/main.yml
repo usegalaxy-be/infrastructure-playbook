@@ -1,0 +1,19 @@
+- name: autofs stop
+  ansible.builtin.service:
+    name: autofs
+    state: stopped
+
+- name: autofs start
+  ansible.builtin.service:
+    name: autofs
+    state: started
+
+- name: autofs restart
+  ansible.builtin.service:
+    name: autofs
+    state: restarted
+
+- name: autofs reload
+  ansible.builtin.service:
+    name: autofs
+    state: reload

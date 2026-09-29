@@ -1,0 +1,10 @@
+---
+platforms:
+  - name: systemd
+    image: rockylinux:9
+    pre_build_image: false
+    systemd: true
+    privileged: true
+    command: "/usr/sbin/init"
+    tty: true
+    dockerfile: Dockerfile.j2

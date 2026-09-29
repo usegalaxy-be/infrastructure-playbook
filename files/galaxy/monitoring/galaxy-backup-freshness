@@ -1,0 +1,44 @@
+#!/bin/bash
+# galaxy-backup-freshness
+# Reports how long ago the nightly database backup last completed, for both the
+# local dump and the offsite copy. The offsite figure comes from a marker file
+# that backup_db.sh writes only after the upload command exits 0, so a failed
+# upload shows up as a stale age rather than as nothing at all.
+# Outputs InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/galaxy-backup-freshness
+# Telegraf exec plugin interval: 1h
+#
+# Usage: galaxy-backup-freshness <backup_dir>
+
+set -o pipefail
+
+backup_dir="${1:?usage: galaxy-backup-freshness <backup_dir>}"
+marker="${backup_dir}/.last_offsite_backup"
+now=$(date +%s)
+
+# Offsite: marker file written by backup_db.sh on a successful upload.
+# Missing marker reports as -1 so the alert can tell "never succeeded" apart
+# from "succeeded a long time ago".
+if [[ -r "$marker" ]]; then
+    offsite_epoch=$(awk 'NR==1 {print $1+0}' "$marker")
+    offsite_bytes=$(awk 'NR==1 {print $2+0}' "$marker")
+    offsite_age=$(( (now - offsite_epoch) / 3600 ))
+else
+    offsite_age=-1
+    offsite_bytes=0
+fi
+
+# Local: newest dump actually present on disk.
+newest=$(find "$backup_dir" -maxdepth 1 -name '*.pgsql.gz' -printf '%T@ %s\n' 2>/dev/null \
+    | sort -rn | head -1)
+if [[ -n "$newest" ]]; then
+    local_age=$(( (now - ${newest%%.*}) / 3600 ))
+    local_bytes=$(printf '%s' "$newest" | awk '{print $2+0}')
+else
+    local_age=-1
+    local_bytes=0
+fi
+
+printf 'galaxy_backup offsite_age_hours=%di,offsite_bytes=%di,local_age_hours=%di,local_bytes=%di\n' \
+    "$offsite_age" "$offsite_bytes" "$local_age" "$local_bytes"

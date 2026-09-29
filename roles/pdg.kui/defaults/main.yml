@@ -1,0 +1,12 @@
+---
+
+kui_enable: True
+
+kui_repo: https://github.com/galaxyproject/kui.git
+kui_version: main
+kui_install_path: "/opt/kui/"
+
+instance_code: "dev"
+galaxy_domain: "usegalaxy.dev"
+galaxy_db_name: "galaxy-dev"
+galaxy_user: galaxy

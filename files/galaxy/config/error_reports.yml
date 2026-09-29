@@ -1,0 +1,21 @@
+# Galaxy Error Reporters Configuration
+# Controls how job errors are reported to administrators and/or users.
+#
+# This file is deployed via galaxy_config_files and referenced
+# by error_report_file in gxconfig.yml.
+#
+# Note: InfluxDB job error tracking is handled separately via the
+# galaxy-job-error-stats Telegraf exec plugin (see host_vars monitoring.yml),
+# which counts database-level job failures and writes them to InfluxDB directly.
+
+# Email reporter: sends error reports when users click "Report Error" on a failed job.
+# Emails go to error_email_to configured in gxconfig.yml.
+- type: email
+  user_submission: true
+  verbose: true
+
+# Sentry reporter: automatically captures Python tracebacks (no user interaction needed).
+# Enable this once Sentry DSN is configured in sentryservers group_vars.
+# - type: sentry
+#   user_submission: false
+#   dsn: "{{ vault_sentry_dsn }}"

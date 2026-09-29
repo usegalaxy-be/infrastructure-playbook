@@ -1,0 +1,72 @@
+#!/bin/bash
+# vault-grep — search HashiCorp Vault KV secrets by key or value
+#
+# Usage:
+#   vault-grep <pattern>              # search vsc/prod/usegalaxy-be recursively
+#   vault-grep <pattern> <path>       # search a specific mount/path prefix
+#
+# Requires: vault CLI on PATH, VAULT_ADDR set, and a valid token
+# (vault login / VAULT_TOKEN).
+
+set -euo pipefail
+
+PATTERN="${1:-}"
+SEARCH_PATH="${2:-vsc/prod/usegalaxy-be}"
+
+if [[ -z "$PATTERN" ]]; then
+    echo "Usage: vault-grep <pattern> [mount/path]" >&2
+    exit 1
+fi
+
+if ! command -v vault >/dev/null 2>&1; then
+    echo "vault CLI not found on PATH" >&2
+    exit 1
+fi
+
+if [[ -z "${VAULT_ADDR:-}" ]]; then
+    echo "VAULT_ADDR is not set" >&2
+    exit 1
+fi
+
+# Recursively print every secret (leaf) path under a mount/path prefix.
+list_paths() {
+    local path="$1"
+    local entries
+    entries=$(vault kv list -format=json "$path" 2>/dev/null) || return 0
+    while IFS= read -r entry; do
+        if [[ "$entry" == */ ]]; then
+            list_paths "${path%/}/${entry}"
+        else
+            echo "${path%/}/${entry}"
+        fi
+    done < <(echo "$entries" | python3 -c "
+import json, sys
+for e in json.load(sys.stdin):
+    print(e)
+")
+}
+
+FOUND=0
+while IFS= read -r secret_path; do
+    [[ -z "$secret_path" ]] && continue
+    result=$(vault kv get -format=json "$secret_path" 2>/dev/null \
+        | python3 -c "
+import sys, json, re
+pattern = sys.argv[1]
+try:
+    data = json.load(sys.stdin)['data']['data']
+    for key, val in data.items():
+        if re.search(pattern, key, re.IGNORECASE) or re.search(pattern, str(val), re.IGNORECASE):
+            print(f'{key}: {val}')
+except Exception:
+    pass
+" "$PATTERN" || true)
+    if [[ -n "$result" ]]; then
+        echo "=== $secret_path ==="
+        echo "$result"
+        echo
+        FOUND=1
+    fi
+done < <(list_paths "$SEARCH_PATH")
+
+[[ $FOUND -eq 0 ]] && echo "No matches found for '$PATTERN' under $SEARCH_PATH"

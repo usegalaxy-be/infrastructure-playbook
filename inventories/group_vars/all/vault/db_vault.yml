@@ -1,0 +1,14 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+_vault_db: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/db') }}"
+vault_prod_postgres_host: "{{ _vault_db.vault_prod_postgres_host }}"
+vault_postgres_port: "{{ _vault_db.vault_postgres_port }}"
+vault_prod_postgres_user: "{{ _vault_db.vault_prod_postgres_user }}"
+vault_prod_postgres_pass: "{{ _vault_db.vault_prod_postgres_pass }}"
+vault_prod_db_name: "{{ _vault_db.vault_prod_db_name }}"
+vault_prod_backup_db_name: "{{ _vault_db.vault_prod_backup_db_name }}"
+vault_test_postgres_host: "{{ _vault_db.vault_test_postgres_host }}"
+vault_test_postgres_user: "{{ _vault_db.vault_test_postgres_user }}"
+vault_test_postgres_pass: "{{ _vault_db.vault_test_postgres_pass }}"
+vault_test_db_name: "{{ _vault_db.vault_test_db_name }}"
+vault_test_backup_db_name: "{{ _vault_db.vault_test_backup_db_name }}"

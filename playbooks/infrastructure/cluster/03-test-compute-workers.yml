@@ -1,0 +1,94 @@
+---
+# ============================================================================
+# LEGACY — Test Compute Workers Playbook
+# ============================================================================
+#
+# The testcomputeservers group has been removed. worker1xl0.usegalaxy.be has
+# been moved to prodcomputeservers and test.usegalaxy.be now submits directly
+# to the prod HTCondor cluster (CM: usegalaxy.be / <galaxy-prod-ip>).
+#
+# Use 02-prod-compute-workers.yml to manage all compute workers.
+# ============================================================================
+
+# - hosts: testcomputeservers  # group removed; use 02-prod-compute-workers.yml
+  become: true
+  become_user: root
+  vars:
+    uninstall_condor: false
+  pre_tasks:
+    - name: Install Dependencies
+      package:
+        name: ['acl']
+      become: true
+      become_user: root
+    - name: Print condor_host
+      debug:
+        msg: "condor_host: {{ condor_host }}"
+    - name: Print condor_role
+      debug:
+        msg: "condor_role: {{ condor_role }}"
+    - name: Print vault_condor_pass
+      debug:
+        msg: "vault_condor_pass: {{ vault_condor_pass }}"
+    - name: Set docker_users (Docker role)
+      set_fact:
+        docker_users: "{{ galaxy_user_name }}"
+    - name: Add groups to Galaxy user
+      ansible.builtin.user:
+        name: "{{ galaxy_user_name }}"
+        groups: condor,docker
+        append: true
+    - name: Remove previous installation
+      package:
+        name: condor
+        state: absent
+      when: uninstall_condor
+    - name: Print telegraf_agent_output
+      debug:
+        msg: "telegraf_agent_output: {{ telegraf_agent_output }}"
+
+  roles:
+      # Set NTP
+      - role: influxdata.chrony
+
+      # Remap galaxy and condor users
+
+      # - role: pdg.remap-user
+
+      # HTCondor Cluster setup
+
+      # - role: usegalaxy_eu.htcondor
+
+      # Autofs setup
+
+      # - role: pdg.autofs
+
+      # Installs and configures docker; sets up SSL certificates
+
+      - role: geerlingguy.docker
+
+      # Installs and configures telegraf for monitoring and sending stats to InfluxDB
+
+      - role: dj-wasabi.telegraf
+
+      # Installs condor monitoring scripts
+
+      # - role: hxr.monitor-cluster
+
+      # Installs nfs monitoring
+
+      # - role: pdg.monitoring
+
+      # job stat collection
+
+      # - role: pdg.galaxy_stats 
+
+  post_tasks:
+    - name: Disable pulsar
+      systemd:
+        name: pulsar
+        state: stopped
+    - name: Start condor
+      systemd:
+        name: condor
+        state: started 

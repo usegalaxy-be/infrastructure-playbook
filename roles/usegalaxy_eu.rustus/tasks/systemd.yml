@@ -1,0 +1,24 @@
+---
+
+# Using the systemd instance functionality doesn't work here beacuse the user/group cannot be an env var, but should not
+# necessarily be the same for all instances, so we resort to creating individual service units for each instance.
+- name: Install rustus service units
+  ansible.builtin.template:
+    src: rustus.service.j2
+    dest: /etc/systemd/system/rustus-{{ item.name }}.service
+    mode: "0644"
+  loop: "{{ rustus_instances }}"
+  register: __rustus_modified_instances
+  notify:
+    - Reload systemd
+    - Restart modified rustus instances
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure configured rustus instances are enabled and running
+  ansible.builtin.service:
+    name: rustus-{{ item.name }}.service
+    state: started
+    enabled: true
+  loop: "{{ rustus_instances }}"

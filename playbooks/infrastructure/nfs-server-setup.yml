@@ -1,0 +1,101 @@
+---
+# NFS Server Setup: block device mount, directory structure, NFS exports.
+# Exports managed by geerlingguy.nfs via nfs_exports in group_vars/nfsservers/nfs.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/infrastructure/nfs-server-setup.yml
+
+- name: Setup NFS Server
+  hosts: nfsservers
+  become: true
+  gather_facts: true
+
+  vars:
+    # Explicit opt-in to format nfs_data_device — true only for a genuine
+    # first-time setup, pass via -e rather than editing this default.
+    nfs_data_device_format: false
+
+  pre_tasks:
+    - name: Apply common repo fixes (skip unavailable repos, refresh pgdg GPG key, fix openssl get_url bug)
+      ansible.builtin.include_tasks: tasks/fix_repos.yml
+
+    - name: Install filesystem utilities
+      package:
+        name:
+          - xfsprogs
+        state: present
+
+    - name: Create /data/share mount point
+      file:
+        path: /data/share
+        state: directory
+        mode: "0755"
+
+    - name: Format block device as XFS (first-time setup only, requires nfs_data_device_format)
+      filesystem:
+        fstype: xfs
+        dev: "{{ nfs_data_device }}"
+        force: false
+      when: nfs_data_device_format | bool
+
+    - name: Mount /data/share
+      mount:
+        path: /data/share
+        src: "{{ nfs_data_device }}"
+        fstype: xfs
+        opts: defaults,nofail
+        state: mounted
+
+    # Only other export root besides /data/share itself (see nfs_exports).
+    - name: Ensure data_stage export root exists
+      file:
+        path: /data/share/data_stage
+        state: directory
+        mode: "0755"
+
+  roles:
+    - role: geerlingguy.nfs
+
+    # System metrics -> InfluxDB, output config inherited from telegrafservers group.
+    - role: dj-wasabi.telegraf
+
+  tasks:
+    # geerlingguy.nfs doesn't manage nfsd thread count; stock default (8) leaves
+    # most vCPUs idle on a metadata/IO-bound workload.
+    - name: Set nfsd thread count
+      ansible.builtin.lineinfile:
+        path: /etc/nfs.conf
+        regexp: '^#?\s*threads\s*='
+        line: "threads={{ nfs_server_threads }}"
+        insertafter: '^\[nfsd\]'
+      notify: Restart nfs-server
+
+    - name: Open NFS in firewall
+      firewalld:
+        service: nfs
+        permanent: true
+        state: enabled
+        immediate: true
+      ignore_errors: true  # firewalld may not be running
+
+    # Historical CPU/IO/network/load metrics (sar).
+    - name: Install sysstat (sar)
+      package:
+        name: sysstat
+        state: present
+
+    - name: Enable sysstat collection (samples every 10 min, daily summary)
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - sysstat.service
+        - sysstat-collect.timer
+        - sysstat-summary.timer
+
+  handlers:
+    - name: Restart nfs-server
+      ansible.builtin.systemd:
+        name: nfs-server
+        state: restarted

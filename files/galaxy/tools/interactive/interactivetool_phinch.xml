@@ -1,0 +1,43 @@
+<tool id="interactive_tool_phinch" tool_type="interactive" name="Phinch Visualisation" version="0.1">
+    <icon src="phinch.png" />
+    <requirements>
+        <container type="docker">shiltemann/docker-phinch-galaxy:16.04</container>
+    </requirements>
+    <entry_points>
+        <entry_point name="Phinch Visualisation of $infile.display_name" label="phinch" requires_domain="False" requires_path_in_url="True">
+            <port>80</port>
+        </entry_point>
+    </entry_points>
+    <environment_variables>
+        <environment_variable name="EP_PATH" inject="entry_point_path_for_label">phinch</environment_variable>
+    </environment_variables>
+    <command><![CDATA[
+        #import os
+        #set $name = os.path.splitext(str($infile.display_name).replace(' ', '_'))[0]
+        ## in case someone names the data testdata.
+        rm /home/Phinch/data/testdata.biom | true &&
+        ln -s '$infile' '/home/Phinch/data/${name}.biom' &&
+        sed -i  "s/'REPLACE_ME'/'${name}.biom'/g" /home/Phinch/scripts/readFile.js &&
+        ## Rewrite http→https so hostURL (window.location.pathname-based) uses HTTPS.
+        sed -i  "s/http/https/g" /home/Phinch/scripts/readFile.js &&
+        ## Write nginx location block: proxy EP_PATH_CLEAN/ → php -S on 127.0.0.1:8080.
+        EP_PATH_CLEAN="\${EP_PATH%/}" &&
+        printf 'server {\n    listen 80;\n    location %s {\n        proxy_pass http://127.0.0.1:8080/;\n    }\n}\n' "\${EP_PATH_CLEAN}" > /etc/nginx/sites-available/default &&
+        cd /home/Phinch &&
+        sh -c 'php -S 127.0.0.1:8080 &' &&
+        nginx -g 'daemon off;' 2>&1 > /var/log/phinch.log
+
+    ]]>
+    </command>
+    <inputs>
+        <param name="infile" type="data" format="biom1" label="Biom1 dataset"/>
+    </inputs>
+    <outputs>
+        <data name="outfile" format="txt" />
+    </outputs>
+    <tests>
+    </tests>
+    <help>
+        Interactive tool for visualising Biom data.
+    </help>
+</tool>

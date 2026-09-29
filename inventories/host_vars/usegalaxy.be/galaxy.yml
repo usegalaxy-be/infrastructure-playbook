@@ -1,0 +1,96 @@
+#### Environment stuff
+
+inventory_hostname: usegalaxy.be
+galaxy_instance_hostname: usegalaxy.be
+galaxy_instance_codename: main
+galaxy_base_dir: /srv/galaxy
+galaxy_commit_id: release_26.1 # advance stepwise: 25.0 → 25.1 → 26.0; only advance after test is validated at each step
+galaxy_brand: "Belgium"
+server_hostname: "{{ galaxy_instance_hostname }}"
+
+galaxy_install_database_connection: "sqlite:///{{ galaxy_mutable_data_dir }}/shed_data/shed_database/universe.sqlite?isolation_level=IMMEDIATE"
+# Filesystem path of the root of a Galaxy deployment, the Galaxy server code will be installed in to a subdirectory of this directory.
+galaxy_root: /srv/galaxy
+
+# Filesystem path where the Galaxy server code will be installed (cloned)
+# TODO: rename to /server
+galaxy_server_dir: "{{ galaxy_shared_root }}/src"
+
+# Galaxy's virtualenv directory. Versioned by Python version so a new venv is only
+# created when the Python interpreter changes — old Galaxy keeps serving while the new
+# venv is built alongside it, then galaxyctl graceful switches over with no downtime.
+galaxy_venv_dir: "{{ galaxy_shared_root }}/etc/venv-py{{ galaxy_python_version }}"
+
+# Node-local RAM (tmpfs) copy of this env's Galaxy lib+venv on the condor workers
+# (see roles/pdg.galaxy_code_tmpfs). Per-env mount so test/prod stay isolated on
+# the shared workers. `_enabled: false` keeps the TPV env override off until the
+# workers are rolled out; flip to true to activate.
+galaxy_code_tmpfs_mount: /opt/galaxy_prod
+galaxy_code_tmpfs_enabled: true
+
+# TODO: any tool dependencies that are not the venv could be shared between prod and test
+galaxy_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies"
+galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies/tool-dependencies"
+
+# List of tool configs to load
+galaxy_tool_config_files:
+  - "{{ galaxy_config_dir }}/tool_conf.xml"
+  - "{{ galaxy_shed_tool_conf_file }}"
+  # - "{{ shared_tool_conf_file | default('') }}"
+  # - "{{ galaxy_server_dir }}/config/tool_conf.xml.sample"
+  # - "{{ galaxy_config_dir }}/interactive_tools_conf.xml"
+
+# Directory on the Galaxy server where local tools will be installed.
+# TODO: change this to be within the shared nfs directory and shared between prod and test
+galaxy_local_tools_dir: "{{ galaxy_mutable_data_dir }}/local_tools"
+
+# Directory to store Data Manager based tool-data. Defaults to the value of the <tool_data_path> option.
+# TODO: This should probably be within the shared nfs directory and shared between prod and test
+galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_data"
+
+# TODO: can be shared between prod and test
+galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"
+
+# NOTE: these paths are used by object_store_conf.xml
+# previously: galaxy_file_path: "{{galaxy_mutable_data_dir}}/files"
+# NOTE: currently the primary storage location is tier-1 data but we still need these to retrieve old user data
+# TODO: unify between test and prod
+old_galaxy_file_path: "{{ galaxy_mutable_data_dir }}/files"
+galaxy_file_path: "{{ galaxy_mutable_data_dir }}/objects"
+galaxy_tmp_dir: "{{ galaxy_mutable_data_dir }}/tmp/temp"
+
+# Where temporary files are stored. It must be accessible at the same
+# path on any cluster nodes that will run Galaxy jobs
+# TODO: unify between test and prod
+galaxy_new_file_path: "{{ galaxy_mutable_data_dir }}/tmp/scratch"
+
+# Each job is given a unique empty directory as its current working
+# directory. This option defines in what parent directory those
+# directories will be created.
+# TODO: unify between test and prod
+galaxy_job_working_directory: "{{ galaxy_mutable_data_dir }}/tmp/jobs"
+# NOTE: unused
+# galaxy_cluster_files_directory: "{{ galaxy_mutable_data_dir }}/tmp/pbs"
+
+# Top level cache directory. Any other cache directories (tool_cache_data_dir, template_cache_path, etc.)
+# should be subdirectories.
+galaxy_cache_dir: "{{ galaxy_mutable_data_dir }}/cache"
+
+# TODO: implement a local disk (not NFS) iRODS object store cache to avoid double network hop
+# galaxy_irods_cache_path: "{{ galaxy_local_root }}/object_store_cache"
+
+# tpv vars
+# Pulsar VIB job directory
+galaxy_pulsar_vib_job_dir: /data/share
+alphafold_db_path: "{{ galaxy_mutable_data_dir }}/alphafold_db"
+
+# Galaxy Interactive Tools: base domain for subdomain routing.
+# Galaxy constructs tool URLs as <ep_token>.ep.interactivetool.test.usegalaxy.be
+# For production, set to: ep.interactivetool.usegalaxy.be
+interactivetools_proxy_host: ep.interactivetool.usegalaxy.be
+
+# condor vars
+internal_address: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
+condor_cm: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
+#/32
+

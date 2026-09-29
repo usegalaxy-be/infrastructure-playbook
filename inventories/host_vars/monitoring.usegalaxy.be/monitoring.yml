@@ -1,0 +1,69 @@
+---
+# ============================================================================
+# monitoring.usegalaxy.be — Dedicated monitoring VM
+# ============================================================================
+# Hosts: InfluxDB (Docker, HTTP) + Grafana (systemd, port 3000)
+# No TLS on InfluxDB — internal-only VM on <vsc-vm-network>.
+# No nginx — Grafana served directly on port 3000.
+# Add TLS + nginx proxy later when certs are provisioned.
+# ============================================================================
+
+# host_mappings: "{{ vault_host_mappings }}"
+
+# usegalaxy_eu.influxdbserver
+
+hostname: "{{ inventory_hostname }}"
+influx_port: 8086
+influx_url: "http://monitoring.usegalaxy.be:8086"
+
+influxdb_databases:
+  - galaxy
+  - grt
+  - galaxy_stats
+  - notifications
+  - internal_metrics
+
+# Disable HTTPS — no cert infrastructure on this VM yet
+influxdb_http_https_enabled: "false"
+influxdb_https_enabled: "false"
+
+# Run InfluxDB data dir under /var/lib/influxdb (root disk for now)
+# TODO: move to attached Cinder volume when provisioned
+influxdb_data_dir: /var/lib/influxdb
+
+# Use the ansible user since galaxy_master doesn't exist on this VM yet
+influxdb_user: rocky
+influxdb_group: rocky
+
+# # InfluxDB container: no cert volume mounts (HTTP only)
+# influxdb_container:
+#   name: influxdb_server
+#   image: influxdb:1.8
+
+influxdb_container_standalone_setup_details:
+  volumes:
+    - "{{ influxdb_data_dir }}:/var/lib/influxdb"
+  ports:
+    - 8086:8086
+    - 8099:8088
+  env:
+    INFLUXDB_HTTP_AUTH_ENABLED: "true"
+    INFLUXDB_HTTP_ENABLED: "true"
+    INFLUXDB_HTTP_HTTPS_ENABLED: "false"
+    INFLUXDB_HTTP_LOG_ENABLED: "false"
+    INFLUXDB_DATA_INDEX_VERSION: "tsi1"
+    INFLUXDB_DATA_CACHE_MAX_MEMORY_SYZE: '1048576000'
+    INFLUXDB_DATA_CACHE_SNAPSHOT_WRITE_COLD_DURATION: "10s"
+    INFLUXDB_DATA_MAX_VALUES_PER_TAG: '3000000'
+    INFLUXDB_LOGGING_LEVEL: "error"
+
+# grafana.grafana — served via proxy at https://monitoring.usegalaxy.be/
+# Grafana itself binds on HTTP :3000; TLS is terminated at the proxy.
+grafana_url: "https://monitoring.usegalaxy.be/"
+grafana_domain: "monitoring.usegalaxy.be"
+
+grafana_server:
+  serve_from_sub_path: false
+
+# Grafana datasource: InfluxDB is on the same machine → use localhost
+grafana_influx_url: "http://localhost:8086"

@@ -1,0 +1,7 @@
+---
+# Logging (playbooks/infrastructure/00-init.yml)
+
+# Cap for the persistent systemd journal (/var/log/journal). Without this,
+# journald defaults to 10% of the filesystem (up to 4 GB), which on the 30 GB
+# root disk contributes to disk-full conditions.
+journald_system_max_use: "1G"

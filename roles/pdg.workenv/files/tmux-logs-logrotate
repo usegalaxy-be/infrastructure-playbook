@@ -1,0 +1,17 @@
+# /etc/logrotate.d/tmux-logs
+# Managed by Ansible (pdg.workenv)
+#
+# Rotates ~/tmux-logs/*.log daily, keeping 7 days.
+# copytruncate is required because tmux pipe-pane holds the file open —
+# without it logrotate would rotate the inode but tmux would keep writing
+# to the old (now unlinked) file.
+
+/home/galaxy_master/tmux-logs/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+}

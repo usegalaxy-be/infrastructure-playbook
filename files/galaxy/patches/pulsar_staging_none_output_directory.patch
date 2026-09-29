@@ -1,0 +1,29 @@
+--- a/pulsar/client/staging/__init__.py
++++ b/pulsar/client/staging/__init__.py
+@@ -295,7 +295,7 @@
+         )
+
+     def has_output_file(self, output_file):
+-        return basename(output_file) in self.output_directory_contents
++        return self.output_directory_contents is not None and basename(output_file) in self.output_directory_contents
+
+     def output_extras(self, output_file):
+         """
+@@ -307,5 +307,5 @@
+             return join(output_directory, self.path_helper.local_name(name))
+
+         files_directory = "{}_files{}".format(basename(output_file)[0:-len(".dat")], self.path_helper.separator)
+-        names = filter(lambda o: o.startswith(files_directory), self.output_directory_contents)
++        names = filter(lambda o: o.startswith(files_directory), self.output_directory_contents or [])
+         return dict(map(lambda name: (local_path(name), name), names))
+--- a/pulsar/client/staging/down.py
++++ b/pulsar/client/staging/down.py
+@@ -110,7 +110,7 @@
+     def __collect_version_file(self):
+         version_file = self.client_outputs.version_file
+         pulsar_output_directory_contents = self.pulsar_outputs.output_directory_contents
+-        if version_file and COMMAND_VERSION_FILENAME in pulsar_output_directory_contents:
++        if version_file and COMMAND_VERSION_FILENAME in (pulsar_output_directory_contents or []):
+             self._attempt_collect_output('output', version_file, name=COMMAND_VERSION_FILENAME)
+
+     def __collect_other_working_directory_files(self):

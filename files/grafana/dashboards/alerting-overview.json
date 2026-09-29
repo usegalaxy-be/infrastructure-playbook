@@ -1,0 +1,316 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Status of every Grafana alert rule in the Galaxy Alerts folder: what is firing right now, and the full prod/test board including alerts that are currently resolved.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "title": "Currently Active",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "title": "Critical Firing",
+      "type": "alertlist",
+      "options": {
+        "alertInstanceLabelFilter": "{severity=\"critical\"}",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 20,
+        "showInstances": false,
+        "sortOrder": 3,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": false,
+          "normal": false,
+          "pending": true,
+          "inactive": false
+        },
+        "viewMode": "stat"
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "id": 3,
+      "title": "Warning Firing",
+      "type": "alertlist",
+      "options": {
+        "alertInstanceLabelFilter": "{severity=\"warning\"}",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 20,
+        "showInstances": false,
+        "sortOrder": 3,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": false,
+          "normal": false,
+          "pending": true,
+          "inactive": false
+        },
+        "viewMode": "stat"
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "id": 4,
+      "title": "Info Firing",
+      "type": "alertlist",
+      "options": {
+        "alertInstanceLabelFilter": "{severity=\"info\"}",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 20,
+        "showInstances": false,
+        "sortOrder": 3,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": false,
+          "normal": false,
+          "pending": true,
+          "inactive": false
+        },
+        "viewMode": "stat"
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "id": 5,
+      "title": "No Data / Error",
+      "type": "alertlist",
+      "options": {
+        "alertInstanceLabelFilter": "",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [],
+        "groupMode": "default",
+        "maxItems": 20,
+        "showInstances": false,
+        "sortOrder": 3,
+        "stateFilter": {
+          "error": true,
+          "firing": false,
+          "noData": true,
+          "normal": false,
+          "pending": false,
+          "inactive": false
+        },
+        "viewMode": "stat"
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "description": "Every rule that is not currently Normal, across both environments. This is the list to check first: if it is empty, nothing needs attention.",
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 6,
+      "title": "Active Alerts (all severities, all environments)",
+      "type": "alertlist",
+      "options": {
+        "alertInstanceLabelFilter": "",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [
+          "severity"
+        ],
+        "groupMode": "custom",
+        "maxItems": 100,
+        "showInstances": true,
+        "sortOrder": 3,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": true,
+          "normal": false,
+          "pending": true,
+          "inactive": false
+        },
+        "viewMode": "list"
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "id": 7,
+      "title": "Full Status Board (includes resolved / normal)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "description": "Every rule labelled env=prod, whatever its current state. Use this to confirm an alert has actually gone back to Normal, not just stopped repeating.",
+      "gridPos": {
+        "h": 14,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
+      "id": 8,
+      "title": "Prod",
+      "type": "alertlist",
+      "options": {
+        "alertInstanceLabelFilter": "{env=\"prod\"}",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [
+          "severity"
+        ],
+        "groupMode": "custom",
+        "maxItems": 100,
+        "showInstances": true,
+        "sortOrder": 3,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": true,
+          "normal": true,
+          "pending": true,
+          "inactive": false
+        },
+        "viewMode": "list"
+      }
+    },
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "description": "Every rule labelled env=test, whatever its current state.",
+      "gridPos": {
+        "h": 14,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
+      "id": 9,
+      "title": "Test",
+      "type": "alertlist",
+      "options": {
+        "alertInstanceLabelFilter": "{env=\"test\"}",
+        "alertName": "",
+        "dashboardAlerts": false,
+        "groupBy": [
+          "severity"
+        ],
+        "groupMode": "custom",
+        "maxItems": 100,
+        "showInstances": true,
+        "sortOrder": 3,
+        "stateFilter": {
+          "error": true,
+          "firing": true,
+          "noData": true,
+          "normal": true,
+          "pending": true,
+          "inactive": false
+        },
+        "viewMode": "list"
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "alerting",
+    "status"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Alerting Overview",
+  "uid": "be-alerting-overview",
+  "version": 2,
+  "weekStart": ""
+}

@@ -1,0 +1,189 @@
+#### Environment stuff
+# test server is deployed entirely on nfs share
+# TODO: change this
+
+inventory_hostname: test.usegalaxy.be
+galaxy_instance_hostname: test.usegalaxy.be
+galaxy_instance_codename: test
+galaxy_base_dir: /srv/galaxy_test
+galaxy_commit_id: release_26.1 # advance stepwise: 25.0 → 25.1 → 26.0 → 26.1
+galaxy_brand: "Belgium Test"
+server_hostname: "{{ galaxy_instance_hostname }}"
+
+galaxy_install_database_connection: "sqlite:///{{ galaxy_mutable_config_dir }}/universe.sqlite?isolation_level=IMMEDIATE"
+# Filesystem path of the root of a Galaxy deployment, the Galaxy server code will be installed in to a subdirectory of this directory.
+galaxy_root: /srv/galaxy_test
+
+# Filesystem path where the Galaxy server code will be installed (cloned).
+galaxy_server_dir: "{{ galaxy_shared_root }}/server"
+
+# Galaxy's virtualenv directory. Versioned by Python version so a new venv is only
+# created when the Python interpreter changes — old Galaxy keeps serving while the new
+# venv is built alongside it, then galaxyctl graceful switches over with no downtime.
+galaxy_venv_dir: "{{ galaxy_shared_root }}/database/tool-dependencies/venv-py{{ galaxy_python_version }}"
+
+# Node-local RAM (tmpfs) copy of this env's Galaxy lib+venv on the condor workers,
+# so the in-job metadata step imports from RAM instead of cold from NFS (see
+# roles/pdg.galaxy_code_tmpfs). Per-env mount so test/prod stay isolated on the
+# shared workers. `_enabled` gates the TPV env override; flip to true only after
+# the workers are rolled out + a job verified.
+galaxy_code_tmpfs_mount: /opt/galaxy_test
+galaxy_code_tmpfs_enabled: true
+
+# TODO: any tool dependencies that are not the venv could be shared between prod and test
+galaxy_dependency_dir: "{{ galaxy_shared_root }}/database/tool-dependencies"
+galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/database/tool-dependencies"
+
+# rsynced tool dependencies from production
+# this should be done differenly by mounting the same shared directory for both production and test, but this is a quick solution for now
+shared_tool_conf_file: "{{ galaxy_shared_root }}/shared_data/test/mutable-config/shed_tool_conf.xml"
+
+# List of tool configs to load
+galaxy_tool_config_files:
+  - "{{ galaxy_config_dir }}/tool_conf.xml"
+  - "{{ galaxy_shed_tool_conf_file }}"
+  - "{{ shared_tool_conf_file | default('') }}"
+  # - "{{ galaxy_server_dir }}/config/tool_conf.xml.sample"
+  - "{{ galaxy_config_dir }}/tool_conf_interactive.xml"
+
+# Directory on the Galaxy server where local tools will be installed. This is the default
+# TODO: change this to be within the shared nfs directory and shared between prod and test
+galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
+
+# Extend the group_vars galaxy_local_tools list with test-only test tools.
+# test tools are deployed to galaxy_local_tools_dir/tpv_test/ and appear in
+# local_tool_conf.xml under a "TPV test Tools" section (test only).
+galaxy_local_tools:
+  - api_test.xml
+  - testing.xml
+  - plink.xml
+  - protein_calculator/v1.0.2/protein_calculator.xml
+  - protein_calculator/v1.1.0/protein_calculator.xml
+  - protein_calculator/v1.1.0+galaxy2/protein_calculator.xml
+  # tool script (copied but not registered — the .py rides along so the container
+  # version check ($__root_dir__ -> lib/galaxy/version.py) is deployed, not scp'd)
+  # - protein_calculator/v1.1.0+galaxy2/protein_calculator.py
+  - openfold3/openfold3.xml
+  # Interactive tools
+  - interactive/interactivetool_ilastik.xml
+  - interactive/interactivetool_pavian.xml
+  - interactive/interactivetool_phinch.xml
+  - interactive/interactivetool_cellpose.xml
+  - interactive/interactivetool_scop3p_toolkit.xml
+  - interactive/pytorch_convert_safetensors.py
+  - interactive/interactivetool_cellprofiler.xml
+  - interactive/interactivetool_napari.xml
+  - interactive/pavian.png
+  - interactive/phinch.png
+  - interactive/ilastik.png
+  - interactive/cellpose.png
+  - interactive/cellprofiler.png
+  - interactive/napari.png
+  - interactive/scop3p_toolkit.png
+  # TPV test tools (test-only): one per distinct routing destination
+  - {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-conda.xml,       section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-gpu.xml,         section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-gpu-v3.xml,      section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-pulsar-be.xml,          section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-pulsar-vib.xml,         section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-pulsar-vib-gpu.xml,     section_name: "TPV test Tools", section_id: tpv_test}
+
+# Directory to store Data Manager based tool-data. Defaults to the value of the <tool_data_path> option.
+# TODO: This should probably be within the shared nfs directory and shared between prod and test
+galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/dm_data"
+
+# same as default
+# TODO: can be shared between prod and test
+galaxy_shed_tools_dir: "{{ galaxy_mutable_data_dir }}/shed_tools"
+
+# NOTE: these paths are used by object_store_conf.xml
+# previously: galaxy_file_path: "{{galaxy_mutable_data_dir}}/files"
+# NOTE: currently the primary storage location is tier-1 data but we still need these to retrieve old user data
+# TODO: unify between test and prod
+old_galaxy_file_path: "{{ galaxy_mutable_data_dir }}/objects"
+galaxy_file_path: "{{ galaxy_mutable_data_dir }}/objects1"
+galaxy_tmp_dir: "{{ galaxy_shared_root }}/tmp/temp"
+
+# Where temporary files are stored. It must be accessible at the same
+# path on any cluster nodes that will run Galaxy jobs
+# TODO: unify between test and prod
+galaxy_new_file_path: "{{ galaxy_shared_root }}/tmp/scratch"
+
+# TODO: unify between test and prod
+galaxy_job_working_directory: "{{ galaxy_shared_root }}/tmp/jobs"
+# NOTE: unused
+# galaxy_cluster_files_directory: "{{ galaxy_shared_root }}/tmp/pbs"
+
+# TODO: check if this actually needs to be set
+galaxy_cache_dir: "{{ galaxy_shared_root }}/tmp/cache"
+
+# TODO: implement a local disk (not NFS) iRODS object store cache to avoid double network hop
+# galaxy_irods_cache_path: "{{ galaxy_local_root }}/object_store_cache"
+
+# tpv vars
+# Pulsar VIB job directory
+galaxy_pulsar_vib_job_dir: /data/share/test
+# Use 'none' for remote Pulsar: container handles dependencies, no local conda resolution needed.
+# Prod uses the default ('local') set in destinations_shared.yml.j2.
+tpv_pulsar_dependency_resolution: "none"
+alphafold_db_path: "/srv/galaxy/shared/database/alphafold_db"
+
+# TODO: change mount points on test
+# galaxy_config_dir: "{{ galaxy_base_dir }}/shared/config"
+# galaxy_mutable_config_dir: "{{ galaxy_root }}/shared/mutable-config"
+# galaxy_virtualenv_python: /usr/bin/python3.8
+
+# influx_url: https://test.usegalaxy.be:59886
+
+# Galaxy Interactive Tools: base domain for subdomain routing.
+# Galaxy constructs tool URLs as <ep_token>.ep.interactivetool.test.usegalaxy.be
+# For production, set to: ep.interactivetool.usegalaxy.be
+interactivetools_proxy_host: ep.interactivetool.test.usegalaxy.be
+
+internal_address: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
+# TODO: change back to main condor manager when upgrade is done?
+condor_cm: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
+# condor_cm: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"  # alt path
+
+# usegalaxy_eu.tpv_broker
+
+influx_address: "{{ inventory_hostname }}"
+influx_port: 59886
+influx_db: galaxy
+
+# usegalaxy_eu.tpv_auto_lint — TPV routing validation on test
+# Runs tpv dry-run against test tools after every config deploy to catch routing regressions.
+# tool_admin@test.be must exist as a Galaxy user on test.
+tpv_dry_run: true
+tpv_dry_run_user: "tool_admin@test.be"
+tpv_dry_run_tools:
+  - test-condor-singularity
+  - test-condor-docker
+  - test-condor-conda
+  # Pulsar being decommissioned — skip dry-run validation for now
+  # - test-pulsar-be
+  # - test-pulsar-vib
+  # - test-pulsar-vib-gpu
+
+  # Real tools, one per distinct routing shape in tools.yml.j2, so a TPV
+  # config change (or an accidental rule collision with a new tool) gets
+  # caught here instead of only showing up in the next manual full test run.
+  # Picked to have purely static routing (inherits + scheduling/params only)
+  # -- tpv dry-run's mock has no real input_size/job/user, so tools whose
+  # rules depend on those (e.g. busco, fastqc, .*testing.*) would silently
+  # false-pass/false-fail here; that class of tool can only be verified by
+  # an actual tool-test run.
+  - upload1                                                                        # _conda_local
+  - toolshed.g2.bx.psu.edu/repos/bgruening/text_processing/tp_cat/0.1.0            # _legacy
+  - toolshed.g2.bx.psu.edu/repos/perssond/ashlar/ashlar/.*                         # _docker
+  - toolshed.g2.bx.psu.edu/repos/galaxy-australia/alphafold2/alphafold/.*          # _docker + gpu, unconditional rule
+  - toolshed.g2.bx.psu.edu/repos/devteam/bwa/bwa/.*                                # singularity, static cores/mem
+  - toolshed.g2.bx.psu.edu/repos/iuc/kraken2/kraken2/.*                            # singularity, static cores/mem
+  - toolshed.g2.bx.psu.edu/repos/bgruening/instagraal/instagraal/.*                # singularity/docker + gpu
+  - toolshed.g2.bx.psu.edu/repos/nml/spades/spades/.*                              # _spades: only the base require/inherits is meaningfully checked, not the input_size scaling rule
+tpv_dry_run_ignore_errors: false
+
+# Test consumes prod's synced tool state, it must not run its own bulk installs.
+galaxy_tools_install_schedule: []

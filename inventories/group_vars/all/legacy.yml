@@ -1,0 +1,44 @@
+---
+# pdg.postgres-backup
+
+# previously used in used by systemd deployment role
+# currently only used for backups 
+
+# galaxy_instance_codename: "{{ deploy_env }}"
+
+
+# pdg.galaxy_stats
+
+# influxdb:
+#     host: 'localhost'
+#     port: '8086'
+#     database: 'telegraf'
+
+# usegalaxy_eu.gie_proxy 
+
+# currebntly not in use, but these are the variables that would need to be set up for it
+# Interactive Environment Tools
+
+# GIE Proxy config (role usegalaxy_eu.gie_proxy)
+# TODO: need to add to path creation list
+# gie_proxy_dir: "{{ galaxy_base_dir}}/gie-proxy/proxy"
+# gie_proxy_git_version: main
+# gie_proxy_setup_nodejs: nodeenv
+# gie_proxy_virtulenv_command: "{{ galaxy_virtualenv_command }}"  ## this is for py3, check if indeed works ok
+# gie_proxy_nodejs_version: "10.13.0"
+# gie_proxy_virtualenv: "{{ galaxy_base_dir }}/gie-proxy/venv"
+# gie_proxy_setup_service: systemd
+# gie_proxy_sessions_path: "{{ galaxy_mutable_data_dir }}/interactivetools_map.sqlite"
+# gie_proxy_port: 8800
+# gie_proxy_verbose: true
+
+# gie_proxy_user: "{{ galaxy_user }}"
+# gie_proxy_group: "{{ galaxy_group }}"
+
+# galaxyproject.miniconda
+# set per host
+
+# conda_prefix: "{{ miniconda_prefix }}"
+# galaxy_virtualenv_command: "{{ conda_prefix }}/envs/_galaxy_/bin/python -m venv --copies"
+# galaxy_virtualenv_command: "/usr/bin/python3.9 -m venv" # usegalaxy_eu.certbot, usegalaxy_eu.tiaas2, galaxyproject.galaxy
+# pip_virtualenv_command: "/usr/bin/python3.9 -m venv"

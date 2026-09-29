@@ -1,0 +1,103 @@
+<tool id="protein_calculator" name="Protein Calculator" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" python_template_version="3.5" profile="21.05" license="MIT">
+    <description>by the VIB Protein Core</description>
+    <macros>
+        <token name="@TOOL_VERSION@">1.0.2</token>
+        <token name="@VERSION_SUFFIX@">0</token>
+    </macros>
+    <!-- <edam_topics>
+        <edam_topic></edam_topic>
+    </edam_topics> -->
+    <edam_operations>
+        <edam_operation>operation_0250</edam_operation>
+    </edam_operations>
+    <requirements>
+        <requirement type="package" version="3.13.3">python</requirement>
+        <requirement type="package" version="2.2.3">pandas</requirement>
+        <requirement type="package" version="6.0.1">plotly</requirement>
+        <requirement type="package" version="1.85">biopython</requirement>
+        <requirement type="package" version="3.1.6">jinja2</requirement>
+        <requirement type="package" version="0.2.1">python-kaleido</requirement>
+    </requirements>
+    <stdio>
+        <regex match="invalid character" source="both" level="fatal" description="Protein sequence contains invalid character(s). Please enter a valid Protein Sequence."/>
+        <regex match="minimum length" source="both" level="fatal" description="Protein sequence should have a minimum length of 10 residues. Please enter a valid Protein Sequence."/>
+        <regex match="maximum allowed length" source="both" level="fatal" description="Protein sequence should have a maximum length of 3000 residues. Please enter a valid Protein Sequence."/>
+    </stdio>
+    <version_command>python '$__tool_directory__/protein_calculator.py' --version</version_command>
+    <command detect_errors="exit_code"><![CDATA[
+        cp -r '$__tool_directory__/templates' . &&
+        python '$__tool_directory__/protein_calculator.py'
+    #if $name:
+        --name '$name'
+    #else:
+        echo 'Error: Protein name is required.' >&2
+        exit 1
+    #end if
+
+    #if $sequence:
+        --sequence '$sequence'
+    #else:
+        echo 'Error: Protein sequence is required.' >&2
+        exit 1
+    #end if
+    ]]></command>
+    <inputs>
+        <param argument="--name" type="text" label="Protein name" help="Name of the protein" optional="false" />
+        <param argument="--sequence" type="text" label="Protein sequence" help="Sequence to be processed. Protein sequence should have a minimum length of 10 residues." optional="false"/>
+
+    </inputs>
+    <outputs>
+        <data name="output1" format="html" from_work_dir="report.html" label="$name - report" />
+        <data name="output2" format="png" from_work_dir="plot.png" label="$name - titration curve" />
+        <data name="output3" format="html" from_work_dir="plot.html" label="$name - titration curve (interactive)" />
+
+    </outputs>
+    <tests>
+        <test>
+            <param name="name" value="test_name"/>
+            <param name="sequence" value="EASTEREGGEGG"/>
+            <output name="output1" file="report.html" lines_diff="1"/>
+            <output name="output2" file="plot.png" lines_diff="1"/>
+            <output name="output3" file="plot.html" lines_diff="2"/>
+        </test>
+    </tests>
+    <help><![CDATA[
+This Python-based tool will determine protein properties based on the amino acid sequence, which it summarizes in an HTML report and Plotly graph. 
+
+    .. class:: warningmark
+
+The maximum allowed sequence is set at 3.000 amino acids.
+
+    .. class:: infomark
+
+Usage: ``protein_calculator.py [-h] --name NAME --sequence SEQUENCE``
+
+
+Arguments:
+
+-h, --help                           
+            Show this help message and exit  
+
+--name                      
+            Name of the protein, in text format
+
+--sequence                       
+            Sequence to be processed, in text format
+
+-v, --version                        
+            Show the version of the tool and exit
+  
+
+    ]]></help>
+    <citations>
+        <citation type="bibtex">
+        @misc{githubProtein_Calculator,
+        author = {Balcaen, Kevin and Fonteyn, Robbe},
+        year = {2025},
+        title = {Protein_Calculator},
+        publisher = {GitHub},
+        journal = {GitHub repository},
+        url = {https://github.com/KBalcaen/Protein_Calculator},
+}</citation>
+    </citations>
+</tool>

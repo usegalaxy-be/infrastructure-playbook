@@ -1,0 +1,2 @@
+source ~/.bashrc
+pg_dump | gzip - > {{ backup_path }}/Galaxy-{{ deploy_env }}-$(date "+%Y%m%d-%H%M%S").pgsql.gz

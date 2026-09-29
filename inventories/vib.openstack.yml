@@ -1,0 +1,13 @@
+plugin: openstack.cloud.openstack
+clouds_yaml_path: ~/.config/openstack/clouds.yaml
+only_clouds:
+  - vib
+expand_hostvars: true
+keyed_groups:
+  - key: openstack.metadata.ansible_group
+    prefix: ""
+    separator: ""
+compose:
+  ansible_user: "'rocky'"
+  ansible_host: openstack.addresses['VSC_2024_002_vm'][0]['addr']
+  ansible_ssh_host: openstack.addresses['VSC_2024_002_vm'][0]['addr']

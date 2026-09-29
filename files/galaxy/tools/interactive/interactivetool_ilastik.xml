@@ -1,0 +1,130 @@
+<tool id="interactive_tool_ilastik" tool_type="interactive" name="Ilastik" version="@VERSION@" profile="24.2">
+    <description>interactive learning and segmentation toolkit</description>
+    <icon src="ilastik.png"/>
+    <macros>
+        <token name="@VERSION@">1.4.1.post1</token>
+    </macros>
+    <requirements>
+        <container type="docker">quay.io/galaxy/ilastik:@VERSION@</container>
+    </requirements>
+    <entry_points>
+        <entry_point name="Ilastik" label="ilastik" requires_domain="False" requires_path_in_url="True">
+            <port>5800</port>
+        </entry_point>
+    </entry_points>
+    <environment_variables>
+        <environment_variable name="EP_PATH" inject="entry_point_path_for_label">ilastik</environment_variable>
+    </environment_variables>
+    <command detect_errors="exit_code">
+    <![CDATA[
+        ## Check inputs have no duplicated element_identifier:
+        #set labels = [input.element_identifier for input in $infiles]
+        #set duplicates = [label for label in labels if labels.count(label) > 1]
+        #if len(duplicates) > 0:
+            #set unique_duplicates = list(set(duplicates))
+            echo "Cannot run ilastik because these identifiers are present more than once:" &&
+            #for label in $unique_duplicates:
+                echo $label &&
+            #end for
+            exit 1 &&
+        #end if
+        export HOME=\$PWD &&
+        ## NFS root_squash: root in container → nobody on NFS, can't write to galaxy-owned workdir.
+        ## Create a temporary uid=1001 (galaxy_master) user inside the container so NFS writes
+        ## are owned by galaxy_master. USER_ID/GROUP_ID tell jlesage/baseimage-gui /init to run
+        ## the app as uid=1001 as well, matching the EU usegalaxy.eu approach (RFC00165 avoided).
+        groupadd -g 1001 gxgroup 2>/dev/null || true &&
+        useradd -M -u 1001 -g 1001 gxuser 2>/dev/null || true &&
+        ## Create output dirs as uid=1001 (NFS-safe):
+        #if str($input_type.existing) == "existing":
+            runuser -u gxuser -- bash -c "mkdir -p ./output ./zarr_output && cp '$input_type.project' ./output/MyProject.ilp" &&
+        #else:
+            runuser -u gxuser -- bash -c "mkdir -p ./output ./zarr_output" &&
+        #end if
+        ## Link input images to current working directory (as uid=1001, NFS-safe).
+        ## runuser direct-binary fails PAM in this container; wrap in bash -c instead.
+        ## Skip adding extension if element_identifier already ends with it (from EU).
+        #for input in $infiles:
+            #if $input.element_identifier.endswith($input.ext):
+                runuser -u gxuser -- bash -c "ln -s '$input' ./'$input.element_identifier'" &&
+            #else:
+                runuser -u gxuser -- bash -c "ln -s '$input' './${input.element_identifier}.${input.ext}'" &&
+            #end if
+        #end for
+        ## Write the ilastik startup script directly to /bin/ (container-local, root-writable).
+        #if str($input_type.existing) == "new":
+            printf '%s\n' 'ilastik --new_project \$HOME/output/MyProject.ilp --workflow $input_type.Workflow' > /bin/ilastik_with_args && chmod +x /bin/ilastik_with_args &&
+        #else:
+            printf '%s\n' 'ilastik --project \$HOME/output/MyProject.ilp' > /bin/ilastik_with_args && chmod +x /bin/ilastik_with_args &&
+        #end if
+        ## /init (jlesage/baseimage-gui) calls mktemp early; Galaxy sets TMPDIR=$CWD/tmp/ which is
+        ## NFS root_squash-protected. Reset to container-local /tmp before /init runs.
+        export TMPDIR=/tmp &&
+        ## Reconfigure container nginx to serve noVNC at the Galaxy proxy path prefix.
+        ## /defaults/default_site.conf is copied to /var/tmp/nginx/ by 10-nginx.sh during /init.
+        EP_PATH_CLEAN="\${EP_PATH%/}" &&
+        sed -i '/error_page 497/d' /defaults/default_site.conf &&
+        sed -i "s|location /websockify {|location \${EP_PATH_CLEAN}/websockify {\n        websockify_pass unix:/tmp/vnc.sock;\n        websockify_read_timeout 5d;\n        websockify_send_timeout 5d;\n    }\n\n    location \${EP_PATH_CLEAN} {\n        alias /opt/noVNC/;\n        index index.html;\n        add_header Cache-Control no-cache;\n    }\n\n    location /websockify {|" /defaults/default_site.conf &&
+        /init &&
+        if [ -n "\$(ls -A ./zarr_output 2>/dev/null)" ]; then
+            runuser -u gxuser -- bash -c "mkdir -p '$zarr_output.extra_files_path' && cp -r ./zarr_output/* '$zarr_output.extra_files_path'";
+        fi
+    ]]>
+    </command>
+    <inputs>
+        <conditional name="input_type">
+            <param name="existing" type="select" label="Which project you want to work on?">
+                <option value="new">Start a new project</option>
+                <option value="existing">Modify an existing project</option>
+            </param>
+            <when value="new">
+                <param name="Workflow" type="select" label="Type of Workflow" >
+                    <option value="PixelClassificationWorkflow">Pixel Classification</option>
+                    <option value="AutocontextTwoStage">Autocontext (2-stage)</option>
+                    <option value="ObjectClassificationWorkflowPixel">Pixel Classification + Object Classification</option>
+                    <option value="ObjectClassificationWorkflowPrediction">Object Classification [Inputs: Raw Data, Pixel Prediction Map]</option>
+                    <option value="ObjectClassificationWorkflowBinary">Object Classification [Inputs: Raw Data, Segmentation]</option>
+                    <option value="ConservationTrackingWorkflowFromBinary">Tracking [Inputs: Raw Data, Segmentation Image]</option>
+                    <option value="ConservationTrackingWorkflowFromPrediction">Tracking [Inputs: Raw Data, Pixel Prediction Map]</option>
+                    <option value="AnimalConservationTrackingWorkflowFromBinary">Animal Tracking [Inputs: Raw Data, Segmentation Image]</option>
+                    <option value="AnimalConservationTrackingWorkflowFromPrediction">Animal Tracking [Inputs: Raw Data, Pixel Prediction Map]</option>
+                    <option value="StructuredTrackingWorkflowFromBinary">Tracking with Learning [Inputs: Raw Data, Segmentation Image]</option>
+                    <option value="StructuredTrackingWorkflowFromPrediction">Tracking with Learning [Inputs: Raw Data, Pixel Prediction Map]</option>
+                    <option value="EdgeTrainingWithMulticutWorkflow">Bounary-based Segmentation with Multicut</option>
+                    <option value="CountingWorkflow">Cell Density Counting</option>
+                    <option value="DataConversionWorkflow">Data Conversion</option>
+                    <option value="neuralNetwork.RemoteWorkflow">Neural Network Classification (Remote)</option>
+                    <option value="neuralNetwork.LocalWorkflow">Neural Network Classification (Local)</option>
+                </param>
+            </when>
+            <when value="existing">
+                <param argument="--project" type="data" format="h5" label="Existing ilastik project" />
+            </when>
+        </conditional>
+        <param name="infiles" type="data" format="tiff,h5" multiple="true" label="Input files in TIFF or h5 format"/>
+    </inputs>
+
+    <outputs>
+        <data name="ilastik_project" format="h5" label="Ilastik project file" from_work_dir="output/MyProject.ilp"/>
+        <data name="zarr_output" format="ome_zarr" label="Output OME-Zarr" />
+    </outputs>
+
+    <tests>
+    </tests>
+
+    <help><![CDATA[
+        Leverage machine learning algorithms to easily segment, classify, track and count your cells or other experimental data. Most operations are interactive, even on large datasets: you just draw the labels and immediately see the result. No machine learning expertise required.
+
+        This tool has been designed uniquely to make/modify a project.
+
+        - It requires that input images have unique identifiers.
+        - When you have trained your project, save it and quit the application. The project called 'MyProject.ilp' will be imported into your history.
+        - If you want to modify a project, make sure you use at least the same images (with the same identifiers) as the first time (but you can add more).
+
+        Please, check the documentation at https://www.ilastik.org/documentation/.
+]]>
+    </help>
+    <citations>
+        <citation type="doi">10.1038/s41592-019-0582-9</citation>
+    </citations>
+</tool>

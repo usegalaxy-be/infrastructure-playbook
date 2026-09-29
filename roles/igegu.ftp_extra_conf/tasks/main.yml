@@ -1,0 +1,20 @@
+
+
+## Cron job to create directories based on user emails
+# These are needed to store incoming data from ftp transfer
+- name: "Send create_ftp_dirs script from template"
+  template:
+    src: "templates/scripts/cron/create_ftp_dirs.sh.j2"
+    dest: "/usr/local/galaxy/galaxy-cron/create_ftp_dirs.sh"
+    owner: "{{ galaxy_user }}"
+    group: "{{ galaxy_group }}"
+    mode: 0740
+
+
+- cron:
+    name: "Create FTP directories"
+    job: /usr/local/galaxy/galaxy-cron/create_ftp_dirs.sh
+    minute: "*/15"
+    user: "{{ galaxy_user }}"
+  become: true
+

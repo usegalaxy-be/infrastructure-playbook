@@ -1,0 +1,61 @@
+<tool id="interactive_tool_cellpose" tool_type="interactive" name="CellPose Interactive" version="@VERSION@+galaxy0" profile="23.1">
+    <description>a generalist algorithm for cellular segmentation and restoration</description>
+    <icon src="cellpose.png" />
+    <macros>
+        <token name="@VERSION@">3.1.1.2</token>
+    </macros>
+    <requirements>
+        <container type="docker">quay.io/sunyi000/cellpose-galaxy:v@VERSION@</container>
+    </requirements>
+    <entry_points>
+        <entry_point name="CellPose" label="cellpose" requires_domain="False" requires_path_in_url="True">
+            <port>5800</port>
+        </entry_point>
+    </entry_points>
+    <environment_variables>
+        <environment_variable name="EP_PATH" inject="entry_point_path_for_label">cellpose</environment_variable>
+    </environment_variables>
+    <required_files>
+        <include path="pytorch_convert_safetensors.py" />
+    </required_files>
+    <command detect_errors="exit_code">
+    <![CDATA[
+        ## NFS root_squash: root in container → nobody on NFS, can't write to galaxy-owned workdir.
+        groupadd -g 1001 gxgroup 2>/dev/null || true &&
+        useradd -M -u 1001 -g 1001 gxuser 2>/dev/null || true &&
+        export HOME=\$PWD/home/ &&
+        export CELLPOSE_START_DIR=\$PWD/home/cp_working_dir/ &&
+        runuser -u gxuser -- bash -c "mkdir -p ./home/cp_working_dir/models/safe" &&
+        #for $i,$filename in enumerate($infiles):
+            runuser -u gxuser -- bash -c "ln -s '$filename' './home/cp_working_dir/${filename.element_identifier}.${filename.ext}'" &&
+        #end for
+        ## /init calls mktemp; Galaxy sets TMPDIR=$CWD/tmp/ which root_squash blocks. Reset to /tmp.
+        export TMPDIR=/tmp &&
+        ## Reconfigure container nginx for path-based proxy:
+        EP_PATH_CLEAN="\${EP_PATH%/}" &&
+        sed -i "s|location ~ /websockify|location \${EP_PATH_CLEAN}/websockify {\n        websockify_pass unix:/tmp/vnc.sock;\n        websockify_read_timeout 5d;\n        websockify_send_timeout 5d;\n    }\n\n    location \${EP_PATH_CLEAN} {\n        alias /opt/noVNC/;\n        index index.html;\n        add_header Cache-Control no-cache;\n    }\n\n    location ~ /websockify|" /opt/base/etc/nginx/default_site.conf &&
+        /init &&
+        if [ -n "\$(ls -A ./home/cp_working_dir/models 2>/dev/null)" ]; then
+            runuser -u gxuser -- bash -c "rm -f ./home/cp_working_dir/models/*.npy && python3 '$__tool_directory__/pytorch_convert_safetensors.py' --convert pt_safe --batch -i './home/cp_working_dir/models/' -o './home/cp_working_dir/models/safe'";
+        fi
+    ]]>
+    </command>
+    <inputs>
+        <param name="infiles" type="data" multiple="true" format="jpg,png,tiff,bmp,gif,pcx,ppm,psd,pbm,pgm,eps" label="Images" />
+        <param name="model" type="boolean" falsevalue="false" truevalue="true" checked="false" label="Output manual cellpose trained model?"/>
+    </inputs>
+    <outputs>
+        <collection name="model_output" type="list" label="Saved model(s)">
+            <discover_datasets pattern="__name_and_ext__" directory="./home/cp_working_dir/models/safe"/>
+            <filter>model</filter>
+        </collection>
+        <collection name="cp_output" type="list" label="CellPose output">
+            <discover_datasets pattern="__name_and_ext__" directory="./home/cp_working_dir"/>
+        </collection>
+    </outputs>
+    <tests>
+    </tests>
+    <help><![CDATA[
+]]>
+    </help>
+</tool>

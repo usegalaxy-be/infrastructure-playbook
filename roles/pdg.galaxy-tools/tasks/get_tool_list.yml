@@ -1,0 +1,10 @@
+---
+# Manage tools repo clone
+
+- name: Update galaxy-tools repo to specified ref
+  git:
+    dest: "{{ tools_repo_dir }}"
+    # force: "{{ galaxy_force_checkout }}"
+    repo: "{{ galaxy_tools_repo }}"
+    executable: "{{ git_executable | default(omit) }}"
+  diff: "{{ clone_diff_mode_verbose }}"

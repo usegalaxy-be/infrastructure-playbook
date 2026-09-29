@@ -1,0 +1,7 @@
+# Install Minio Client
+- name: Install client
+  include_tasks: install_client.yml
+
+# Deploy postgres back up scripts
+- name: Setup postgres backup
+  include_tasks: backup.yml

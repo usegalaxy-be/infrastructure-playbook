@@ -1,0 +1,13 @@
+---
+- name: galaxy handler daemon reload
+  systemd:
+    daemon_reload: yes
+
+- name: galaxy mule start
+  systemd:
+      name: galaxy.service
+      state: started
+
+- name: galaxy workflow scheduler daemon reload
+  systemd: 
+    daemon_reload: yes

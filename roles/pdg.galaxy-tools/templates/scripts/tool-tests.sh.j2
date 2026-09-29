@@ -1,0 +1,38 @@
+#!/bin/bash
+set -euo pipefail
+
+# Usage: tool-tests.sh [mode] [tools_file] [since_date] [db_path] [parallel] [force]
+# mode: since_date | tools_file | ephemeris | synced_diff (default: ephemeris)
+# force: true re-tests tools that already have a result JSON (default: skip them)
+MODE=${1:-ephemeris}
+TOOLS_INPUT=${2:-}
+SINCE_DATE=${3:-}
+DB_PATH=${4:-}
+PARALLEL=${5:-1}
+FORCE=${6:-false}
+
+case "$FORCE" in
+  true|yes|1) FORCE_ARG=--force ;;
+  *)          FORCE_ARG= ;;
+esac
+
+# synced_diff: tools arrive via rsync here, not local installs, so diff the
+# synced shed_tool_conf.xml against last run's snapshot, then use tools_file mode.
+if [ "$MODE" = "synced_diff" ]; then
+  python compute_new_synced_tools.py \
+    --shed-tool-conf "{{ shared_tool_conf_file | default('') }}" \
+    --snapshot "{{ tool_install_dir }}/.last_synced_guids" \
+    --output "{{ tool_install_dir }}/.new_synced_tools.txt"
+  MODE="tools_file"
+  TOOLS_INPUT="{{ tool_install_dir }}/.new_synced_tools.txt"
+fi
+
+python tool_tests.py ${TOOLS_INPUT:+"$TOOLS_INPUT"} --mode "$MODE" ${SINCE_DATE:+--since-date "$SINCE_DATE"} ${DB_PATH:+--db-path "$DB_PATH"} --parallel "$PARALLEL" ${FORCE_ARG:+$FORCE_ARG}
+
+# Roll last run's summary to .previous, then summarize this run against it so
+# only new/changed failures need reviewing (see tool_summary_new_failures.csv).
+SUMMARY_CSV="{{ tool_install_dir }}/tool_summary.csv"
+if [ -f "$SUMMARY_CSV" ]; then
+  cp "$SUMMARY_CSV" "${SUMMARY_CSV}.previous"
+fi
+python tool_tests_summary.py "{{ tool_test_dir }}" --output "$SUMMARY_CSV" --previous "${SUMMARY_CSV}.previous"

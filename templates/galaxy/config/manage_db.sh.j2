@@ -1,0 +1,18 @@
+#!/bin/sh
+
+#######
+# NOTE: To downgrade to a specific version, use something like:
+# sh manage_db.sh downgrade --version=3 <tool_shed if using that webapp - galaxy is the default>
+#######
+
+source {{ galaxy_venv_dir }}/bin/activate 
+cd `dirname $0`
+
+
+# igegu: the setup_python was added in v18 but i dont think it is needed, init_env covers the env setup
+#. ./scripts/common_startup_functions.sh
+#setup_python
+
+find lib/galaxy/model/migrate/versions -name '*.pyc' -delete
+python ./scripts/manage_db.py $@
+

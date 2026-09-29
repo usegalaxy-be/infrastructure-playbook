@@ -1,0 +1,230 @@
+# Sentry
+# sentry_domain: sentry.usegalaxy.be
+
+# local base dirs to get files and templates from.
+# galaxy_config_template_host_src_dir: templates/galaxy/config/prod_config
+# galaxy_config_file_host_src_dir: files/galaxy/config/prod_config
+
+# galaxy_shared_rw_root_mode: '0750'
+# galaxy_shared_ro_root_mode: '0750'
+
+# Path handling local to the VM and on NFS
+# These don't need to be set if using the layout module, but usegalaxy_backup uses galaxyproject.galaxy's defaults
+# without running the layout and breaks if they are unset
+
+# We have two separate layouts for prod and test defined in the host vars: /srv/galaxy or /srv/galaxy_***
+# TODO: check if we can unify layout between test and prod?
+# `root-dir`: Everything is laid out in subdirectories underneath a single root directory.
+# NOTE: moved to galaxyservers group vars since it's the same for test and prod
+# galaxy_layout: root-dir
+# galaxy_shared_rw_root_mode: '0750'
+# galaxy_shared_ro_root_mode: '0750'
+# Filesystem path of the root of a Galaxy deployment, the Galaxy server code will be installed in to a subdirectory of this directory.
+# galaxy_root: /srv/galaxy
+
+# galaxy_local_root: "{{ galaxy_root }}/local"
+# The shares are all scratch data and will be mounted under the scratch dir
+# previously: galaxy_shared_dir: "{{ galaxy_root }}/shared"     # everything under this path is shared among all the nodes
+# galaxy_shared_root: "{{ galaxy_root }}/shared"
+# galaxy_local_ro_root: "{{ galaxy_local_root }}/ro"
+# galaxy_local_rw_root: "{{ galaxy_local_root }}/rw"
+# galaxy_shared_ro_root: "{{ galaxy_shared_root }}/ro"
+# galaxy_shared_rw_root: "{{ galaxy_shared_root }}/rw"
+
+#############
+# Local Paths
+#############
+
+# Galaxy config files (e.g. datatypes_config_file).
+# Defaults to the directory in which galaxy.yml is located.
+# galaxy_config_dir: "{{ galaxy_local_root }}/config"
+
+# Galaxy config files controlled by Galaxy (such as
+# shed_tool_config_file, etc.). Must be writable by the user running Galaxy
+# galaxy_mutable_config_dir: "{{ galaxy_local_root }}/mutable-config"
+
+# galaxy_log_dir: "{{ galaxy_local_root }}/log"
+
+# Top level cache directory. Any other cache directories (tool_cache_data_dir, template_cache_path, etc.) 
+# should be subdirectories.
+# galaxy_cache_dir: "{{ galaxy_local_root }}/tmp/cache"
+
+#############
+# NFS Paths
+#############
+
+# Shared SSL certs dir
+# galaxy_shared_certs_dir: "{{ galaxy_shared_root }}/shared_certs/live"
+# galaxy_shared_certs_user_dir: "{{ galaxy_shared_root }}/shared_certs/user"
+
+# Galaxy's virtualenv directory.
+# previously: galaxy_venv_dir: '{{ galaxy_dependency_dir }}/venv3'
+# galaxy_venv_dir: "{{ galaxy_shared_root }}/etc/venv"
+# pip_venv_path: "{{ galaxy_venv_dir }}"
+
+# If using any layout other than root-dir.
+# Filesystem path where the Galaxy server code will be installed (cloned).
+# galaxy_server_dir: "{{ galaxy_shared_root }}/src"
+
+
+# specifying Galaxy data/cache directories and files (such as the
+# default SQLite database, file_path, etc.)
+
+# galaxy_mutable_data_dir: "{{ galaxy_shared_root }}/database" # contains files,data_stage
+
+
+# Toolshed install data
+# NOTE once set this won't be overwritten by the role
+# includes the database files, tool repositories files and shed data tables
+# galaxy_shed_install_base_path: "{{ galaxy_mutable_data_dir }}/shed_data"
+# Tool Data Table related files will be placed here when installed from a ToolShed. 
+# galaxy_shed_tool_data_path: "{{ galaxy_shed_install_base_path }}/shed_data_tables"
+# galaxy_shed_database_path: "{{ galaxy_shed_install_base_path }}/shed_database"
+# galaxy_tool_data_path: "{{ galaxy_mutable_config_dir }}/tool_data" #"{{ galaxy_shared_root }}/database/tool_data"
+
+# galaxy_local_tools_dir: "{{ galaxy_mutable_data_dir }}/local_tools"
+# unused?
+# galaxy_nonrepro_tools: "{{ galaxy_mutable_data_dir }}/custom-tools"
+# galaxy_nonrepro_commit: master
+
+# Directory to store Data Manager based tool-data. 
+# Defaults to the value of the <tool_data_path> option.
+# shared among the nodes of the cluster
+# this data is linked in the .loc files using full paths so we can't immediately change the location in current prod:
+# /galaxy_base/scratch_prod/dm-data/
+# Directory to store Data Manager based tool-data. Defaults to the value of the <tool_data_path> option.
+# TODO: This should probably have its own mount location on nfs
+# galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_data"
+
+# legacy_data_manager_data_path: "/galaxy_base/scratch_prod/dm-data/"
+
+# alphafold_db_path: "{{ galaxy_mutable_data_dir }}/alphafold_db"
+
+# Where to write Galaxy logs to
+# galaxy_log_dir: "/var/log/galaxy/"
+# TODO: remove when certain it's not needed
+# galaxy_sys_usr_local_path: '/usr/local/galaxy'
+# galaxy_sockets_dir: "{{ galaxy_sys_usr_local_path }}/galaxy-dist/var"
+
+# Static file variables  (copied from defaults/templates in local ansible repo)
+# TODO: check if we actually need these
+
+# TODO: for any paths that have changed we need to move the files
+# Tool config files, defines what tools are available in Galaxy. Tools
+# can be locally developed or installed from Galaxy tool sheds.
+# galaxy_tool_conf_file: "{{ galaxy_config_dir }}/tool_conf.xml"
+# galaxy_interactive_tools_conf_file: "{{ galaxy_config_dir }}/interactive_tools_conf.xml"
+# XML config file that contains additional data table entries for the
+# ToolDataTableManager.
+# this is the default
+# galaxy_shed_tool_conf_file: "{{ galaxy_mutable_config_dir }}/shed_tool_conf.xml"
+# File containing the Galaxy Tool Sheds that should be made available
+# to install from in the admin interface
+# previously in galaxy_config_dir
+# moved to static location since it's needed for the initial setup of the galaxy server and shouldnt be in mutable config dir
+# galaxy_tool_sheds_conf_file: "{{ galaxy_mutable_config_dir }}/tool_sheds_conf.xml"
+# TODO: figure out of we have custom data types worth keeping 
+# NOTE: switch to default
+# and if so why are they not part of the galaxy codebase
+# this is part of the repo. I push the file with the stable merge of datatypes
+# galaxy_datatypes_conf_file: "{{ galaxy_config_dir }}/datatypes_conf.xml"
+# Replaced
+#galaxy_tool_data_table_conf_path: "{{ galaxy_mutable_config_dir }}/tool_data_table_conf.xml"
+# TODO: figure out why we need this empty xml file
+# previously galaxy_config_dir
+# galaxy_data_manager_conf_path: "{{ galaxy_mutable_config_dir }}/data_manager_conf.xml"
+# TODO: figure out if we need this
+# previously galaxy_config_dir
+# migrated_tools_config_file: "{{ galaxy_mutable_config_dir }}/migrated_tools_conf.xml"
+
+
+# NOTE: not used in galaxy.yml but used by shed_tool_conf.xml.j2
+# previously: galaxy_shed_tools_dir: "{{ galaxy_shed_install_base_path }}/shed_tools"
+# galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"
+# galaxy_tool_dependency_dir: "{{ galaxy_dependency_dir }}/tool-dependencies"
+# galaxy_library_dir: "{{ galaxy_shared_root }}/database/libraries"
+# galaxy_dependency_dir: "{{ galaxy_etc_dir }}/dependencies"
+# galaxy_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies"
+# galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies/tool-dependencies"
+# TODO: remove?
+# involucro_path: "{{ galaxy_tool_dependency_dir }}/involucro"
+
+
+# NOTE: these paths are overriden by object_store_conf.xml
+# previously: galaxy_file_path: "{{galaxy_mutable_data_dir}}/files"
+# old_galaxy_file_path: "{{ galaxy_shared_root }}/database/files"
+# galaxy_file_path: "{{ galaxy_shared_root }}/database/objects"
+
+# galaxy_object_store_cache_path: "{{ galaxy_mutable_data_dir }}/object_store_cache"
+# galaxy_new_file_path: "{{ galaxy_mutable_data_dir }}/tmp/scratch"
+# previously: galaxy_job_working_directory: "{{galaxy_tmp_dir}}/jwd"
+# galaxy_job_working_directory: "{{ galaxy_mutable_data_dir }}/tmp/jobs"
+# galaxy_tmp_dir: "{{ galaxy_mutable_data_dir }}/tmp/temp"
+# galaxy_cluster_files_directory: "{{ galaxy_mutable_data_dir }}/tmp/pbs"
+
+# unused
+# nginx_tmp: "{{ galaxy_mutable_data_dir }}/nginx_tmp"
+
+# NOTE: variable currently unused
+# galaxy_etc_dir: "{{ galaxy_shared_dir }}/etc"
+# galaxy_tmp_dir: "{{ galaxy_etc_dir }}/tmpdir"   #this should contain /tmp, /pbs, /jwd
+
+# Various dependency resolver configuration parameters
+# TODO: probably dont need this
+# galaxy_dependency_dir: "{{ galaxy_etc_dir }}/dependencies"
+
+
+
+# galaxy_config_file: "{{ galaxy_config_dir }}/galaxy.yml"
+
+
+###  these are the dirs that are located under the NFS mounted dir
+# the main galaxy role can create directories, but it didnt work well with dirs under the NFS mounted base directory
+# instead, I just renamed the list of dirs as 'nfs_dirs' and added a step in the galaxy_extras role to create them
+# TODO: retry creating dirs with galaxyproject role and reorganize nfs dirs?
+
+# Directories to create as the Galaxy user if galaxy_manage_paths is enabled
+# TODO: change nfs_dirs to galaxy_dirs?
+# galaxy_dirs: {}
+# nfs_dirs:
+# galaxy_dirs:
+#   - "{{ galaxy_mutable_data_dir }}"
+#   - "{{ galaxy_mutable_config_dir }}"
+#   - "{{ galaxy_cache_dir }}"
+#   - "{{ galaxy_shed_tools_dir }}"
+#   - "{{ galaxy_tool_dependency_dir }}"
+#   - "{{ galaxy_file_path }}"
+#   - "{{ galaxy_job_working_directory }}"
+#   - "{{ galaxy_tool_data_path }}"
+#   - "{{ galaxy_log_dir }}"
+# Directories to create as the privilege separated user if galaxy_manage_paths is enabled
+# Custom override
+# Our galaxy_tool_dependency_dir is on NFS, and permissions are set in such a
+# way that they cannot be changed by the ansible connected user.
+# galaxy_privsep_dirs:
+#   - "{{ galaxy_venv_dir }}"
+#   - "{{ galaxy_server_dir }}"
+#   - "{{ galaxy_config_dir }}"
+#   - "{{ galaxy_local_tools_dir }}"
+
+
+# NOTE: if creating local paths anyway:
+# sudo mkdir -p /srv/galaxy/local/config
+# sudo chown galaxy_master:galaxy_master /srv/galaxy/local/config
+# sudo chown galaxy_master:galaxy_master /srv/galaxy/local
+# mkdir /srv/galaxy/local/config/tpv_config
+# mkdir /srv/galaxy/shared/database/total_perspective_vortex
+# mkdir /srv/galaxy/local/mutable-config
+# mkdir /srv/galaxy/local/mutable-config/tool-data-legacy
+# mkdir /srv/galaxy/shared/database/local_tools
+# mkdir -p /srv/galaxy/shared/database/shed_data/shed_database
+# sudo mkdir -p /etc/letsencrypt/live/test.usegalaxy.be
+# sudo cp -r certs/test.usegalaxy.be/* /etc/letsencrypt/live/test.usegalaxy.be/
+# sudo cp -r certs/test.usegalaxy.be/* /etc/ssl/certs/
+# sudo mkdir /etc/ssl/user/
+# sudo cp /etc/ssl/certs/privkey.pem /etc/ssl/user/privkey-999:999.pem
+# sudo chown 999:999 /etc/ssl/user/privkey-999:999.pem
+# manually copy universe.sqlite
+# manually copy tool_data
+# manually copy tool-data-legacy
+

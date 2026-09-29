@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: mulled_container
+  author: usegalaxy.be
+  description: >-
+    Build local mulled singularity containers for custom Galaxy tools whose
+    requirement set has no prebuilt BioContainer, and install them into the
+    cached_mulled_singularity resolver cache so tools run in a container instead
+    of a conda env on NFS.
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions: ["9"]
+dependencies: []

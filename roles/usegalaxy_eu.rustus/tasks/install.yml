@@ -1,0 +1,109 @@
+---
+
+- name: Resolve latest release of rustus
+  when: rustus_version == 'latest'
+  block:
+    - name: Retrieve release tag for the latest stable release of rustus
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/s3rius/rustus/releases/latest
+        return_content: true
+      register: __rustus_release_latest_response
+
+    - name: Overwrite rustus release number
+      ansible.builtin.set_fact:
+        rustus_version: "{{ __rustus_release_latest_response.json.tag_name }}"
+
+- name: Determine whether rustus should be installed or upgraded
+  block:
+    - name: Default to not installing or upgrading rustus
+      ansible.builtin.set_fact:
+        __rustus_install: false
+
+    - name: Determine whether a rustus binary is already installed
+      ansible.builtin.shell: type -p rustus || echo none
+      register: __rustus_installed
+      changed_when: false
+
+    - name: Check whether a rustus binary exists in the configured path for installation
+      ansible.builtin.stat:
+        path: "{{ rustus_path }}"
+      register: __rustus_path_exists
+
+    - name: Error out on path mismatch (installed binary not matching the installation path)
+      when: __rustus_installed.stdout != "none" and __rustus_installed.stdout != rustus_path
+      ansible.builtin.fail:
+        msg: |
+          A rustus binary already exists in {{ __rustus_installed.stdout }}, which does not match
+          the installation path {{ rustus_path }}. Please remove the existing binary or change the
+          installation path to {{ __rustus_installed.stdout }} before continuing.
+
+    - name: Compare sha256sums of the installed binary and the desired version.
+      when: __rustus_installed.stdout != "none"
+      block:
+        - name: Compute sha256sum of existing rustus binary.
+          ansible.builtin.command: "sha256sum {{ __rustus_installed.stdout }}"
+          register: __rustus_sha256sum_installed
+          changed_when: false
+
+        - name: Download and read sha256sum of desired rustus version.
+          block:
+            - name: Allocate temporary file.
+              ansible.builtin.tempfile:
+                state: file
+                prefix: ansible.usegalaxy-eu.rustus.
+              register: __rustus_tempfile_sha256
+              changed_when: false
+
+            - name: Download sha256sum.
+              ansible.builtin.get_url:
+                url: "https://github.com/s3rius/rustus/releases/download/\
+                  {{ rustus_version }}/rustus-{{ rustus_version }}-{{ rustus_os }}-{{ rustus_arch }}.sha256"
+                dest: "{{ __rustus_tempfile_sha256.path }}"
+                mode: "0644"
+              changed_when: false
+
+            - name: Read sha256sum.
+              ansible.builtin.shell: |
+                set -o pipefail
+                < {{ __rustus_tempfile_sha256.path }} tr -s ' ' | cut -d ' ' -f 1
+              register: __rustus_sha256sum_desired
+              changed_when: false
+
+        - name: Compare sha256 sums.
+          ansible.builtin.set_fact:
+            __rustus_install: true
+          when: __rustus_sha256sum_installed != __rustus_sha256sum_desired
+          changed_when: false
+
+    - name: Schedule rustus installation if no binary was found.
+      ansible.builtin.set_fact:
+        __rustus_install: true
+      when: __rustus_installed.stdout == "none"
+
+
+- name: Install rustus.
+  when: __rustus_install
+  block:
+    - name: Allocate temporary directory for downloading and extracting rustus.
+      ansible.builtin.tempfile:
+        prefix: ansible.usegalaxy-eu.rustus.
+        state: directory
+      changed_when: false
+      register: __rustus_install_tempdir
+
+    - name: Extract rustus.
+      ansible.builtin.unarchive:
+        remote_src: true
+        src: "https://github.com/s3rius/rustus/releases/download/\
+          {{ rustus_version }}/rustus-{{ rustus_version }}-{{ rustus_os }}-{{ rustus_arch }}.tar.gz"
+        dest: "{{ __rustus_install_tempdir.path }}/"
+      changed_when: false
+
+    - name: Install the rustus binary.
+      ansible.builtin.copy:
+        remote_src: true
+        src: "{{ __rustus_install_tempdir.path }}/rustus"
+        dest: "{{ rustus_path }}"
+        owner: "{{ rustus_owner | default(omit) }}"
+        group: "{{ rustus_group | default(omit) }}"
+        mode: "{{ rustus_mode | default('0755') }}"

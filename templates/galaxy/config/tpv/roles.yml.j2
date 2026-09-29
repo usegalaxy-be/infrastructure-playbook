@@ -1,0 +1,98 @@
+---
+roles:
+  esg_users:
+    # abstract: true
+    params:
+      object_store_id: "new_internal_nfs_shares"
+    scheduling:
+      prefer:
+        - be-pulsar
+        - sanjay-pulsar
+        - de-pulsar
+        - cz-pulsar
+        - it-pulsar
+        - sp-pulsar
+        - uk-pulsar
+        - tr-pulsar
+        - nor-pulsar
+        - pl-pulsar
+        - ch-pulsar
+        - sl-pulsar
+    rank: |
+      import sys
+      import requests
+      import json
+      import pathlib
+      from ruamel.yaml import YAML
+      import logging
+      import random
+    
+      # Set up logging
+      logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)                       
+      log = logging.getLogger(__name__)
+        
+      # Load static objectstore info 
+      # NOTE: currently object store info is stored in a yaml
+      objectstore_loc_path = "{{ tpv_config_dir }}/object_store_locations.yml"
+      yaml=YAML(typ='safe')
+      objectstore_file = pathlib.Path(objectstore_loc_path)
+      objectstore_dict = yaml.load(objectstore_file)
+      
+      # Get dataset attributes
+      dataset_attributes = helpers.get_dataset_attributes(job.input_datasets)
+      
+      # Simulate dataset locations
+      object_store_ids = list(objectstore_dict.keys())
+
+      for dataset in dataset_attributes.values():
+          dataset['object_store_id'] = random.choice(object_store_ids)
+          dataset['size'] = random.uniform(100, 10000)
+
+      # Format the destination data latitude': 49.817492, 'longitude
+      log.debug(f"candidate_destinations: {candidate_destinations}")
+      candidate_destinations_list = [{"id": dest.id, **dest.context} for dest in candidate_destinations if dest.context and 'latitude' in dest.context and 'longitude' in dest.context]
+      
+      # Static job info
+      if not entity.gpus:
+        gpus = 0
+      job_info = {"tool_id": tool.id, "mem": mem, "cores": cores, "gpus": gpus,}
+
+      # URL of the FastAPI application
+      api_url = "https://test.usegalaxy.be/tpv-api/process_data"
+
+      input_data = {
+        "destinations": candidate_destinations_list,
+        "objectstores": objectstore_dict,
+        "datasets": dataset_attributes,
+        "job_info": job_info,
+      }
+
+      log.debug(f"input_data: {input_data}")
+      
+      # Send a POST request to the API endpoint
+      response = requests.post(api_url, json=input_data)
+
+      # Check if the request was successful (status code 200)
+      if response.status_code == 200:
+          result = response.json()
+      else:
+          log.debug(f"Request failed with status code {response.status_code}: {response.text}")
+          print(f"Request failed with status code {response.status_code}: {response.text}")
+
+      log.debug(f"sorted destinations: {result}")
+      # log.debug(f"cand destinations: {[dest.id for dest in candidate_destinations]}")
+      # Sort the candidate destinations based on the sorted_destinations from the result
+      final_destinations = sorted(
+          (dest for dest in candidate_destinations if str(dest.id) in result["sorted_destinations"]),
+          key=lambda obj: result["sorted_destinations"].index(str(obj.id))
+      )
+
+      final_destinations
+
+  # training.*:
+  #   max_cores: 2
+  #   max_mem: max_cores * 3.8  # TODO check multiplier
+  #   scheduling:
+  #     require:
+  #       # TODO: figure out what to require
+  #       - training

@@ -1,0 +1,604 @@
+---
+# TPV destinations shared between all usegalaxy.be instances (prod and test).
+# Instance-specific destinations (GxIT runner, test-only pulsars) are in:
+#   templates/galaxy/config/{instance}/tpv/destinations.yml.j2
+#
+# ┌─────────────────────────────────────────────────────────────────────────────┐
+# │ TPV MERGE SEMANTICS                                                         │
+# │ Hierarchy: Destination (5) > User (4) > Role (3) > Tool (2)                │
+# │                                                                             │
+# │ params:     Dict merge — DESTINATION WINS for same key.                    │
+# │             → Destinations do NOT set singularity_enabled/docker_enabled.  │
+# │               Those come from tools: default tool sets singularity_enabled  │
+# │               true; _docker abstract sets docker_enabled:true +             │
+# │               singularity_enabled:false. Destinations only set volumes/env. │
+# │ env:        List merge — same-name vars: DESTINATION WINS.                 │
+# │ context:    Dict merge — DESTINATION WINS.                                 │
+# │ cores/mem:  DESTINATION WINS if set (not None); max_accepted_* caps/clamps.│
+# │ rules:      ALL run — tool rules + destination rules both execute.          │
+# │ scheduling: UNION — all require/reject/prefer/accept from all sources.     │
+# │ rank:       Destination wins (falls back to tool if destination has none).  │
+# └─────────────────────────────────────────────────────────────────────────────┘
+#
+# NOTE: Use dashes (-) exclusively for tags and underscores (_) exclusively for
+# destination IDs.
+
+destinations:
+  ################################
+  # ABSTRACT BASE DESTINATIONS   #
+  ################################
+
+  _default_environment:
+    abstract: true
+    params:
+      submit_request_cpus: "{cores}"
+      submit_request_memory: "{mem}G"
+      submit_request_gpus: "{gpus or 0}"
+      tmp_dir: true
+      outputs_to_working_directory: true
+      # metadata_strategy set on tools:default instead, so tool rules can override it per-tool
+    env:
+      # Set on destinations (higher precedence) because tools in the shared TPV DB
+      # sometimes override _JAVA_OPTIONS, which would otherwise break some tools.
+      _JAVA_OPTIONS: -Djava.io.tmpdir=$_GALAXY_JOB_TMP_DIR -Duser.home=$_GALAXY_JOB_TMP_DIR -Xmx{round(mem*0.9*1024)}m -Xms256m -Dsun.java2d.fontpath=/usr/local/lib/fonts
+      # Duplicate the value explicitly — do NOT use $_JAVA_OPTIONS here: S sorts before _
+      # in ASCII so the job script may export SINGULARITYENV__JAVA_OPTIONS before _JAVA_OPTIONS
+      # is set, leaving the reference empty and stripping all JVM flags inside the container.
+      SINGULARITYENV__JAVA_OPTIONS: -Djava.io.tmpdir=$_GALAXY_JOB_TMP_DIR -Duser.home=$_GALAXY_JOB_TMP_DIR -Xmx{round(mem*0.9*1024)}m -Xms256m -Dsun.java2d.fontpath=/usr/local/lib/fonts
+      XDG_DATA_HOME: /cvmfs/main.galaxyproject.org/xdg/data
+
+  # _condor:
+  #   abstract: true
+  #   inherits: _default_environment
+  #   runner: condor
+  #   scheduling:
+  #     accept:
+  #       - condor
+  #     prefer:
+  #       - condor
+
+  _condor_container:
+    # Abstract base for all condor container destinations (singularity and docker).
+    # Does NOT set singularity_enabled, docker_enabled, singularity_volumes, or docker_volumes —
+    # those come from tools: default tool sets singularity_enabled:true + singularity_volumes;
+    # _docker abstract sets docker_enabled:true + singularity_enabled:false + docker_volumes.
+    # Keeping volumes on the tool side lets tool rules append extra mounts (e.g. alphafold DB)
+    # before the destination merge, so those additions survive.
+    # Pulsar destinations override singularity_volumes/docker_volumes with their own paths.
+    abstract: true
+    inherits: _default_environment
+    params:
+      singularity_no_mount: null
+      # NOTE: Moved to tool_defaults.yml.j2 
+      # singularity_default_container_id: "/cvmfs/singularity.galaxyproject.org/all/python:3.8.3"
+      # docker_default_container_id: "quay.io/biocontainers/python:3.8-20210803-1"
+      docker_auto_rm: true
+      docker_sudo: false
+      # docker_set_user intentionally absent: _docker tool sets --user $UID:$GID via
+      # docker_run_extra_arguments, resolving dynamically to the job user on each node.
+    env:
+      LC_ALL: C
+      # Singularity/Apptainer runtime cache for the compute node (separate from Galaxy's
+      # container resolver cache in container_resolvers_conf.yml, which is Galaxy-side only).
+      # $_GALAXY_JOB_TMP_DIR is per-job isolated and auto-cleaned — no persistent /scratch needed.
+      SINGULARITY_CACHEDIR: $_GALAXY_JOB_TMP_DIR
+      SINGULARITY_TMPDIR: $_GALAXY_JOB_TMP_DIR
+      APPTAINER_CACHEDIR: $_GALAXY_JOB_TMP_DIR
+      APPTAINER_TMPDIR: $_GALAXY_JOB_TMP_DIR
+      SINGULARITYENV_XDG_DATA_HOME: $XDG_DATA_HOME
+{% if galaxy_code_tmpfs_enabled | default(false) %}
+      # In-job metadata step imports the Galaxy framework from this env's node-local
+      # tmpfs copy instead of cold from NFS. Per-env path (test -> /opt/galaxy_test,
+      # prod -> /opt/galaxy_prod); populated + kept in lockstep by roles/pdg.galaxy_code_tmpfs
+      # on every code/venv deploy. Applies to ALL condor destinations (compute + VIB + GPU)
+      # since they inherit _condor_container; pulsar inherits _pulsar, so it's unaffected.
+      # Gated on galaxy_code_tmpfs_enabled so workers can be rolled out before jobs use it.
+      GALAXY_LIB: "{{ galaxy_code_tmpfs_mount }}/lib"
+      GALAXY_VIRTUAL_ENV: "{{ galaxy_code_tmpfs_mount }}/venv"
+{% endif %}
+    scheduling:
+      accept:
+        - singularity
+        - docker
+      reject:
+        - conda
+
+  _pulsar:
+    abstract: true
+    inherits: _default_environment
+    env:
+      LC_ALL: C
+      SINGULARITY_CACHEDIR: /data/share/var/database/container_cache
+      SINGULARITY_TMPDIR: /data/share/var/database/singularity_tmp
+      APPTAINER_CACHEDIR: /data/share/var/database/container_cache
+      APPTAINER_TMPDIR: /data/share/var/database/singularity_tmp
+      SINGULARITYENV_XDG_CACHE_HOME: $_GALAXY_JOB_TMP_DIR
+      APPTAINERENV_XDG_CACHE_HOME: $_GALAXY_JOB_TMP_DIR
+      SINGULARITYENV_XDG_DATA_HOME: /cvmfs/main.galaxyproject.org/xdg/data
+      TMP: $_GALAXY_JOB_TMP_DIR
+      TEMP: $_GALAXY_JOB_TMP_DIR
+      TMPDIR: $_GALAXY_JOB_TMP_DIR
+      XDG_CACHE_HOME: $_GALAXY_JOB_TMP_DIR
+    params:
+      tmp_dir: true
+      outputs_to_working_directory: false
+      remote_metadata: false
+      transport: curl
+      default_file_action: remote_transfer
+      rewrite_parameters: true
+      jobs_directory: /data/share/staging
+      metadata_strategy: directory
+      persistence_directory: /data/share/persisted_data
+      singularity_default_container_id: "/cvmfs/singularity.galaxyproject.org/all/python:3.8.3"
+      container_resolvers:
+        - type: explicit_singularity
+        - type: cached_mulled_singularity
+          cache_directory: /cvmfs/singularity.galaxyproject.org/all
+          cache_directory_cacher_type: dir_mtime
+        - type: cached_mulled_singularity
+          cache_directory: /cvmfs/main.galaxyproject.org/singularity
+          cache_directory_cacher_type: dir_mtime
+        - type: mulled_singularity
+        - type: explicit
+        - type: cached_mulled
+          namespace: biocontainers
+        - type: cached_mulled
+          namespace: local
+      # docker_volumes: ""
+      # singularity_volumes: ""
+      docker_sudo: false
+      docker_net: bridge
+      docker_auto_rm: true
+      # uid of the Pulsar service user — overrideable per instance via tpv_pulsar_docker_user in host_vars
+      # dependency_resolution: 'local' resolves Galaxy conda dependencies locally before
+      # transfer; 'none' skips this (correct for singularity-only Pulsar nodes).
+      # Set tpv_pulsar_dependency_resolution in host_vars to override per instance.
+      dependency_resolution: "{{ tpv_pulsar_dependency_resolution | default('local') }}"
+    scheduling:
+      prefer:
+        - pulsar
+      accept:
+        - singularity
+        - docker
+      reject:
+        - conda
+
+  ############################
+  # LOCAL DESTINATION        #
+  ############################
+
+  local_tool:
+     runner: local_runner
+     min_accepted_cores: 1
+     min_accepted_mem: 0
+     max_accepted_cores: 4
+     max_accepted_mem: 8
+     env:
+       LC_ALL: C
+       # Root disk on the Galaxy handler is small, keep singularity cache/tmp
+       # on the NFS-backed per-job tmp dir, same as the condor destinations.
+       SINGULARITY_CACHEDIR: $_GALAXY_JOB_TMP_DIR
+       SINGULARITY_TMPDIR: $_GALAXY_JOB_TMP_DIR
+       APPTAINER_CACHEDIR: $_GALAXY_JOB_TMP_DIR
+       APPTAINER_TMPDIR: $_GALAXY_JOB_TMP_DIR
+       SINGULARITYENV_XDG_DATA_HOME: /cvmfs/main.galaxyproject.org/xdg/data
+     params:
+       singularity_no_mount: null
+       singularity_volumes: "{{ galaxy_container_volumes.headnode | join(',') }}"
+     scheduling:
+        require:
+          - local-tool
+        accept:
+          - singularity
+          - conda
+          - vib-users
+
+  ############################
+  # CONDOR DESTINATIONS      #
+  ############################
+
+  condor_conda:
+    inherits: _default_environment
+    runner: condor
+    min_accepted_cores: 1
+    min_accepted_mem: 0
+    max_accepted_cores: 16
+    max_accepted_mem: 260
+    # params:
+    #   requirements: 'GalaxyGroup =?= UNDEFINED || GalaxyGroup != "vib"'
+    scheduling:
+      accept:
+        - conda
+
+  condor_tpv:
+    inherits: _condor_container
+    runner: condor
+    min_accepted_cores: 1
+    min_accepted_mem: 0
+    max_accepted_cores: 20
+    max_accepted_mem: 350
+    params:
+      # Prefer compute workers; VIB workers are eligible as overflow (when their START policy allows).
+      rank: 'TARGET.GalaxyGroup == "compute" ? 1 : 0'
+
+  condor_vib_tpv:
+    # HTCondor workers in the VIB OpenStack project.
+    # GalaxyGroup = "vib" ClassAd is set on those workers via
+    # playbooks/infrastructure/cluster/04-vib-compute-workers.yml.
+    # VIB users get the vib-users scheduling tag via users.yml (.*@vib.be → vib_users abstract group).
+    #
+    # Routing: rank-based preference — VIB workers (rank 1) are preferred but general prod
+    # workers (rank 0) are eligible as overflow. No hard requirement so jobs never stay idle
+    # if the VIB cluster is full.
+    inherits: _condor_container
+    runner: condor
+    min_accepted_cores: 1
+    min_accepted_mem: 0
+    max_accepted_cores: 16
+    max_accepted_mem: 60
+    params:
+      rank: 'TARGET.GalaxyGroup == "vib" ? 1 : 0'
+      +GalaxyGroup: '"vib"'
+      # docker_volumes/singularity_volumes intentionally unset since they are now set on the tool side (e.g. alphafold DB mount) and should not be overwritten by the destination.
+      # additionally the volumes no longer differen between standard condor nodes and the vib condor nodes, so the destination should not override the tool-level default.
+    scheduling:
+      require:
+        - vib-users
+
+  condor_vib_conda:
+    # Conda-based jobs for VIB users. Mirrors condor_conda but routes to VIB workers.
+    # condor_vib_tpv inherits _condor_container which rejects conda, so conda tools
+    # for VIB users need this separate destination.
+    inherits: _default_environment
+    runner: condor
+    min_accepted_cores: 1
+    min_accepted_mem: 0
+    max_accepted_cores: 16
+    max_accepted_mem: 60
+    params:
+      rank: 'TARGET.GalaxyGroup == "vib" ? 1 : 0'
+      +GalaxyGroup: '"vib"'
+    scheduling:
+      accept:
+        - conda
+      require:
+        - vib-users
+
+  # condor_upload:
+  #   runner: condor
+  #   max_accepted_cores: 20
+  #   max_accepted_mem: 10
+  #   params:
+  #     requirements: "GalaxyTraining == false"
+  #     rank: 'GalaxyGroup == "upload"'
+  #   scheduling:
+  #     require:
+  #       - upload
+
+  condor_gpu:
+    inherits: _condor_container
+    runner: condor
+    max_accepted_cores: 16
+    max_accepted_mem: 60
+    min_accepted_gpus: 1
+    max_accepted_gpus: 1
+    env:
+      GPU_AVAILABLE: 1
+    params:
+      # requirements: 'GalaxyGroup == "compute_gpu"'
+    scheduling:
+      require:
+        - gpu
+      accept:
+        - singularity
+        - docker
+
+  #######################################################
+  # INTERACTIVE TOOLS (GxIT) — embedded Pulsar on      #
+  # Condor workers. gx-it-proxy reaches the container  #
+  # via the embedded Pulsar reverse proxy.              #
+  #######################################################
+
+  pulsar_embedded_it:
+    inherits: _condor_container
+    runner: pulsar_embedded
+    max_accepted_cores: 16
+    max_accepted_mem: 80
+    params:
+      submit_requirements: "{entity.params.get('requirements') or ''}"
+      # Remove interactive tool jobs after 2 hours of wall-clock time.
+      # RemoteWallClockTime accumulates actual runtime on the worker (paused jobs don't count).
+      submit_periodic_remove: "(RemoteWallClockTime > 7200)"
+    scheduling:
+      require:
+        - interactive
+        - docker
+      accept:
+        - vib-users
+
+
+  condor_training:
+    inherits: _condor_container
+    runner: condor
+    max_accepted_cores: 12
+    max_accepted_mem: 120
+    max_cores: 2  # Limit the cores
+    max_mem: 8    # Limit the memory
+    params:
+      native_specification: --nodes=1 --ntasks=1 --mem={round(mem*1024)} --cpus-per-task={cores} --time=00:30:00
+    scheduling:
+      require:
+        - training
+
+  ##################################
+  # REMOTE PULSAR DESTINATIONS     #
+  ##################################
+
+  pulsar_be_tpv:
+    inherits: _pulsar
+    runner: pulsar_be01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/usegalaxybe/staging
+      persistence_directory: /data/share/usegalaxybe/persisted_data
+    scheduling:
+      require:
+        - be-pulsar
+    context:
+      latitude: 50.5010789
+      longitude: 4.4764595
+
+  # pulsar_vib_tpv and pulsar_vib_gpu are decommissioned — VIB jobs now route to
+  # condor_vib_tpv / condor_vib_gpu_v2_tpv / condor_vib_gpu_v3_tpv (HTCondor workers in the VIB OpenStack project).
+  # Kept commented for reference during the RFC00166 migration cutover.
+  # pulsar_vib_tpv:
+  #   inherits: _pulsar
+  #   runner: pulsar_vib
+  #   ...
+  # pulsar_vib_gpu:
+  #   inherits: _pulsar
+  #   runner: pulsar_vib
+  #   ...
+
+  # GPU workers come in two hardware generations. The GPUGeneration ClassAd is advertised
+  # per node by pdg.nvidia_gpu (04-vib-compute-workers.yml). GPU tools carry the `gpu` tag
+  # and land on v2 by default; a tool/user opts into v3 by also carrying the `gpu_v3` tag.
+
+  condor_vib_gpu_v2_tpv:
+    # HTCondor GPUv2 workers (GPUv2.2xlarge) in the VIB OpenStack project.
+    # Also matches nodes not yet advertising a generation, so it stays the default GPU
+    # destination during the v3 rollout.
+    inherits: _condor_container
+    runner: condor
+    min_accepted_cores: 1
+    min_accepted_mem: 0
+    max_accepted_cores: 16
+    max_accepted_mem: 60
+    min_accepted_gpus: 1
+    max_accepted_gpus: 1
+    env:
+      GPU_AVAILABLE: 1
+    params:
+      requirements: '(GPUGeneration =?= "v2") || (GPUGeneration =?= undefined)'
+      rank: 'TARGET.GalaxyGroup == "vib" ? 1 : 0'
+      +GalaxyGroup: '"vib"'
+      # docker_volumes/singularity_volumes intentionally unset since they are now set on the tool side (e.g. alphafold DB mount) and should not be overwritten by the destination.
+      # additionally the volumes no longer differen between standard condor nodes and the vib condor nodes, so the destination should not override the tool-level default.
+    scheduling:
+      require:
+        - gpu
+        - vib-users
+
+  condor_vib_gpu_v3_tpv:
+    # HTCondor GPUv3 workers (GPUv3.2xlarge) in the VIB OpenStack project.
+    # Opt-in: a job must carry the `gpu_v3` tag to land here.
+    inherits: _condor_container
+    runner: condor
+    min_accepted_cores: 1
+    min_accepted_mem: 0
+    max_accepted_cores: 16
+    max_accepted_mem: 60
+    min_accepted_gpus: 1
+    max_accepted_gpus: 1
+    env:
+      GPU_AVAILABLE: 1
+    params:
+      requirements: 'GPUGeneration =?= "v3"'
+      rank: 'TARGET.GalaxyGroup == "vib" ? 1 : 0'
+      +GalaxyGroup: '"vib"'
+      # docker_volumes/singularity_volumes intentionally unset since they are now set on the tool side (e.g. alphafold DB mount) and should not be overwritten by the destination.
+      # additionally the volumes no longer differen between standard condor nodes and the vib condor nodes, so the destination should not override the tool-level default.
+    scheduling:
+      require:
+        - gpu_v3
+        - vib-users
+
+
+
+# Instance-specific TPV destinations for test.usegalaxy.be.
+# Abstract base destinations and common condor/VIB/BE destinations are in:
+#   templates/galaxy/config/tpv/destinations_shared.yml.j2
+#
+# This file contains destinations for EuroScienceGateway Pulsar nodes and test-only
+# Pulsar nodes. These use test-instance RabbitMQ queues that are not available on prod.
+# These will be ignored on prod based on the tags.
+#
+# NOTE: Use dashes (-) exclusively for tags and underscores (_) exclusively for
+# destination IDs.
+
+  #####################################
+  # EUROSCIENCEGATEWAY PULSAR NODES   #
+  #####################################
+  # All inherit _pulsar from destinations_shared.yml, which is loaded before this file.
+
+  pulsar_de_tpv:
+    inherits: _pulsar
+    runner: pulsar_de02
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_de02/staging
+      persistence_directory: /data/share/pulsar_de02/persisted_data
+    scheduling:
+      require:
+        - de-pulsar
+    context:
+      latitude: 51.165691
+      longitude: 10.451526
+
+  pulsar_cz_tpv:
+    inherits: _pulsar
+    runner: pulsar_cz01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_cz01/staging
+      persistence_directory: /data/share/pulsar_cz01/persisted_data
+    scheduling:
+      require:
+        - cz-pulsar
+    context:
+      latitude: 49.817492
+      longitude: 15.472962
+
+  pulsar_it_tpv:
+    inherits: _pulsar
+    runner: pulsar_it01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_it01/staging
+      persistence_directory: /data/share/pulsar_it01/persisted_data
+    scheduling:
+      require:
+        - it-pulsar
+    context:
+      latitude: 41.87194
+      longitude: 12.56738
+
+  pulsar_sp_tpv:
+    inherits: _pulsar
+    runner: pulsar_sp01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_sp01/staging
+      persistence_directory: /data/share/pulsar_sp01/persisted_data
+    scheduling:
+      require:
+        - sp-pulsar
+    context:
+      latitude: 40.463667
+      longitude: -3.74922
+
+  pulsar_uk_tpv:
+    inherits: _pulsar
+    runner: pulsar_uk01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_uk01/staging
+      persistence_directory: /data/share/pulsar_uk01/persisted_data
+    scheduling:
+      require:
+        - uk-pulsar
+    context:
+      latitude: 55.378051
+      longitude: -3.435973
+
+  pulsar_tr_tpv:
+    inherits: _pulsar
+    runner: pulsar_tr01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_tr01/staging
+      persistence_directory: /data/share/pulsar_tr01/persisted_data
+    scheduling:
+      require:
+        - tr-pulsar
+    context:
+      latitude: 38.963745
+      longitude: 35.243322
+
+  pulsar_no_tpv:
+    inherits: _pulsar
+    runner: pulsar_no01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_no01/staging
+      persistence_directory: /data/share/pulsar_no01/persisted_data
+    scheduling:
+      require:
+        - nor-pulsar
+    context:
+      latitude: 60.472024
+      longitude: 8.468946
+
+  pulsar_pl_tpv:
+    inherits: _pulsar
+    runner: pulsar_pl01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_pl01/staging
+      persistence_directory: /data/share/pulsar_pl01/persisted_data
+    scheduling:
+      require:
+        - pl-pulsar
+    context:
+      latitude: 51.919438
+      longitude: 19.145136
+
+  pulsar_ch_tpv:
+    inherits: _pulsar
+    runner: pulsar_ch01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_ch01/staging
+      persistence_directory: /data/share/pulsar_ch01/persisted_data
+    scheduling:
+      require:
+        - ch-pulsar
+    context:
+      latitude: 46.818188
+      longitude: 8.227512
+
+  pulsar_sl_tpv:
+    inherits: _pulsar
+    runner: pulsar_sl01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    params:
+      jobs_directory: /data/share/pulsar_sl01/staging
+      persistence_directory: /data/share/pulsar_sl01/persisted_data
+    scheduling:
+      require:
+        - sl-pulsar
+    context:
+      latitude: 46.151241
+      longitude: 14.995463
+
+  ############################
+  # TEST-ONLY PULSAR NODES   #
+  ############################
+
+  pulsar_sanjay_tpv:
+    inherits: _pulsar
+    runner: pulsar_de01
+    max_accepted_cores: 8
+    max_accepted_mem: 15
+    min_accepted_gpus: 0
+    max_accepted_gpus: 0
+    env:
+      SINGULARITY_CACHEDIR: "/pulsar_data/container_cache"
+    params:
+      jobs_directory: "/pulsar_data/staging/psbe"
+      persistence_directory: "/pulsar_data/persisted_data/psbe"
+      metadata_strategy: extended
+    scheduling:
+      require:
+        - sanjay-pulsar

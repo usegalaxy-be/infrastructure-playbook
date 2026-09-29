@@ -1,0 +1,42 @@
+---
+# pdg.galaxy_healthcheck — usegalaxy.be wiring (see 09-galaxy-healthcheck.yml).
+# Runs on each Galaxy host, probing its own instance with that host's own admin key.
+
+galaxy_healthcheck_dir: /home/galaxy_master/.local/galaxy-healthcheck
+galaxy_healthcheck_user: galaxy_master
+galaxy_healthcheck_group: galaxy_master
+galaxy_healthcheck_log: /home/galaxy_master/logs/galaxy-job-healthcheck.log
+
+galaxy_healthcheck_url: "https://{{ inventory_hostname }}"
+galaxy_healthcheck_api_key: "{{ vault_tool_admin_api_key }}"
+
+# One probed tool set for both instances (test reaches the vib workers since the
+# CCB hairpin fix on the test head, so the GPU test tools run everywhere).
+# protein_calculator listed first: keeps it inside registered_user_concurrent_jobs (5).
+galaxy_healthcheck_tools:
+  - tool_id: protein_calculator
+    inputs:
+      "fasta_or_text|input_mode": textbox
+      "fasta_or_text|name": health-check
+      "fasta_or_text|sequence": EASTEREGGEGG
+  - tool_id: test-condor-singularity
+    inputs: {}
+  - tool_id: test-condor-docker
+    inputs: {}
+  - tool_id: test-condor-conda
+    inputs: {}
+  - tool_id: test-condor-gpu
+    inputs: {}
+  - tool_id: test-condor-gpu-v3
+    inputs: {}
+  - tool_id: data_fetch
+    type: fetch
+    content: "health-check"
+
+# Reuse the existing tpv_job_test InfluxDB schema so current Grafana panels keep working.
+galaxy_healthcheck_influx_url: "http://monitoring.usegalaxy.be:8086"
+galaxy_healthcheck_influx_db: galaxy
+galaxy_healthcheck_influx_user: "{{ influx_username }}"
+galaxy_healthcheck_influx_pass: "{{ influx_password }}"
+galaxy_healthcheck_influx_measurement: tpv_job_test
+galaxy_healthcheck_influx_error_measurement: tpv_job_test_error

@@ -1,0 +1,112 @@
+---
+# Manage tools repo clone
+
+- name: Update galaxy-tools repo to specified ref
+  git:
+    dest: "{{ tools_repo_dir }}"
+    # force: "{{ galaxy_force_checkout }}"
+    repo: "{{ galaxy_tools_repo }}"
+    executable: "{{ git_executable | default(omit) }}"
+  diff: "{{ clone_diff_mode_verbose }}"
+
+- name: Deploy Galaxy Tool install python scripts
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0755
+    src: scripts/tool_install.py.j2
+    dest: "{{ tool_install_dir }}/tool_install.py"
+
+- name: Deploy Galaxy Tool install scripts
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0755
+    src: scripts/tool-install.sh.j2
+    dest: "{{ tool_install_dir }}/tool-install.sh"
+
+- name: Creates test output directory
+  ansible.builtin.file:
+    path: "{{ tool_test_dir }}"
+    owner: root
+    group: root
+    mode: 0755
+    state: directory
+
+- name: Deploy Galaxy Tool install unit
+  template:
+    owner: root
+    group: root
+    mode: 0755
+    src: systemd/galaxy-tool-install.service.j2
+    dest: /etc/systemd/system/galaxy-tool-install.service
+  # notify: systemd daemon reload
+
+- name: Check if the service is running
+  ansible.builtin.shell: systemctl is-active galaxy-tool-install.service
+  register: service_status
+  ignore_errors: true
+
+# - name: Restart Galaxy Tool install service if running
+#   ansible.builtin.service:
+#     name: galaxy-tool-install.service
+#     state: restarted
+#     daemon_reload: true
+#   when: service_status.stdout == "active"
+
+- name: Start Galaxy Tool install if not running
+  ansible.builtin.service:
+    name: galaxy-tool-install.service
+    state: started
+    daemon_reload: true
+  when:
+    - service_status.stdout != "active"
+    - galaxy_tools_install_service_autostart | bool
+
+- name: Remove the old shed-tools install cron entries (replaced by systemd timers)
+  ansible.builtin.cron:
+    name: "Install Tool Shed tools from {{ item }}"
+    state: absent
+  loop:
+    - tools_iuc.yaml
+    - belgium-custom.yaml
+    - GTN_tutorials_tools.yaml
+
+- name: Stop and remove any install timers not in the current schedule
+  ansible.builtin.systemd:
+    name: "galaxy-tool-shed-install@{{ item }}.timer"
+    state: stopped
+    enabled: false
+  loop: "{{ ['tools_iuc', 'belgium-custom', 'GTN_tutorials_tools'] | difference(galaxy_tools_install_schedule | map(attribute='name')) }}"
+  failed_when: false
+
+- name: Deploy the Galaxy Tool Shed install service (parameterised by tool list name)
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0644
+    src: systemd/galaxy-tool-shed-install@.service.j2
+    dest: /etc/systemd/system/galaxy-tool-shed-install@.service
+  register: shed_install_service
+
+- name: Deploy a weekly install timer per tool list
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0644
+    src: systemd/galaxy-tool-shed-install.timer.j2
+    dest: "/etc/systemd/system/galaxy-tool-shed-install@{{ item.name }}.timer"
+  loop: "{{ galaxy_tools_install_schedule }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: shed_install_timers
+
+- name: Enable and start the install timers
+  ansible.builtin.systemd:
+    name: "galaxy-tool-shed-install@{{ item.name }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: "{{ shed_install_service.changed or shed_install_timers.changed }}"
+  loop: "{{ galaxy_tools_install_schedule }}"
+  loop_control:
+    label: "{{ item.name }}"

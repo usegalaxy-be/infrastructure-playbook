@@ -1,0 +1,43 @@
+---
+- name: Copy autofs mapping files
+  template:
+    src: data.autofs.j2
+    dest: "/etc/auto.master.d/{{ item.name }}.autofs"
+    owner: root
+    group: root
+    mode: 0644
+  loop: "{{ autofs_mounts }}"
+  # notify: Restart autofs
+
+- name: Copy mount point configuration files
+  template:
+    src: data.conf.j2
+    dest: "{{ item.conf_location }}"
+    owner: root
+    group: root
+    mode: 0644
+  loop: "{{ autofs_mounts }}"
+  notify: Restart autofs
+
+- name: Remove legacy entries from autofs map files
+  ansible.builtin.lineinfile:
+    path: "{{ item.conf_location }}"
+    regexp: "^\\s*{{ item.key }}\\s"
+    state: absent
+  loop: "{{ autofs_cleanup_entries | default([]) }}"
+  notify: Restart autofs
+
+- name: Remove legacy autofs master.d entries
+  ansible.builtin.file:
+    path: "/etc/auto.master.d/{{ item.remove_master_entry }}.autofs"
+    state: absent
+  loop: "{{ autofs_cleanup_entries | default([]) }}"
+  when: item.remove_master_entry is defined
+  notify: Restart autofs
+
+- name: Unmount paths superseded by autofs cleanup
+  ansible.builtin.command: "umount {{ item.unmount_path }}"
+  loop: "{{ autofs_cleanup_entries | default([]) }}"
+  when: item.unmount_path is defined
+  failed_when: false
+  changed_when: false

@@ -1,0 +1,149 @@
+---
+# Deploy the reverse proxy (proxyservers): Nginx, SSL/TLS via certbot, /etc/hosts.
+# Topology: Internet → proxyservers (Nginx+SSL) → galaxyservers (Nginx, Galaxy app).
+# Can run independently; does not depend on Galaxy app servers being up.
+
+- hosts: proxyservers
+  vars:
+    # Set to true to enable the maintenance page (redirects all Galaxy requests to GitHub Pages).
+    # Enable:  set true,  run 00-proxy.yml --tags maintenance
+    # Disable: set false, run 00-proxy.yml --tags maintenance
+    nginx_maintenance_mode: false
+  become: true
+  become_user: root
+  # collections:
+  #   - devsec.hardening
+  pre_tasks:
+    # TODO: we need to enable epel to install virtualenv
+    - name: Install Dependencies
+      package:
+        name:
+          [
+            "bzip2",
+            "tar",
+            "git",
+            "bc",
+          ]
+      become: true
+      become_user: root
+      tags: packages
+
+    - name: Disable SELinux
+      selinux:
+        state: disabled
+      tags: selinux
+
+    - name: Disable firewalld service
+      ansible.builtin.service:
+        name: firewalld
+        enabled: false
+        state: stopped
+      tags: firewalld
+
+  roles:
+    # Set NTP
+    - role: influxdata.chrony
+      tags: chrony
+
+    # # Enable epel
+    # - role: geerlingguy.repo-epel
+
+    # Set /etc/hosts for internal forwarding
+    - role: pdg.update_hosts
+      tags: hosts
+
+    # Self-signed wildcard cert for *.ep.interactivetool.test.usegalaxy.be
+    # Must run before galaxyproject.nginx so the cert exists when nginx starts.
+    # Transition to real cert: update gxit_test_ssl_certificate / gxit_test_ssl_certificate_key
+    # in group_vars/proxyservers/nginx.yml to certbot paths and re-run this playbook.
+    - role: galaxyproject.self_signed_certs
+      tags: ssl
+      vars:
+        openssl_domains:
+          - "*.ep.interactivetool.test.usegalaxy.be"
+        openssl_private_key_path: "{{ gxit_test_ssl_certificate_key }}"
+        openssl_certificate_path: "{{ gxit_test_ssl_certificate }}"
+
+    # Sets up a webserver
+    - role: galaxyproject.nginx
+      tags: nginx
+
+  post_tasks:
+    - name: Enable maintenance mode
+      ansible.builtin.file:
+        path: /var/www/html/maintenance.disable
+        state: touch
+        modification_time: preserve
+        access_time: preserve
+      become: true
+      when: nginx_maintenance_mode
+      notify: reload nginx
+      tags: maintenance
+
+    - name: Disable maintenance mode
+      ansible.builtin.file:
+        path: /var/www/html/maintenance.disable
+        state: absent
+      become: true
+      when: not nginx_maintenance_mode
+      notify: reload nginx
+      tags: maintenance
+
+    - name: Force immediate NTP clock step
+      command: chronyc makestep
+      become: true
+      tags: chrony
+
+    # Dedicated key for the certbot post-renewal hook to trigger refresh-certs
+    # on the Galaxy heads. Authorized there with a forced command (next play),
+    # so possession of this key grants nothing beyond running that script.
+    - name: Generate cert-renewal SSH key
+      ansible.builtin.command:
+        cmd: ssh-keygen -t ed25519 -N "" -C cert-renewal@proxy.usegalaxy.be -f {{ cert_renewal_key_path }}
+        creates: "{{ cert_renewal_key_path }}"
+      become: true
+      tags: cert-renewal
+
+    - name: Read cert-renewal public key
+      ansible.builtin.slurp:
+        src: "{{ cert_renewal_key_path }}.pub"
+      become: true
+      register: _cert_renewal_pubkey_slurp
+      tags: cert-renewal
+
+    - name: Expose cert-renewal public key as a fact
+      ansible.builtin.set_fact:
+        cert_renewal_public_key: "{{ _cert_renewal_pubkey_slurp.content | b64decode | trim }}"
+      tags: cert-renewal
+
+# Authorize the proxy's cert-renewal key on the cert consumers (Galaxy heads).
+# The forced command restricts the key to /usr/local/sbin/refresh-certs, which
+# reloads nginx and restarts the containers that mount the NFS-shared certs.
+- hosts: galaxyservers
+  become: true
+  tags: cert-renewal
+  tasks:
+    - name: Deploy refresh-certs script (forced-command target)
+      ansible.builtin.copy:
+        dest: /usr/local/sbin/refresh-certs
+        owner: root
+        group: root
+        mode: "0755"
+        content: |
+          #!/bin/bash
+          # Invoked by the certbot post-renewal hook on the proxy through a
+          # forced-command SSH key (see 00-proxy.yml). nginx re-reads the
+          # renewed certs on reload; RabbitMQ only reads them at startup,
+          # so its container needs a restart.
+          sudo systemctl reload nginx || true
+          sudo docker restart rabbit_hole || true
+
+    - name: Authorize cert-renewal key with forced command
+      ansible.builtin.blockinfile:
+        path: "/home/{{ galaxy_user_name }}/.ssh/authorized_keys"
+        marker: "# {mark} ANSIBLE MANAGED: proxy cert-renewal key (00-proxy.yml)"
+        block: >-
+          command="/usr/local/sbin/refresh-certs",restrict
+          {{ hostvars[groups['proxyservers'][0]].cert_renewal_public_key }}
+      when: hostvars[groups['proxyservers'][0]].cert_renewal_public_key is defined
+

@@ -1,0 +1,1893 @@
+{{ ansible_managed | comment }}
+# Grafana Unified Alerting — Alert Rules
+# Deployed to: /etc/grafana/provisioning/alerting/alert_rules.yml
+#
+# Datasource UID referenced: be-galaxy-new  (GalaxyNew, database: galaxy)
+# All thresholds are intentionally conservative; tune after observing normal baselines.
+#
+# NOTE: Each rule is in its own group to work around a Grafana 11.4.0 bug where
+# batch-inserting multiple rules in the same group causes UNIQUE constraint failures
+# on the alert_rule.guid column (guid generation collides for rules 2+ in a group).
+#
+# Measurement naming convention from gxadmin iquery:
+#   gxadmin iquery jobs-queued          → measurement: jobs-queued,                          field: count
+#   gxadmin iquery jobs-queued-internal → measurement: jobs-queued-internal-by-handler,      field: count
+# System metrics from Telegraf plugins:
+#   mem plugin   → measurement: mem,  field: used_percent
+#   disk plugin  → measurement: disk, field: used_percent, tag: path
+# Journalctl script:
+#   galaxy-journalctl-monitor → measurement: galaxy_journal_errors, field: count, tag: level
+# Job error script:
+#   galaxy-job-error-stats    → measurement: galaxy_job_errors, field: count
+
+apiVersion: 1
+
+groups:
+
+  # ── Job Queue ──────────────────────────────────────────────────────────────
+
+  # sum(count) across both group tags (processed/unprocessed); gt 20.
+  - orgId: 1
+    name: Job Queue High
+    folder: Galaxy Alerts
+    interval: 2m
+    rules:
+
+      - uid: be-job-queue-high
+        title: High Job Queue Depth (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT sum("count") FROM "jobs-queued"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+                GROUP BY time($__interval) fill(0)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [20]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: Job queue depth is above 20 on prod
+          description: >-
+            The job queue on usegalaxy.be has been above 20 for 5+ minutes.
+            Check: condor_q, gxadmin query queue-overview
+
+      - uid: be-job-queue-high-test
+        title: High Job Queue Depth (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT sum("count") FROM "jobs-queued"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY time($__interval) fill(0)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [20]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: Job queue depth is above 20 on test
+          description: >-
+            The job queue on test.usegalaxy.be has been above 20 for 5+ minutes.
+            This may indicate insufficient compute slots or HTCondor issues.
+            Check: condor_q, gxadmin query queue-overview
+
+  - orgId: 1
+    name: Handler Backlog
+    folder: Galaxy Alerts
+    interval: 2m
+    rules:
+
+      - uid: be-handler-backlog
+        title: Handler Queue Backlog (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("count") FROM "jobs-queued-internal-by-handler"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter GROUP BY time($__interval) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [15]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: A Galaxy handler on prod has more than 15 queued jobs
+          description: >-
+            One or more job handlers on usegalaxy.be have a backlog of 15+ jobs
+            for 5+ minutes. Check: gxadmin query jobs-queued-internal-by-handler
+
+      - uid: be-handler-backlog-test
+        title: Handler Queue Backlog (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("count") FROM "jobs-queued-internal-by-handler"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter GROUP BY time($__interval) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [15]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: OK
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: A Galaxy handler on test has more than 15 queued jobs
+          description: >-
+            One or more job handlers on test.usegalaxy.be have a backlog of
+            15+ jobs for 5+ minutes.
+            Check: gxadmin query jobs-queued-internal-by-handler
+
+  # ── System Resources ───────────────────────────────────────────────────────
+
+  - orgId: 1
+    name: Memory High
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      # Host was inventory_hostname (= monitoring host); hardcoded below.
+      - uid: be-memory-high
+        title: High Memory Usage (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT mean("used_percent") FROM "mem"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+                GROUP BY time($__interval) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [90]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: Memory usage above 90% on prod
+          description: >-
+            usegalaxy.be memory usage has been above 90% for 5+ minutes.
+            Consider restarting Galaxy handlers or investigating memory leaks.
+
+      - uid: be-memory-high-test
+        title: High Memory Usage (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT mean("used_percent") FROM "mem"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY time($__interval) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [90]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: Memory usage above 90% on test
+          description: >-
+            test.usegalaxy.be memory usage has been above 90% for 5+ minutes.
+            Consider restarting Galaxy handlers or investigating memory leaks.
+
+  # Two tiers, both with a recovery threshold (hysteresis). 85% is a ticket: a
+  # 30GB root disk crossing it needs attention today, not a page. The page only
+  # fires when there is genuinely too little room left to work in.
+  # The recovery thresholds are what stop the alert re-firing while usage sits
+  # on the line, which is what produced the hourly repeats before.
+  - orgId: 1
+    name: Disk Root High
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      # Host was inventory_hostname (= monitoring host); hardcoded below.
+      - uid: be-disk-root-high
+        title: Root Disk Usage High (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("used_percent") FROM "disk"
+                WHERE "host" = 'usegalaxy.be' AND "path" = '/'
+                AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [85]
+                  unloadEvaluator:
+                    type: lt
+                    params: [80]
+        noDataState: NoData
+        execErrState: Alerting
+        for: 1h
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: Root disk on prod above 85% used (clears below 80%)
+          description: >-
+            usegalaxy.be root disk (/) has been above 85% for an hour.
+            ssh usegalaxy.be 'df -h /'
+            ssh usegalaxy.be 'sudo du -xh --max-depth=2 / | sort -rh | head -20'
+            Known space sinks and the cleanup playbook are in
+            docs/monitoring/alerting.md
+
+      - uid: be-disk-root-critical
+        title: Root Disk Nearly Full (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT min("free") FROM "disk"
+                WHERE "host" = 'usegalaxy.be' AND "path" = '/'
+                AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [2000000000]
+                  unloadEvaluator:
+                    type: gt
+                    params: [4000000000]
+        noDataState: NoData
+        execErrState: Alerting
+        for: 10m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: Root disk on prod has under 2GB free (clears above 4GB)
+          description: >-
+            usegalaxy.be root disk (/) is nearly full. Galaxy, condor and
+            journald all write here, and things start failing below ~1GB.
+            ssh usegalaxy.be 'df -h /'
+            ssh usegalaxy.be 'sudo du -xh --max-depth=2 / | sort -rh | head -20'
+
+      - uid: be-disk-root-high-test
+        title: Root Disk Usage High (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("used_percent") FROM "disk"
+                WHERE "host" = 'test.usegalaxy.be' AND "path" = '/'
+                AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [85]
+                  unloadEvaluator:
+                    type: lt
+                    params: [80]
+        noDataState: NoData
+        execErrState: Alerting
+        for: 1h
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: Root disk on test above 85% used (clears below 80%)
+          description: >-
+            test.usegalaxy.be root disk (/) has been above 85% for an hour.
+            ssh test.usegalaxy.be 'df -h /'
+
+  # Replaces "Disk Galaxy High" (no host/path filter). Scoped to the actual
+  # NFS share; percentage tier is informational, free-space tier is critical.
+  - orgId: 1
+    name: NFS Data Share Usage
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-nfs-share-high
+        title: NFS Data Share Usage High (informational)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("used_percent") FROM "disk"
+                WHERE "host" = 'nfs.usegalaxy.be' AND "path" = '/data/share'
+                AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [90]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 30m
+        labels:
+          severity: info
+          env: prod
+        annotations:
+          summary: NFS data share above 90% used
+          description: >-
+            The NFS data share (nfs.usegalaxy.be:/data/share) is above 90% used.
+            Check: df -h /data/share on nfs.usegalaxy.be
+
+      - uid: be-nfs-share-critical
+        title: NFS Data Share Nearly Full (critical)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("free") FROM "disk"
+                WHERE "host" = 'nfs.usegalaxy.be' AND "path" = '/data/share'
+                AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [250000000000]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 10m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: NFS data share has less than 250GB free
+          description: >-
+            The NFS data share (nfs.usegalaxy.be:/data/share) has less than
+            250GB free. Check: df -h /data/share on nfs.usegalaxy.be
+
+  # ── Galaxy Application Errors ─────────────────────────────────────────────
+
+  - orgId: 1
+    name: Galaxy Log Errors
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-galaxy-log-errors
+        title: Galaxy Log Error Spike (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT sum("count") FROM "galaxy_journal_errors"
+                WHERE "level" = 'error' AND "host" = 'usegalaxy.be' AND $timeFilter
+                GROUP BY time(1m) fill(0)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [20]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: max
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 2m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: More than 20 Galaxy ERROR log lines in 1 minute on prod
+          description: >-
+            usegalaxy.be Galaxy services are logging more than 20 ERROR-level lines per minute.
+            Check: journalctl -u 'galaxy*' --since '5 minutes ago' | grep ERROR
+
+      - uid: be-galaxy-log-errors-test
+        title: Galaxy Log Error Spike (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT sum("count") FROM "galaxy_journal_errors"
+                WHERE "level" = 'error' AND "host" = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY time(1m) fill(0)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [20]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: max
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 2m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: More than 20 Galaxy ERROR log lines in 1 minute on test
+          description: >-
+            test.usegalaxy.be Galaxy services are logging more than 20 ERROR-level lines per minute.
+            Check: journalctl -u 'galaxy*' --since '5 minutes ago' | grep ERROR
+
+  - orgId: 1
+    name: Galaxy Job Errors
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-galaxy-job-errors
+        title: Galaxy Job Error Rate High (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT sum("count") FROM "galaxy_job_errors"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+                GROUP BY time(5m) fill(0)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [10]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: max
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: More than 10 new job errors in 5 minutes on prod
+          description: >-
+            usegalaxy.be has had more than 10 jobs enter error state in the past 5 minutes.
+            Check: gxadmin query queue-overview, or inspect recent failed jobs in the admin panel.
+
+      - uid: be-galaxy-job-errors-test
+        title: Galaxy Job Error Rate High (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT sum("count") FROM "galaxy_job_errors"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY time(5m) fill(0)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [10]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: max
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: More than 10 new job errors in 5 minutes on test
+          description: >-
+            test.usegalaxy.be has had more than 10 jobs enter error state in the past 5 minutes.
+            Check: gxadmin query queue-overview, or inspect recent failed jobs in the admin panel.
+
+  # Local_runner job queued 30m+ with no job_runner_external_id: the
+  # LocalJobRunner preexec_fn fork deadlock signature (see local.py).
+  - orgId: 1
+    name: Stuck Local Runner Jobs
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-stuck-local-jobs
+        title: Stuck Local Runner Jobs (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("count") FROM "galaxy_stuck_local_jobs"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 0s
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: A job on prod has been stuck queued on local_runner with no runner id
+          description: >-
+            usegalaxy.be has a job queued on local_runner for 30+ minutes with
+            no job_runner_external_id. Check: gxadmin query queue-detail.
+
+      - uid: be-stuck-local-jobs-test
+        title: Stuck Local Runner Jobs (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("count") FROM "galaxy_stuck_local_jobs"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 0s
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: A job on test has been stuck queued on local_runner with no runner id
+          description: >-
+            test.usegalaxy.be has a job in "queued" state on local_runner for
+            30+ minutes with no job_runner_external_id ever assigned.
+            Check: gxadmin query queue-detail on test.usegalaxy.be.
+
+  # ── HTCondor Cluster ────────────────────────────────────────────────────────
+  # Data source: monitor-condor-utilisation (hxr.monitor-cluster) running on
+  # the Galaxy server → htcondor_cluster_usage, classad='machine'.
+  # noDataState: Alerting catches condor_status failures (central manager down).
+
+  - orgId: 1
+    name: Condor Cluster At Capacity
+    folder: Galaxy Alerts
+    interval: 2m
+    rules:
+
+      - uid: be-condor-capacity
+        title: HTCondor Cluster At Capacity
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("unclaimed_cpus") FROM "htcondor_cluster_usage"
+                WHERE "classad" = 'machine' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 15m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: HTCondor cluster has no unclaimed CPUs
+          description: >-
+            The HTCondor cluster has had zero unclaimed CPUs for 15+ minutes.
+            This may indicate all slots are busy (high load), workers are offline,
+            or the condor central manager is unreachable.
+            Check: condor_status -total, condor_q, condor_status -schedd
+
+  # ── Proxy Server ────────────────────────────────────────────────────────────
+  # Data source: Telegraf on proxy.usegalaxy.be (mem + disk plugins).
+  # noDataState: NoData — alerts remain silent until Telegraf is deployed there.
+
+  - orgId: 1
+    name: Proxy Memory High
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-proxy-memory-high
+        title: Proxy High Memory Usage
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT mean("used_percent") FROM "mem"
+                WHERE "host" = 'proxy.usegalaxy.be' AND $timeFilter
+                GROUP BY time($__interval) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [90]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: Proxy server memory usage above 90%
+          description: >-
+            Proxy server (proxy.usegalaxy.be) memory usage has been above 90% for 5+ minutes.
+            Check: free -h, ps aux --sort=-%mem | head
+
+  - orgId: 1
+    name: Proxy Disk Root High
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-proxy-disk-high
+        title: Proxy Root Disk Usage High
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("used_percent") FROM "disk"
+                WHERE "host" = 'proxy.usegalaxy.be' AND "path" = '/'
+                AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [85]
+                  unloadEvaluator:
+                    type: lt
+                    params: [80]
+        noDataState: NoData
+        execErrState: Alerting
+        for: 1h
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: Proxy root disk above 85% used (clears below 80%)
+          description: >-
+            proxy.usegalaxy.be root disk (/) has been above 85% for an hour.
+            ssh proxy.usegalaxy.be 'df -h /'
+            Nginx access logs under /var/log are the usual cause.
+
+  # ── Database Server ──────────────────────────────────────────────────────────
+  # Data source: Telegraf on db.usegalaxy.be (mem + disk plugins).
+  # noDataState: NoData — alerts remain silent until Telegraf is deployed there.
+
+  - orgId: 1
+    name: DB Memory High
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-db-memory-high
+        title: DB Server High Memory Usage
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT mean("used_percent") FROM "mem"
+                WHERE "host" = 'db.usegalaxy.be' AND $timeFilter
+                GROUP BY time($__interval) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [90]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: NoData
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: DB server memory usage above 90%
+          description: >-
+            Database server (db.usegalaxy.be) memory usage has been above 90% for 5+ minutes.
+            Postgres is the primary consumer. Check: free -h, pg_top or
+            SELECT pid, query, state FROM pg_stat_activity WHERE state != 'idle';
+
+  - orgId: 1
+    name: DB Disk Root High
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-db-disk-high
+        title: DB Server Root Disk Usage High
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("used_percent") FROM "disk"
+                WHERE "host" = 'db.usegalaxy.be' AND "path" = '/'
+                AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [85]
+                  unloadEvaluator:
+                    type: lt
+                    params: [80]
+        noDataState: NoData
+        execErrState: Alerting
+        for: 1h
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: DB server root disk above 85% used (clears below 80%)
+          description: >-
+            db.usegalaxy.be root disk (/) has been above 85% for an hour.
+            ssh db.usegalaxy.be 'df -h / && sudo du -sh /var/lib/pgsql/'
+
+  # ── TPV Job Tests ────────────────────────────────────────────────────────────
+  # Data source: tpv_job_test measurement written by the job healthcheck (pdg.galaxy_healthcheck).
+  # Runs every 2h from cron on each Galaxy host, and on demand via daily-galaxy-healthcheck.yml.
+  # noDataState: Alerting catches both job failures and a stopped/broken cron.
+  # 3.5h window ensures at least one run is always in scope (runs every 2h, take ≤1h).
+  # host tag added to line protocol so test and prod can be alerted separately.
+
+  # Split by persistence, because a single failed batch and a destination that
+  # has been broken all morning are not the same event.
+  #
+  #   warning  — one batch failed. The healthcheck already retries up to 3 times
+  #              within a batch, so this is not a blip, but it is not a page
+  #              either. Self-resolves when the next batch (2h later) passes.
+  #   critical — no successful run for that tool in 5.5h, sustained across at
+  #              least one further batch (for: 2h15m). A hiccup that recovers on
+  #              the next batch clears the pending state and never pages.
+  #
+  # Both GROUP BY "tool" so the notification names the destination that failed
+  # instead of collapsing all seven into one anonymous value. Several tools
+  # failing at once still arrive as one message: the notification policy groups
+  # by severity, not by rule.
+  - orgId: 1
+    name: TPV Job Test Failure
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-tpv-job-test-failure
+        title: TPV Test Job Failed (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 12600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT min("ok") FROM "tpv_job_test"
+                WHERE host = 'usegalaxy.be' AND $timeFilter
+                GROUP BY "tool"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 0s
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: >-
+            TPV test job {% raw %}{{ $labels.tool }}{% endraw %} failed on prod (or the healthcheck cron has stopped)
+          description: >-
+            {% raw %}{{ $labels.tool }}{% endraw %} did not complete ok on usegalaxy.be in the last 3.5
+            hours, after the healthcheck's own retries. If no tool has reported at
+            all, the cron has stopped instead.
+            It clears by itself if the next 2-hourly batch passes; it escalates to
+            critical if it does not.
+            ssh usegalaxy.be 'gxadmin query queue-detail'
+            tail ~/logs/galaxy-healthcheck.log on the loginnode
+
+      - uid: be-tpv-job-test-sustained
+        title: TPV Test Job Failing Repeatedly (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 19800
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("ok") FROM "tpv_job_test"
+                WHERE host = 'usegalaxy.be' AND $timeFilter
+                GROUP BY "tool"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: OK
+        execErrState: OK
+        for: 2h15m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: >-
+            TPV test job {% raw %}{{ $labels.tool }}{% endraw %} has not passed on prod in over 5 hours
+          description: >-
+            {% raw %}{{ $labels.tool }}{% endraw %} has failed every healthcheck batch for 5+ hours on
+            usegalaxy.be, so this is not a transient failure: that destination is
+            not running jobs.
+            ssh usegalaxy.be 'gxadmin query queue-detail'
+            ssh usegalaxy.be 'condor_q -better-analyze'
+            tail ~/logs/galaxy-healthcheck.log on the loginnode
+
+      - uid: be-tpv-job-test-failure-test
+        title: TPV Test Job Failed (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 12600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT min("ok") FROM "tpv_job_test"
+                WHERE host = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY "tool"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 0s
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            TPV test job {% raw %}{{ $labels.tool }}{% endraw %} failed on test (or the healthcheck cron has stopped)
+          description: >-
+            {% raw %}{{ $labels.tool }}{% endraw %} did not complete ok on test.usegalaxy.be in the last
+            3.5 hours. If no tool has reported at all, the cron has stopped instead.
+            ssh test.usegalaxy.be 'gxadmin query queue-detail'
+
+  # ── Database Backup ──────────────────────────────────────────────────────────
+  # Data source: galaxy-backup-freshness (telegraf exec, hourly) → galaxy_backup.
+  # offsite_age_hours comes from a marker backup_db.sh writes only after the
+  # MinIO upload exits 0, so a failing upload shows as a rising age.
+  # -1 means the marker is missing (never succeeded since deploy), which the
+  # outside_range evaluator treats the same as stale.
+  #
+  # This exists because the previous offsite copy (scp to midas.psb.ugent.be)
+  # failed every night from Feb 2024 with nothing watching it: the only signal
+  # was cron mail, which queued undelivered in ~/.esmtp_queue for 2.5 years.
+
+  - orgId: 1
+    name: Database Backup Stale
+    folder: Galaxy Alerts
+    interval: 10m
+    rules:
+
+      - uid: be-backup-offsite-stale
+        title: Offsite DB Backup Stale (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 10800
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("offsite_age_hours") FROM "galaxy_backup"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: outside_range
+                    params: [0, 30]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 30m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: No successful offsite DB backup in over 30 hours
+          description: >-
+            The nightly upload to MinIO has not succeeded since more than one
+            night ago, or has never succeeded since this check was deployed.
+            No data at all means telegraf stopped reporting it.
+            ssh usegalaxy.be 'tail -20 ~/cron.log'
+            ssh usegalaxy.be '/usr/local/bin/mcli ls vibminio/usegalaxy-be/db_backups/prod/ | tail -3'
+
+      - uid: be-backup-offsite-critical
+        title: Offsite DB Backup Failing (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 10800
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("offsite_age_hours") FROM "galaxy_backup"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [50]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: OK
+        execErrState: OK
+        for: 30m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: Offsite DB backup has missed two consecutive nights
+          description: >-
+            usegalaxy.be has had no successful offsite database backup for 50+
+            hours. Two nights in a row is a real failure, not a transient one.
+            ssh usegalaxy.be 'tail -20 ~/cron.log'
+            ssh usegalaxy.be '/srv/galaxy/shared/database/backup/scripts/backup_db.sh'
+
+  # ── Failed systemd units ─────────────────────────────────────────────────────
+  # Data source: galaxy_failed_units (galaxy-failed-units exec script). Generic
+  # catch-all for any failed unit, no per-job metric+alert needed.
+
+  - orgId: 1
+    name: Failed Systemd Units
+    folder: Galaxy Alerts
+    interval: 10m
+    rules:
+
+      - uid: be-failed-units-prod
+        title: Failed Systemd Units (prod)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("count") FROM "galaxy_failed_units"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: At least one systemd unit is in failed state on prod
+          description: >-
+            ssh usegalaxy.be 'systemctl --failed'
+
+      - uid: be-failed-units-test
+        title: Failed Systemd Units (test)
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("count") FROM "galaxy_failed_units"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: classic_conditions
+              refId: B
+              datasource:
+                name: Expression
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                    params: []
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 5m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: At least one systemd unit is in failed state on test
+          description: >-
+            ssh test.usegalaxy.be 'systemctl --failed'
+
+# Rules retired from the groups above; file provisioning only adds/updates by
+# uid, it does not prune rules removed from this file, so old ones must be
+# deleted explicitly here.
+deleteRules:
+  - orgId: 1
+    uid: be-disk-galaxy-high

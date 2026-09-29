@@ -1,0 +1,64 @@
+#!/bin/bash
+# {{ ansible_managed }}
+#
+# WAL archive cleanup — remove WAL segments no longer needed for PITR recovery.
+#
+# background: backup.py skips --clean-archive for remote backup directories,
+# so WAL segments are never pruned automatically. This script fills that gap.
+#
+# logic: find the oldest retained base backup, read its backup_label to
+# determine the oldest WAL segment still required, and delete everything older.
+# timeline history files (.history) are always kept — they are needed if
+# recovery ever crosses a timeline boundary.
+#
+# schedule: run after the nightly base backup (see cron).
+
+set -euo pipefail
+
+BACKUP_DIR="{{ pg_backup_dir }}"
+WAL_ARCHIVE="${BACKUP_DIR}/wal_archive"
+LOG_PREFIX="$(date -Iseconds) pg_wal_archive_cleanup:"
+
+if [[ ! -d "$WAL_ARCHIVE" ]]; then
+    echo "$LOG_PREFIX WAL archive directory ${WAL_ARCHIVE} does not exist, nothing to do"
+    exit 0
+fi
+
+# Find the oldest base backup (directories named YYYYMMDDTHHMMSSz by backup.py)
+oldest=$(find "${BACKUP_DIR}" -maxdepth 1 -type d -name '[0-9]*T*Z' 2>/dev/null | sort | head -1)
+
+if [[ -z "$oldest" ]]; then
+    echo "$LOG_PREFIX no base backups found in ${BACKUP_DIR}, skipping cleanup"
+    exit 0
+fi
+
+label_file="${oldest}/backup_label"
+if [[ ! -f "$label_file" ]]; then
+    echo "$LOG_PREFIX ERROR: backup_label missing from ${oldest}" >&2
+    exit 1
+fi
+
+# Extract WAL filename from backup_label line:
+#   START WAL LOCATION: 0/1000028 (file 000000010000000000000001)
+oldest_wal=$(grep 'START WAL LOCATION' "$label_file" | grep -oE '[0-9A-F]{24}')
+if [[ -z "$oldest_wal" ]]; then
+    echo "$LOG_PREFIX ERROR: could not parse WAL filename from ${label_file}" >&2
+    exit 1
+fi
+
+echo "$LOG_PREFIX oldest backup: $(basename "$oldest"), oldest required WAL: ${oldest_wal}"
+
+removed=0
+for f in "${WAL_ARCHIVE}"/*; do
+    [[ -f "$f" ]] || continue
+    name=$(basename "$f")
+    # Only remove 24-char uppercase hex WAL segment files.
+    # Leave .history (timeline history) and any other files alone.
+    [[ "$name" =~ ^[0-9A-F]{24}$ ]] || continue
+    if [[ "$name" < "$oldest_wal" ]]; then
+        rm -f "$f"
+        (( removed += 1 )) || true
+    fi
+done
+
+echo "$LOG_PREFIX removed ${removed} WAL segment(s)"

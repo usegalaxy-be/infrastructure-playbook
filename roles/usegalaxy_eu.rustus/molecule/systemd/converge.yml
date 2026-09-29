@@ -1,0 +1,25 @@
+---
+- name: Converge
+  hosts: all
+  vars_files:
+    - vars.yml
+  pre_tasks:
+    - name: Create rustus user.
+      ansible.builtin.user:
+        name: "{{ rustus_owner }}"
+        state: present
+    - name: Create rustus group.
+      ansible.builtin.group:
+        name: "{{ rustus_group }}"
+        state: present
+    - name: Create uploads directory.
+      ansible.builtin.file:
+        path: "{{ uploads_dir }}"
+        state: directory
+        owner: "{{ rustus_owner }}"
+        group: "{{ rustus_group }}"
+        mode: "0770"
+  tasks:
+    - name: "Include usegalaxy_eu.rustus"
+      ansible.builtin.include_role:
+        name: "usegalaxy_eu.rustus"

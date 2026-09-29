@@ -1,0 +1,26 @@
+[Unit]
+Description=Galaxy Tool Tests
+After=network.target
+After=time-sync.target
+After=multi-user.target
+
+[Service]
+UMask=022
+Type=simple
+User={{ tools_user }}
+Group={{ tools_group }}
+WorkingDirectory={{ tool_install_dir }}
+TimeoutStartSec=60
+ExecStart={{ tool_install_dir }}/tool-tests.sh "{{ galaxy_tools_test_mode }}" "{{ installed_tools_remote }}" "{{ test_tools_since_date }}" "{{ sqlite_db_path }}" "{{ parallel_tests }}"
+Environment=HOME={{ tool_install_dir }}
+Environment=VIRTUAL_ENV={{ ephemeris_venv_dir }}
+Environment=PATH={{ ephemeris_venv_dir }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin
+Environment=DOCUTILSCONFIG=
+MemoryLimit=4G
+
+MemoryAccounting=yes
+CPUAccounting=yes
+BlockIOAccounting=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,154 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "HTCondor cluster resource allocation: CPU cores and memory consumed per cluster group over time.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Allocation fraction",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 16, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "last"],
+          "displayMode": "table",
+          "placement": "right"
+        },
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "title": "Cluster Allocation by Group",
+      "description": "CPU cores and memory allocation fraction per cluster/group. Source: cluster.alloc measurement.",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT mean(\"cores\") FROM \"cluster.alloc\" WHERE $timeFilter GROUP BY time($__interval), \"cluster\", \"group\" fill(none)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT mean(\"memory\") FROM \"cluster.alloc\" WHERE $timeFilter GROUP BY time($__interval), \"cluster\", \"group\" fill(none)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Allocation fraction",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "line"},
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"color": "transparent", "value": null},
+                {"color": "red", "value": 0.9}
+              ]
+            }
+          },
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 8, "x": 16, "y": 0},
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": ["mean", "last"],
+          "displayMode": "table",
+          "placement": "bottom"
+        },
+        "tooltip": {"mode": "multi", "sort": "none"}
+      },
+      "title": "Total Cluster Allocation",
+      "description": "Overall CPU and memory allocation fraction across the entire HTCondor pool.",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT mean(\"cores\") AS \"CPU\" FROM \"cluster.alloc\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        },
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT mean(\"memory\") AS \"Memory\" FROM \"cluster.alloc\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "refId": "B",
+          "resultFormat": "time_series"
+        }
+      ]
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 41,
+  "tags": ["htcondor", "cluster"],
+  "time": {"from": "now-12h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "HTCondor Cluster Allocation",
+  "uid": "be-htcondor-allocation",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,296 @@
+---
+
+# pip_virtualenv_command: "/usr/bin/python3.9 -m venv"
+
+# NOTE: In the future we want all messaging services on the proxy server or a different VM, but for now we are keeping them on the main instance. 
+# This means that the influxdb datasource configuration is still here and not in the monitoring group vars. We will need to move it when we move the services.
+
+# pdg.rabbitmqserver
+
+# used by influxdbserver role to set the hostname in the config file
+# inventory_hostname: "usegalaxy.be"
+# hostname: "{{ inventory_hostname }}"
+
+# # RabbitMQ
+# rabbitmq_container:
+#   name: rabbit_hole
+#   image: rabbitmq:3.11-management
+#   hostname: "{{ inventory_hostname }}"
+
+# rabbitmq_plugins:
+#   - rabbitmq_management
+
+# rabbitmq_config:
+#   listeners:
+#     tcp: none
+#   ssl_listeners:
+#     default: 5671
+#   ssl_options:
+#     verify: verify_peer
+#     cacertfile: /etc/ssl/certs/test.usegalaxy.be/fullchain.pem # /etc/ssl/certs/fullchain.pem
+#     certfile: /etc/ssl/certs/test.usegalaxy.be/cert.pem # /etc/ssl/certs/cert.pem
+#     keyfile: /etc/ssl/user/privkey-999:999.pem #/etc/ssl/certs/test.usegalaxy.be/privkey.pem
+#     fail_if_no_peer_cert: "false"
+#   management_agent:
+#     disable_metrics_collector: "false"
+#   management:
+#     disable_stats: "false"
+#   consumer_timeout: 21600000 # 6 hours in milliseconds
+
+# rabbitmq_vhosts:
+#   - /pulsar/pulsar_au
+#   - /pulsar/pulsar_be
+#   - galaxy_internal
+
+# rabbitmq_users:
+#   - user: admin
+#     password: "{{ vault_rabbitmq_admin_password }}"
+#     tags: administrator
+#     vhost: /
+#   - user: pulsar_be
+#     password: "{{ vault_rabbitmq_password_vhost }}"
+#     vhost: /pulsar/pulsar_be
+#   # TODO: different password for au
+#   - user: pulsar_au
+#     password: "{{ vault_rabbitmq_password_vhost }}"
+#     vhost: /pulsar/pulsar_au
+#   - user: galaxy
+#     password: "{{ vault_rabbitmq_password_galaxy }}"
+#     vhost: galaxy_internal
+#   - user: flower
+#     password: "{{ vault_rabbitmq_password_flower }}"
+#     tags: administrator
+#     vhost: galaxy_internal
+
+
+# # geerlingguy.redis
+
+# redis_bind_interface: 0.0.0.0
+# galaxy_additional_venv_packages:
+#   - redis
+
+# # pdg.flower
+
+# flower_user: "{{ galaxy_user.name }}"
+# flower_group: "{{ galaxy_group.name }}"
+# flower_python_version: python3.9
+# flower_galaxy_conf: "{{ galaxy_config_dir }}/galaxy.yml"
+# flower_app_dir: "{{ galaxy_shared_root }}"
+# flower_python_path: "{{ galaxy_server_dir }}/lib"
+# flower_venv_dir: "{{ galaxy_venv_dir }}"
+# flower_app_name: galaxy.celery
+# flower_db_file: "{{ galaxy_config_dir }}/flower.db"
+# flower_persistent: true
+# flower_broker_api: "https://flower:{{ vault_rabbitmq_password_flower }}@0.0.0.0:5671/api/"
+# flower_broker_url: "amqp://flower:{{ vault_rabbitmq_password_flower }}@0.0.0.0:5671/galaxy_internal?ssl=true"
+# flower_proxy_prefix: /flower
+# flower_privsep_user: "{{ galaxy_privsep_user }}"
+
+# flower_ui_users:
+#   - name: admin
+#     password: "{{ vault_flower_user_password }}"
+
+# flower_environment_variables:
+#   GALAXY_CONFIG_FILE: "{{ galaxy_config_file }}"
+
+# # dj-wasabi.telegraf
+
+# telegraf_plugins_extra:
+#   postgres:
+#     plugin: "postgresql"
+#     config:
+#       - address = "{{ galaxy_db_connection }}"
+#       # TODO: move to vault?
+#       - databases = ["galaxy_prod_db", "galaxy_test_db"]
+
+#   listen_galaxy_routes:
+#     plugin: "statsd"
+#     config:
+#       - service_address = ":8125"
+#       - percentiles = [90]
+#       - metric_separator = "."
+#       - allowed_pending_messages = 10000
+#       - percentile_limit = 100
+
+#   # TODO: remove old monitor commands from igegu.monitoring and use hxr.monitor-cluster instead
+#   condor_monitor:
+#     plugin: exec
+#     config:
+#  #     - commands = [ "python /usr/local/galaxy/galaxy-monit/galaxy_queue_size.py", "python /usr/local/galaxy/galaxy-monit/iostat.py","bash /usr/local/galaxy/galaxy-monit/cluster_queue-condor.sh",
+#  #        "bash /usr/local/galaxy/galaxy-monit/cluster_util-condor.sh",]
+#       - commands = [ "bash /usr/local/galaxy/galaxy-monit/cluster_queue-condor.sh","bash /usr/local/galaxy/galaxy-monit/cluster_util-condor.sh",]
+#       - timeout = "10s"
+#       - data_format = "influx"
+#       - interval = "1m"
+
+#   monitor_galaxy_queue:
+#     plugin: "exec"
+#     config:
+#       - commands = [
+#           "{{ custom_telegraf_env}} {{ gxadmin_bin_dir }}/gxadmin iquery queue-overview --short-tool-id"
+#         ]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "15s"
+#   monitor_wf_invocations:
+#     plugin: "exec"
+#     config:
+#       - commands = [
+#             "{{ custom_telegraf_env }} {{ gxadmin_bin_dir }}/gxadmin iquery workflow-invocation-status"
+#         ]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "15s"
+  
+#     monitor_condor_queue:
+#       plugin: "exec"
+#       config:
+#         - commands = ["sudo /usr/bin/monitor-condor-queue"]
+#         - timeout = "10s"
+#         - data_format = "influx"
+#         - interval = "1m"
+
+#   monitor_condor_util:
+#     plugin: "exec"
+#     config:
+#       - commands = ["sudo /usr/bin/monitor-condor-utilisation"]
+#       - timeout = "10s"
+#       - data_format = "influx"
+#       - interval = "1m"
+
+#   monitor_nfsstat:
+#     plugin: "exec"
+#     config:
+#       - commands = ["/usr/bin/nfsstat-influx"]
+#       - timeout = "10s"
+#       - data_format = "influx"
+#       - interval = "15s"
+
+#   # Some custom galaxy monitoring stuff
+#   galaxy_uploaded:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery upload-gb-in-past-hour"]
+#       - timeout = "120s"
+#       - data_format = "influx"
+#       - interval = "1h"
+#   galaxy_lastlog:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin gunicorn lastlog"]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "15s"
+#   galaxy_jobs_queued:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery jobs-queued"]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "1m"
+#   galaxy_jobs_queued_internal:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery jobs-queued-internal-by-handler"]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "1m"
+#   galaxy_jobs_queue_overview:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery queue-overview --short-tool-id"]
+#       - timeout = "30s"
+#       - data_format = "influx"
+#       - interval = "1m"
+#   galaxy_oidc:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery users-with-oidc"]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "1m"
+#   galaxy_workflow:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery workflow-invocation-status"]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "1m"
+#   galaxy_workflow_totals:
+#     plugin: "exec"
+#     config:
+#       - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery workflow-invocation-totals"]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "1m"
+#   galaxy_active_users:
+#     plugin: "exec"
+#     config:
+#       - commands = ["/usr/bin/gxadmin local cu"]
+#       - timeout = "15s"
+#       - data_format = "influx"
+#       - interval = "1m"
+  
+#   postgres_extra:
+#     plugin: "exec"
+#     config:
+#       - commands = [
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-cache-hit",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-index-size",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-index-usage",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-table-bloat",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-table-size",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-unused-indexes",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-vacuum-stats",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-stat-bgwriter",
+#         "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-stat-user-tables",
+#         ]
+#       - timeout = "60s"
+#       - data_format = "influx"
+#       - interval = "2m"
+
+
+# # galaxyproject.proftpd
+
+# proftpd_galaxy_auth: yes
+# # old
+# # galaxy_ftp_upload_dir: "{{ galaxy_config.galaxy.ftp_upload_dir }}"
+# # TODO: galaxy_server_scratch_dir needs to be c
+# galaxy_ftp_upload_dir: "{{galaxy_mutable_data_dir}}/data_stage/ftp/"
+# proftpd_display_connect: |
+#   {{ inventory_hostname }} FTP
+
+#   Unauthorized access is prohibited
+# proftpd_galaxy_options:
+#   - User: "{{ galaxy_user }}"
+#   - Group: "{{ galaxy_group }}"
+# proftpd_create_ftp_upload_dir: yes
+# proftpd_options:
+#   - User: "{{ galaxy_user_name }}"
+#   - Group: "{{ galaxy_user_name }}"
+#   - Port: 21
+# # proftpd_sql_db: galaxy@/var/run/postgresql
+# proftpd_sql_db: "{{ galaxy_db_name }}@{{ postgres_host }}"
+# proftpd_sql_user: "{{ postgres_user }}"
+# proftpd_sql_password: "{{ postgres_pass }}"
+# proftpd_conf_ssl_certificate: "/etc/letsencrypt/live/{{ server_hostname }}/cert.pem"
+# # proftpd_conf_ssl_certificate: /etc/ssl/certs/cert.
+# proftpd_conf_ssl_certificate_key: "/etc/letsencrypt/live/{{ server_hostname }}/privkey.pem"
+# # proftpd_conf_ssl_certificate_key: /etc/ssl/user/privkey-proftpd.pem
+# #proftpd_conf_ssl_ca_certificate:  "/etc/letsencrypt/live/{{ server_hostname }}/chain.pem"
+# proftpd_global_options:
+#   - PassivePorts: 56000 60000
+# proftpd_use_mod_tls_shmcache: false
+# proftpd_tls_options: NoSessionReuseRequired
+
+# # TODO: Check if this is necessary
+# proftpd_virtualhosts:
+#   - id: galaxy
+#     address: "{{ server_hostname }}"
+#     options:
+#       - ServerAdmin: admin@usegalaxy.be
+#       - ServerName: Galaxy FTP
+#       - TransferLog: "/var/log/proftpd/xfer/{{ server_hostname }}"
+#       - MaxLoginAttempts: 3
+#       - RequireValidShell: no
+#       - AllowOverwrite: yes

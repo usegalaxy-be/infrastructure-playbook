@@ -1,0 +1,9 @@
+[Unit]
+Description=Weekly Galaxy Tool Shed install timer ({{ item.name }})
+
+[Timer]
+OnCalendar=Sat *-*-* {{ item.hour }}:{{ galaxy_tool_install_minute | default(0) }}:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target

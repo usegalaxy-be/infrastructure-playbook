@@ -1,0 +1,6 @@
+---
+- include_tasks: producer.yml
+  when: pulsar_metric_role == "producer"
+
+- include_tasks: consumer.yml
+  when: pulsar_metric_role == "consumer"

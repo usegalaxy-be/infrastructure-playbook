@@ -1,0 +1,137 @@
+---
+
+- name: Install gclouds installation dependencies
+  ansible.builtin.package:
+    name: "{{ item }}"
+  with_items:
+    - apt-transport-https
+    - ca-certificates
+    - gnupg
+    - curl
+
+# - name: Add the gcloud Apt signing key
+#   ansible.builtin.apt_key:
+#     url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+#     keyring: /usr/share/keyrings/cloud.google.gpg
+
+# - name: Add the gcloud repository in sources list
+#   ansible.builtin.apt_repository:
+#     repo: "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main"
+#     state: present
+#     filename: google-cloud-sdk
+
+# Ensure required packages for repo management on RHEL-family systems (Rocky/CentOS/RHEL)
+- name: Ensure dnf/yum helpers are installed (Rocky/CentOS/RHEL)
+  ansible.builtin.package:
+    name: dnf-plugins-core
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+
+# Import Google Cloud RPM GPG keys
+- name: Add Google Cloud yum GPG key (yum-key)
+  ansible.builtin.rpm_key:
+    state: present
+    key: https://packages.cloud.google.com/yum/doc/yum-key.gpg
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Add Google Cloud yum RPM package key (rpm-package-key)
+  ansible.builtin.rpm_key:
+    state: present
+    key: https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+  when: ansible_facts['os_family'] == 'RedHat'
+
+# Add the Google Cloud SDK yum repository for EL9 (Rocky9)
+- name: Add the google-cloud-sdk yum repository (EL9)
+  ansible.builtin.yum_repository:
+    name: google-cloud-sdk
+    description: Google Cloud SDK
+    baseurl: https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-x86_64
+    enabled: yes
+    gpgcheck: yes
+    gpgkey:
+      - https://packages.cloud.google.com/yum/doc/yum-key.gpg
+      - https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+    sslverify: yes
+  when: ansible_facts['os_family'] == 'RedHat'
+
+# Install KUI dependencies including google-cloud-cli and jq
+- name: Install KUI Dependencies (jq, google-cloud-cli, git)
+  ansible.builtin.package:
+    name:
+      - jq
+      - google-cloud-cli
+      - git
+    state: present
+
+- name: Create KUI install directory
+  ansible.builtin.file:
+    path: "{{ kui_install_path }}"
+    state: directory
+    owner: "{{ galaxy_user.name | default(galaxy_user) }}"
+    group: "{{ galaxy_user.name | default(galaxy_user) }}"
+    mode: '0755'
+  when: kui_enable
+
+- name: Check if KUI repository exists
+  ansible.builtin.stat:
+    path: "{{ kui_install_path }}/.git"
+  register: kui_repo_exists
+  when: kui_enable
+
+- name: Check the currently installed version of KUI
+  command: git rev-parse HEAD
+  args:
+    chdir: "{{ kui_install_path }}"
+  register: current_version
+  when: kui_enable and kui_repo_exists.stat.exists
+
+- name: Fetch KUI git repository
+  ansible.builtin.git: 
+    repo: "{{ kui_repo }}"
+    dest: "{{ kui_install_path }}"
+    version: "{{ kui_version }}"
+    depth: 1
+    force: yes
+  when: kui_enable and (not kui_repo_exists.stat.exists or current_version.stdout != kui_version)
+
+- name: Set ownership of KUI repository files
+  ansible.builtin.file:
+    path: "{{ kui_install_path }}"
+    owner: "{{ galaxy_user.name | default(galaxy_user) }}"
+    group: "{{ galaxy_user.name | default(galaxy_user) }}"
+    mode: '0755'
+    recurse: yes
+  when: kui_enable
+
+- name: Adapt KUI variables
+  ansible.builtin.lineinfile:
+    path: "{{ kui_install_path }}/kui.sh"
+    regexp: "^{{ item.param }}="
+    line: "{{ item.param }}={{ item.value }}"
+  with_items:
+    - { param: 'USERS_TABLE', value: "users-{{ instance_code }}" }
+    - { param: 'JOBS_TABLE', value: "jobs-{{ instance_code }}" }
+    - { param: 'USAGE_TABLE', value: "usage-{{ instance_code }}" }
+    - { param: 'galaxy_server', value: "https://{{ galaxy_domain }}" }
+    - { param: 'export PGDATABASE', value: "{{ galaxy_db_name }}" }
+
+
+- name: Ensure the script sources ~/.bashrc right after the bash shebang
+  ansible.builtin.lineinfile:
+    path: "{{ kui_install_path }}/kui.sh"
+    insertafter: '^#!/bin/bash$'
+    line: 'source ~/.bashrc'
+    state: present
+
+- name: Cron KUI
+  ansible.builtin.cron:
+    name: "kui monthly run"
+    day: "2"
+    hour: "0"
+    minute: "0"
+    job: "bash {{ kui_install_path }}/kui.sh >> {{ galaxy_log_dir }}/kui.log 2>&1"
+  become: true
+  become_user: "{{ galaxy_user.name | default(galaxy_user) }}"
+  when: kui_enable
+
+

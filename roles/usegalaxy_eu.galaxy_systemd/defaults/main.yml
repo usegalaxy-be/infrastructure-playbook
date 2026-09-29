@@ -1,0 +1,85 @@
+---
+# Which mode to run galaxy's web handlers in, there are three options: mule, zerg or gunicorn (zerglings/gunicorn + webless handlers)
+galaxy_systemd_mode: "zerg"
+
+galaxy_systemd_handler_prefix: "handler_{{  ansible_hostname.split('.')[0] | lower }}"
+galaxy_systemd_handlers: 12
+galaxy_systemd_workflow_schedulers: 0
+galaxy_systemd_workflow_scheduler_prefix: "workflow_scheduler_{{  ansible_hostname.split('.')[0] | lower }}"
+
+# Maximum memory limits (in GB) are set for every process in their systemd unit file, and applied through cgroups.
+galaxy_systemd_memory_limit: 16
+galaxy_systemd_memory_limit_celery_internal: 4
+galaxy_systemd_memory_limit_celery_external: 4
+galaxy_systemd_memory_limit_celery_beat: 2
+galaxy_systemd_memory_limit_reports: 5
+galaxy_systemd_memory_limit_handler: 5
+galaxy_systemd_memory_limit_workflow: 5
+galaxy_systemd_memory_limit_zp: 8
+
+### Gunicorn Options
+galaxy_systemd_gunicorns: 2
+galaxy_systemd_gunicorn_workers: 2
+galaxy_systemd_gunicorn_timeout: 300
+# Where the socket for the zergling will be placed
+# the socket name needs to be followed by
+galaxy_systemd_gunicorn_socket_name: gunicorn
+galaxy_systemd_gunicorn_listen_path: "{{ galaxy_mutable_data_dir }}/{{ galaxy_systemd_gunicorn_socket_name }}"
+
+# Any extra env vars you wish to set for Gunicorn
+galaxy_systemd_gunicorn_env: ""
+# uncomment this if yuo want to disable the preload option
+# galaxy_systemd_gunicorn_preload: ''
+galaxy_systemd_gunicorn_preload_default: "--preload"
+
+### Mule Options
+galaxy_systemd_memory_limit_mule: 32
+
+### Zergling Options
+# How many zerglings to run, >1 means you should set galaxy_zergpool=true
+galaxy_systemd_zerglings: 2
+
+# If we're using the zerg method, do we just want to run a single zergling or a
+# pool of them? If we're running multiple, then we need the zergpool interface.
+galaxy_zergpool: true
+# This is where nginx should send requests (if zergpool is enabled.)
+galaxy_zergpool_listen_addr: "127.0.0.1:4001"
+galaxy_zergpool_socket_name: zergpool.sock
+# Where the socket for the zergling will be placed
+galaxy_zergpool_listen_path: "{{ galaxy_mutable_data_dir }}/{{ galaxy_zergpool_socket_name }}"
+
+galaxy_systemd_zergling_uwsgi_config_style: "{{ galaxy_config_style | default('ini')}}"
+galaxy_systemd_zergling_uwsgi_config_file: "{{ galaxy_config_file }}"
+
+# Any extra env vars you wish to set for Zerglings OR Mules (anything that runs web)
+galaxy_systemd_zergling_env: ""
+# Any extra env vars to pass to the handlers
+galaxy_systemd_handler_env: ""
+
+### Reports
+# Do you want to deploy reports too? No, of course not.
+galaxy_systemd_reports: false
+galaxy_reports_path: "{{ galaxy_config_dir  }}/reports.yml"
+
+### Celery
+# The sum of autoscale max * workers for internal and external should not exceed your CPUs
+galaxy_systemd_celery: false
+galaxy_systemd_celery_internal_pool: prefork
+galaxy_systemd_celery_internal_workers: 2
+galaxy_systemd_celery_internal_concurrency: 4
+galaxy_systemd_celery_internal_autoscale: "2,8"
+galaxy_systemd_celery_internal_max_tasks: 4
+galaxy_systemd_celery_internal_log_level: DEBUG
+# Worker for external queue
+galaxy_systemd_celery_external_pool: threads
+galaxy_systemd_celery_external_workers: 8
+galaxy_systemd_celery_external_concurrency: 2
+galaxy_systemd_celery_external_autoscale: "2,8"
+galaxy_systemd_celery_external_max_tasks: 2
+galaxy_systemd_celery_external_log_level: DEBUG
+galaxy_systemd_celery_env: ""
+galaxy_systemd_celery_beat_schedule_path: "{{ galaxy_mutable_data_dir }}/celery-beat-schedule"
+galaxy_systemd_celery_beat_log_level: DEBUG
+
+galaxy_systemd_watchdog: false
+galaxy_systemd_watchdog_patterns: "*.py,*.yml,*.yaml,*.xml"

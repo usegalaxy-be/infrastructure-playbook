@@ -1,0 +1,16 @@
+# VGCN images come with condor user with uid/gid set to 1001
+# Our NFS has all its files owned by an existing galaxy user with uid/gid set to 1001
+# We try here to remap both users.
+# This is a one time operation after deployment
+
+remap_users:
+  - uname: "condor"
+    uid: 1001
+    newuid: 1004
+    gid: 1001
+    newgid: 1004
+  - uname: "{{ galaxy_user_name }}"
+    uid: 1002
+    newuid: 1001
+    gid: 1002
+    newgid: 1001

@@ -1,0 +1,54 @@
+{% for subdomain in subdomains %}
+
+# forwards from proxy to {{ subdomain }}
+server {
+    # Listen on port 443
+	listen        *:443 ssl;
+    # The virtualhost is our domain name
+    server_name   {{ subdomain }};
+
+    # Our log files will go here.
+    access_log  /var/log/nginx/access.log;
+    error_log   /var/log/nginx/error.log;
+
+    # Manually blocked IPs (scanner/attacker blocks — replace with fail2ban when deployed)
+    deny 185.177.72.11;
+
+    # Drop common vulnerability scan targets (wp-config, .env files, php probes)
+    location ~* "(\.env(\.|$)|wp-config\.php|\.php$|/config\.env$)" {
+        return 444;
+    }
+
+    location /api/upload/resumable_upload {
+        # Disable request and response buffering (required for TUS chunked uploads)
+        proxy_request_buffering off;
+        proxy_buffering         off;
+        proxy_http_version      1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Forwarded-For   $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+
+        client_max_body_size 0;
+        proxy_pass https://{{ subdomain }};
+    }
+
+    location / {
+        # This is the backend to send the requests to.
+        proxy_pass https://{{ subdomain }};
+
+        proxy_set_header Host {{ subdomain }};
+        proxy_set_header X-Forwarded-For $remote_addr;
+        # proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        #proxy_set_header X-Real-IP $remote_addr;
+    }
+    ssl_certificate     {{ nginx_conf_ssl_certificate }};
+    ssl_certificate_key {{ nginx_conf_ssl_certificate_key }};
+
+}
+
+{% endfor %}

@@ -1,0 +1,6 @@
+---
+
+# Connection string for gx-it-proxy session map
+# Uses same postgres credentials as Galaxy DB (different database name)
+# IMPORTANT: must not equal database_connection or install_database_connection
+interactivetools_db_connection: "postgresql://{{ postgres_user }}:{{ postgres_pass }}@{{ postgres_host }}:{{ postgres_port }}/{{ gxit_db_name }}"

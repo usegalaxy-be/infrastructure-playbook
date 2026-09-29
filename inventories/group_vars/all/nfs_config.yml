@@ -1,0 +1,8 @@
+---
+# NFS server storage network address — used by all clients for autofs maps.
+nfs_server_address: "{{ vault_nfs_server_address }}"
+
+# pdg.autofs — service configuration (shared across all hosts using autofs)
+autofs_service:
+  install: true
+  enable: true

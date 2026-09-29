@@ -1,0 +1,20 @@
+---
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: "{{ item.path | dirname }}"
+    state: directory
+    owner: "{{ item.owner }}"
+    group: "{{ item.group | default(item.owner) }}"
+    mode: '0700'
+  loop: "{{ ssh_keypairs }}"
+
+- name: Generate SSH keypair
+  community.crypto.openssh_keypair:
+    path: "{{ item.path }}"
+    type: "{{ item.type | default('ed25519') }}"
+    comment: "{{ item.comment | default(omit) }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group | default(item.owner) }}"
+    mode: "{{ item.mode | default('0600') }}"
+    state: present
+  loop: "{{ ssh_keypairs }}"

@@ -1,0 +1,44 @@
+---
+- name: Create directory
+  ansible.builtin.file:
+    path: "{{ pulsar_consumer_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Send machine group monitor
+  ansible.builtin.template:
+    src: "consumer.py.j2"
+    dest: "{{ pulsar_consumer_dir }}/pulsar_metric_consumer.py"
+    owner: root
+    group: root
+    mode: 0755
+
+# - name: Allow telegraf to run pulsar_metric_consumer.py
+#   lineinfile:
+#     path: /etc/sudoers
+#     state: present
+#     insertafter: EOF
+#     line: 'telegraf ALL=(ALL) NOPASSWD: {{ pulsar_consumer_dir }}/pulsar_metric_consumer.py'
+#     validate: 'visudo -cf %s'
+
+- name: Create a virtualenv and install dependencies
+  ansible.builtin.pip:
+    name: 
+      - pip
+      - pyyaml
+      - influxdb
+      - kombu
+    virtualenv: "{{ consumer_venv_dir }}"
+    extra_args: "{{ pip_extra_args | default(omit) }}"
+    virtualenv_command: "{{ galaxy_virtualenv_command | default(pip_virtualenv_command | default(omit)) }}"
+    virtualenv_python: "{{ galaxy_virtualenv_python | default(omit) }}"
+  environment:
+    VIRTUAL_ENV: "{{ consumer_venv_dir }}"
+
+# - name: Add cron to collect stats
+#   cron:
+#     name: "condor stats"
+#     minute: "*"
+#     job: "{{ consumer_venv_dir }}/bin/python {{ pulsar_consumer_dir }}/pulsar_metric_consumer.py {{ consumer_galaxy_job_conf }}"

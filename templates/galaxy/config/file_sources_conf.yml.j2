@@ -1,0 +1,9 @@
+# TODO: Check if this requires other config for other types of file sources
+- type: webdav
+  id: nextcloud1
+  label: NextCloud
+  doc: External NextCloud files (configure access in user preferences)
+  base_url: ${user.preferences['owncloud|url']}
+  root: ${user.preferences['owncloud|root']}
+  login: ${user.preferences['owncloud|username']}
+  password: ${user.preferences['owncloud|password']}

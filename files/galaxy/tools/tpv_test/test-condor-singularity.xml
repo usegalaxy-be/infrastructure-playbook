@@ -1,0 +1,10 @@
+<tool id="test-condor-singularity" name="TPV test: Condor Singularity" version="1.0" hidden="true">
+    <description>Routing test for condor+singularity destination (admin use only)</description>
+    <command><![CDATA[
+        echo "TPV test OK" > '$output'
+    ]]></command>
+    <inputs/>
+    <outputs>
+        <data name="output" format="txt" label="tpv-test-condor-singularity"/>
+    </outputs>
+</tool>

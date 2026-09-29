@@ -1,0 +1,112 @@
+---
+# This is a playbook to execute Ansible tests.
+
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars_files:
+    - ../../defaults/main.yml
+    - vars.yml
+  tasks:
+    - name: Verify that the rustus binary was correctly installed to the default installation path.
+      block:
+        - name: Stat the default installation path for the rustus binary.
+          ansible.builtin.stat:
+            path: "{{ rustus_path }}"
+          register: __stat
+
+        - name: Verify that the rustus binary exists.
+          ansible.builtin.assert:
+            that: __stat.stat.exists
+
+        - name: Verify that the owner is root.
+          ansible.builtin.assert:
+            that: __stat.stat.pw_name == 'root'
+
+        - name: Verify that the uid is zero.
+          ansible.builtin.assert:
+            that: __stat.stat.uid == 0
+
+        - name: Verify that the group is root.
+          ansible.builtin.assert:
+            that: __stat.stat.gr_name
+
+        - name: Verify that the gid is 0.
+          ansible.builtin.assert:
+            that: __stat.stat.gid == 0
+
+        - name: Verify that the mode is 0755.
+          ansible.builtin.assert:
+            that: __stat.stat.mode == "0755"
+
+    - name: Verify that rustus operates as expected.
+      block:
+        - name: Launch rustus.
+          ansible.builtin.shell:
+            chdir: /root
+            cmd: nohup {{ rustus_path }} >/dev/null 2>&1 & echo $!
+          register: __launch
+          changed_when: true
+
+        - name: Rustus should be listening on port 1081.
+          ansible.builtin.wait_for:
+            port: 1081
+            timeout: 10
+
+        - name: Upload a file using the TUS protocol.
+          block:
+            - name: Create the upload.
+              ansible.builtin.uri:
+                url: http://127.0.0.1:1081/files
+                method: POST
+                headers:
+                  Tus-Resumable: "1.0.0"
+                  Host: "127.0.0.1:1081"
+                  Content-Length: "0"
+                  Upload-Length: "7"
+                  Upload-Metadata: "filename d29ybGRfZG9taW5hdGlvbl9wbGFuLnBkZg==,is_confidential"
+                status_code: 201
+              register: __create
+              changed_when: true
+
+            - name: Upload the file.
+              # noqa: command-instead-of-module
+              # curl is used instead of ansible.builtin.uri because the module's body is behaving
+              # differently from --data-binary. In fact, if the option -d is used with curl
+              # instead of --data-binary, curl hangs just as ansible's uri module.
+              ansible.builtin.shell: |
+                curl -v -X PATCH \
+                  -H "Tus-Resumable: 1.0.0" \
+                  -H "Host: 127.0.0.1:1081" \
+                  -H "Content-Length: 7" \
+                  -H "Content-Type: application/offset+octet-stream" \
+                  -H "Upload-Offset: 0" \
+                  {{ __create.location }} \
+                  --data-binary 'Hello\n'
+              changed_when: true
+
+        - name: Verify that the file was uploaded succesfully.
+          block:
+            - name: Check that the file exists
+              ansible.builtin.stat:
+                path: "/root/data/{{ __create.location | basename }}"
+              register: __stat_upload
+
+            - name: Read the contents of the uploaded file.
+              ansible.builtin.command: cat "/root/data/{{ __create.location | basename }}"
+              register: __contents_upload
+              changed_when: false
+
+            - name: Check that the contents match the expected ones.
+              ansible.builtin.assert:
+                that: __contents_upload.stdout == "Hello\\n"
+      always:
+        - name: Kill rustus.
+          ansible.builtin.command: "kill -9 {{ __launch.stdout }}"
+          when: __launch is defined
+          changed_when: true
+
+        - name: Delete uploads folder.
+          ansible.builtin.file:
+            path: /root/data
+            state: absent

@@ -1,0 +1,32 @@
+---
+# ============================================================================
+# /etc/hosts Management Playbook
+# ============================================================================
+#
+# Purpose: Apply /etc/hosts customisations to all managed hosts via the
+#          pdg.update_hosts role. Also disables cloud-init's manage_etc_hosts
+#          to prevent boot-time regeneration from wiping custom entries, and
+#          guarantees the standard localhost block on all hosts.
+#
+# Target Hosts: all (galaxyservers, proxyservers, dbservers, computeservers)
+#
+# When to Use:
+#   - After adding or removing entries in any group_vars/*/vault_hosts.yml
+#   - After adding new hosts to the inventory (repairs localhost block)
+#   - After the legacy pdg.condor_cm cron is removed from galaxy servers
+#     (that cron wiped /etc/hosts; this play restores a clean state)
+#
+# Per-group host_mappings are defined in:
+#   inventories/group_vars/galaxyservers/vault_hosts.yml
+#   inventories/group_vars/proxyservers/vault_hosts.yml
+#   (other groups default to host_mappings: [])
+#
+# Safety: Fully idempotent. Safe to run against any subset with --limit.
+# ============================================================================
+
+- name: Manage /etc/hosts on all hosts
+  hosts: all
+  become: true
+  become_user: root
+  roles:
+    - role: pdg.update_hosts

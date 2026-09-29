@@ -1,0 +1,173 @@
+---
+# ============================================================================
+# Initial Provisioning Playbook
+# ============================================================================
+# Minimal base setup for any fresh Rocky 9 VM before role-specific playbooks.
+# Run once after provisioning: ansible-playbook 00-init.yml --limit <host>
+# ============================================================================
+
+- name: Base OS init
+  hosts: all
+  become: true
+  become_user: root
+
+  pre_tasks:
+    # Runs before `roles:` — geerlingguy.pip's own python3-pip install is exactly what
+    # triggered the original openssl cascade, so this must run ahead of the roles below,
+    # not just first in `tasks:` (roles always run before tasks regardless of file order).
+    # Named installs can cascade into upgrading unrelated dependencies like openssl without
+    # pulling in a paired package like openssh-server — dnf only resolves what's needed to
+    # satisfy the specific transaction, not a full sync. Upgrading everything up front avoids
+    # landing in a split-version state where a running service (sshd) ends up mismatched
+    # against an on-disk library it depends on.
+    - name: Upgrade all packages to latest available (keeps paired packages like openssl/openssh-server in sync)
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+      notify: Restart sshd
+      tags: upgrade
+
+  tasks:
+    - name: Install base packages
+      package:
+        name:
+          - acl
+          - python3
+          - python3-pip
+          - time
+        state: present
+      tags: packages
+
+    - name: Check if firewalld is installed
+      ansible.builtin.command: rpm -q firewalld
+      register: init_firewalld_installed
+      changed_when: false
+      failed_when: false
+      tags: firewall
+
+    - name: Ensure firewalld is not running
+      service:
+        name: firewalld
+        state: stopped
+        enabled: false
+      when: init_firewalld_installed.rc == 0
+      tags: firewall
+      
+    - name: Mask cloud-init services (prevents user remapping on reboot)
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        masked: true
+        enabled: false
+      loop:
+        - cloud-init-local
+        - cloud-init
+        - cloud-config
+        - cloud-final
+      failed_when: false
+      tags: cloud-init
+
+    - name: Create cloud-init disable flag file
+      ansible.builtin.file:
+        path: /etc/cloud/cloud-init.disabled
+        state: touch
+        mode: "0644"
+      tags: cloud-init
+
+    - name: Stop Galaxy info/debug logs being duplicated into rsyslog
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../files/logging/rsyslog-galaxy-exclude.conf"
+        dest: /etc/rsyslog.d/10-galaxy-exclude.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart rsyslog
+      tags: logging
+
+    - name: Ensure journald.conf.d exists
+      ansible.builtin.file:
+        path: /etc/systemd/journald.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      tags: logging
+
+    - name: Bound persistent journal size
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../../templates/logging/journald-override.conf.j2"
+        dest: /etc/systemd/journald.conf.d/10-max-use.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart systemd-journald
+      tags: logging
+
+    - name: Ensure secondary IPs are configured via NetworkManager
+      ansible.builtin.shell:
+        cmd: |
+          current=$(nmcli -g ipv4.addresses connection show "{{ item.conn_name }}" 2>/dev/null)
+          if echo "$current" | grep -qF "{{ item.address }}"; then
+            echo "already_present"
+          else
+            nmcli connection modify "{{ item.conn_name }}" +ipv4.addresses "{{ item.address }}"
+            nmcli connection up "{{ item.conn_name }}"
+            echo "added"
+          fi
+      register: secondary_ip_result
+      changed_when: "'added' in secondary_ip_result.stdout"
+      loop: "{{ network_secondary_ips | default([]) }}"
+      tags: network
+
+    - name: Set docker_users (Docker role)
+      set_fact:
+        docker_users: "{{ ansible_user }}"
+      tags: docker
+
+    - name: Add groups to user
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+      tags: docker
+
+  roles:
+
+    # EPEL: needed by several role-specific playbooks (e.g. pdg.workenv's CLI tools) and
+    # not present unless the VM was built from the vggp golden image.
+    - role: geerlingguy.repo-epel
+      tags: epel
+
+    # the pip role is needed for any VM
+    - role: geerlingguy.pip
+      tags: pip
+
+
+  post_tasks:
+
+    - name: Install docker pip package
+      ansible.builtin.pip:
+        name: docker
+        state: present
+      tags: docker
+
+  handlers:
+
+    - name: Restart rsyslog
+      ansible.builtin.service:
+        name: rsyslog
+        state: restarted
+
+    - name: Restart systemd-journald
+      ansible.builtin.service:
+        name: systemd-journald
+        state: restarted
+
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: sshd
+        state: restarted
+
+# Standard admin environment (vim/tmux/CLI tools, SSH keys, console password) — every
+# fresh VM needs this too, and folding it in here means it can't be forgotten as a
+# separate manual step after provisioning.
+- import_playbook: workenv.yml

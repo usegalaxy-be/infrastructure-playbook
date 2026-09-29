@@ -1,0 +1,102 @@
+---
+# Read the tool's requirements straight from its XML (macros expanded, python
+# included) and compute the base resolver name, using Galaxy's own utils so it
+# matches the resolver by construction.
+- name: "[{{ spec.name }}] Compute base resolver image name from tool XML"
+  become: true
+  become_user: "{{ mulled_container_build_user }}"
+  ansible.builtin.command:
+    argv:
+      - "{{ mulled_container_build_venv }}/bin/python"
+      - -c
+      - "{{ _mulled_name_script }}"
+      - "{{ spec.tool_xml }}"
+  vars:
+    _mulled_name_script: |
+      import sys
+      from galaxy.tool_util.parser import get_tool_source
+      from galaxy.tool_util.deps.mulled.mulled_build_tool import requirements_to_mulled_targets
+      from galaxy.tool_util.deps.mulled.util import v2_image_name
+      reqs = get_tool_source(sys.argv[1]).parse_requirements()[0]
+      print(v2_image_name(requirements_to_mulled_targets(reqs)))
+  register: _img
+  changed_when: false
+
+# _mulled_base is "mulled-v2-<hash>:<versionhash>"; the actual container adds a
+# build suffix ("-0"), so match/cache on the "mulled-v2-<hash>" stem.
+- name: "[{{ spec.name }}] Set image name facts"
+  ansible.builtin.set_fact:
+    _mulled_base: "{{ _img.stdout | trim }}"
+    _mulled_stem: "{{ (_img.stdout | trim).split(':')[0] }}"
+
+- name: "[{{ spec.name }}] Check whether the image is already cached"
+  ansible.builtin.find:
+    paths: "{{ mulled_container_cache_dir }}"
+    patterns: "{{ _mulled_stem }}*"
+    file_type: file
+  register: _cached
+
+# Build the container (Docker, via mulled-build-tool) and convert it to a SIF in
+# one step, as root: Docker writes root-owned files under ./build that
+# mulled-build must rmtree, and involucro removes the wrapped image on exit, so
+# the conversion happens here before it can be pruned.
+- name: "[{{ spec.name }}] Build the container image and convert it to a SIF"
+  become: true
+  ansible.builtin.shell:
+    executable: /bin/bash
+    chdir: "{{ mulled_container_workdir }}"
+    cmd: |
+      set -euo pipefail
+      rm -rf ./build ./sif
+      mkdir -p ./sif
+      "{{ mulled_container_build_venv }}/bin/python" -m galaxy.tool_util.deps.mulled.mulled_build_tool \
+        build "{{ spec.tool_xml }}" --channels "{{ mulled_container_channels | join(',') }}"
+      img=$(docker images | awk -v h="{{ _mulled_stem }}" '$0 ~ h {print $1":"$2; exit}')
+      [ -n "$img" ] || { echo "no docker image matching {{ _mulled_stem }} after build" >&2; exit 3; }
+      sif=$(printf '%s' "$img" | sed 's#^.*/##')
+      apptainer build "./sif/$sif" "docker-daemon://$img"
+      chown "{{ mulled_container_build_user }}" "./sif/$sif"
+      docker rmi "$img" || true
+      echo "BUILT_SIF=$sif"
+  register: _build
+  changed_when: true
+  when: mulled_container_force or _cached.matched == 0
+
+- name: "[{{ spec.name }}] Locate the built SIF"
+  become: true
+  become_user: "{{ mulled_container_build_user }}"
+  ansible.builtin.find:
+    paths: "{{ mulled_container_workdir }}/sif"
+    patterns: "{{ _mulled_stem }}*"
+    file_type: file
+  register: _sif
+  when: mulled_container_force or _cached.matched == 0
+
+- name: "[{{ spec.name }}] Fail if no SIF was produced"
+  ansible.builtin.fail:
+    msg: "No SIF matching {{ _mulled_stem }} in {{ mulled_container_workdir }}/sif after build."
+  when:
+    - mulled_container_force or _cached.matched == 0
+    - (_sif.matched | default(0)) == 0
+
+# Write to the NFS cache as the Galaxy user: NFS root_squash maps root to
+# nobody, which cannot write the galaxy-owned cache directory.
+- name: "[{{ spec.name }}] Install the SIF into the shared mulled cache"
+  become: true
+  become_user: "{{ mulled_container_build_user }}"
+  ansible.builtin.copy:
+    src: "{{ _sif.files[0].path }}"
+    dest: "{{ mulled_container_cache_dir }}/{{ _sif.files[0].path | basename }}"
+    remote_src: true
+    owner: "{{ mulled_container_cache_owner }}"
+    group: "{{ mulled_container_cache_group }}"
+    mode: "0644"
+  when: mulled_container_force or _cached.matched == 0
+
+- name: "[{{ spec.name }}] Result"
+  ansible.builtin.debug:
+    msg: >-
+      {{ spec.name }}:
+      {{ (mulled_container_cache_dir ~ '/' ~ (_sif.files[0].path | basename))
+         if (mulled_container_force or _cached.matched == 0)
+         else (mulled_container_cache_dir ~ '/' ~ (_cached.files[0].path | basename) ~ ' (already cached, skipped)') }}

@@ -1,0 +1,27 @@
+---
+
+# Use 'latest' to install the latest stable release from https://github.com/s3rius/rustus/releases, or a valid tag for
+# a specific tagged release (e.g. 0.7.2)
+rustus_version: latest
+
+# Path of the rustus binary
+rustus_path: /usr/local/bin/rustus
+
+# Owner, group, mode of the rustus binary
+# rustus_owner: omit
+# rustus_group: omit
+# rustus_mode: 0755
+
+# Systemd
+# If using Linux, you can install systemd service units to start and manage your rustus instances
+rustus_systemd: true
+rustus_systemd_target: "network.target time-sync.target"  # add here more targets as needed
+
+# Configuration for systemd-managed rustus instances - see the README for syntax
+rustus_instances: []
+
+# This is used  to download the correct release tarball, which are named like
+# 'rustus_{{ rustus_version }}_{{ rustus_os }}_{{ rustus_arch }}.tar.gz
+# You should generally not have to set this directly.
+rustus_os: "{{ ansible_system | lower }}"
+rustus_arch: "{{ ansible_architecture }}"

@@ -1,0 +1,15 @@
+<toolbox monitor="true" tool_path="{{ galaxy_local_tools_dir }}">
+    <section id="interactivetools" name="Interactive Tools">
+        <!-- All tools use path-based routing (requires_path_in_url="True") via /interactivetool/ep/<token>/ -->
+        <!-- Jupyter: upstream built-in, referenced by absolute path so it needs no local copy -->
+        <!-- tool file="{{ galaxy_server_dir }}/tools/interactive/interactivetool_jupyter_notebook_1.0.1.xml" -->
+        <!-- local tools in galaxy_local_tools_dir (path-based routing patches) -->
+        <tool file="interactive/interactivetool_ilastik.xml" />
+        <tool file="interactive/interactivetool_pavian.xml" />
+        <tool file="interactive/interactivetool_phinch.xml" />
+        <tool file="interactive/interactivetool_cellpose.xml" />
+        <tool file="interactive/interactivetool_cellprofiler.xml" />
+        <tool file="interactive/interactivetool_napari.xml" />
+	<tool file="interactive/interactivetool_scop3p_toolkit.xml" />
+    </section>
+</toolbox>

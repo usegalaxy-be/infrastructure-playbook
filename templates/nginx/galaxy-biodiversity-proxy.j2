@@ -1,0 +1,26 @@
+# forwards from proxy to test.usegalaxy.be
+server {
+    # Listen on port 443
+	listen        *:443 ssl default_server;
+    # The virtualhost is our domain name
+    # TODO: Change to a variable name, potentially make it into an iterable?
+    server_name   test.usegalaxy.be;
+
+    # Our log files will go here.
+    access_log  /var/log/nginx/access.log;
+    error_log   /var/log/nginx/error.log;
+
+    # The most important location block, by default all requests are sent to gunicorn
+    # If you serve galaxy at a path like /galaxy, change that below (and all other locations!)
+    location / {
+        # This is the backend to send the requests to.
+        # TODO: check how to set this host variable
+        proxy_pass test.usegalaxy.be;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+    }
+
+}

@@ -1,0 +1,40 @@
+# TIaaS Configuration
+tiaas_galaxy_db_url: postgres
+tiaas_galaxy_idsecret: '{{ galaxy_config.galaxy.id_secret | default("USING THE DEFAULT IS NOT SECURE!") }}'
+
+# TIaaS Deployment
+tiaas_dir: /opt/tiaas
+tiaas_user: tiaas
+tiaas_group: tiaas
+tiaas_version: master
+
+# DB aaccess to galaxy db
+tiaas_galaxy_db_name: "galaxy"
+tiaas_galaxy_db_user: ""
+tiaas_galaxy_db_pass: ""
+tiaas_galaxy_db_host: "/var/run/postgresql/"
+tiaas_galaxy_db_port: ""
+
+## DB access to tiaas db (if using a postgresql DB)
+tiaas_tiaas_db_name: ""
+tiaas_tiaas_db_user: ""
+tiaas_tiaas_db_pass: ""
+tiaas_tiaas_db_host: ""
+tiaas_tiaas_db_port: ""
+
+tiaas_other_config: ""
+tiaas_info:
+  owner: default
+  owner_email: galaxy@elixir-belgium.org
+  owner_site: "{{ inventory_hostname }}"
+  domain: "{{ inventory_hostname }}"
+
+tiaas_create_group: true
+tiaas_create_user: true
+tiaas_force_checkout: true
+tiaas_secret_key: "Using the default is bad news bears"
+
+tiaas_admin_user: admin
+tiaas_admin_pass: admin
+
+tiaas_tiaas_use_sqlite: True

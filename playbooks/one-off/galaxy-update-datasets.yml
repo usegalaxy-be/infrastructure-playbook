@@ -1,0 +1,26 @@
+---
+# One-off: run Galaxy dataset object_store_id migration scripts on galaxyservers.
+# Use when migrating datasets between object stores (e.g. local disk → iRODS).
+# Backup the Galaxy DB before running; modifies the dataset table.
+- hosts: galaxyservers
+  become: true
+  become_user: galaxy_master
+  pre_tasks:
+    - name: Print galaxy_virtualenv_command
+      debug:
+        msg: "galaxy_virtualenv_command: {{ galaxy_virtualenv_command }}"
+  tasks:
+    - name: "Send script to update dataset table with object_store_id"
+      ansible.builtin.copy:
+        src: "scripts/set_dataset_object_store_id.py"
+        dest: "{{ galaxy_server_dir }}/scripts/set_dataset_object_store_id.py"
+        owner: galaxy_master
+        group: galaxy_master
+        mode: 0755
+
+    - name: "Run script to update dataset table with object_store_id"
+      ansible.builtin.command: "{{ galaxy_venv_dir }}/bin/python {{ galaxy_server_dir }}/scripts/set_dataset_object_store_id.py"
+      args:
+        chdir: "{{ galaxy_server_dir }}"
+
+    

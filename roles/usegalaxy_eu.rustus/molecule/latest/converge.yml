@@ -1,0 +1,11 @@
+---
+# The "latest" scenario installs the latest version of rustus
+- name: Converge
+  hosts: all
+  vars:
+    rustus_version: "latest"
+  tasks:
+    # Add tasks here to test whatever you find necessary.
+    - name: "Include usegalaxy_eu.rustus"
+      ansible.builtin.include_role:
+        name: "usegalaxy_eu.rustus"

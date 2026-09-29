@@ -1,0 +1,20 @@
+---
+# pdg.postgres-backup
+# Minio vars for external backup duplication
+minio_backup_path: "{{ minio_alias }}/{{ minio_buckets[0].name }}/db_backups/prod"
+
+# grycap.htcondor / condor CCB peer hairpin NAT
+# The CM sees all schedds in the pool via the collector. Peer schedds advertise
+# their VSC floating IPs (not reachable from the VM network), so condor_q on
+# the prod head fails to connect. Each entry maps floating IP → VM-network IP.
+condor_peer_schedd_dnat:
+  - floating_ip: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_vip_ip }}"   # test head VSC floating IP
+    vm_ip: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_ip }}"           # test head VM-network IP
+
+# pdg.rsync_tool_dependencies
+
+rsync_source: "/srv/galaxy/shared/etc/dependencies"
+rsync_destination: "/srv/galaxy/shared/etc/dependencies_test"
+rsync_chdir: "/"
+rsync_enabled: false
+cron_enabled: true

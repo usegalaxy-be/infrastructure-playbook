@@ -1,0 +1,152 @@
+# ============================================================================
+# Combined Inventory — All Environments
+# ============================================================================
+#
+# Usage:
+#   ansible-playbook playbooks/... --limit testenv      # test only
+#   ansible-playbook playbooks/... --limit prodenv      # prod only
+#   ansible-playbook playbooks/... --limit galaxyservers  # all galaxy servers
+#   ansible-playbook playbooks/... --limit dbservers    # shared DB server
+#
+# SSH access from outside the internal network (<internal-network>) is handled
+# automatically via ~/.ssh/config Match exec blocks — no separate inventory needed.
+#
+# NOTE — ansible_host: intentionally unset. Ansible connects using the bare
+# inventory hostname (e.g. "usegalaxy.be"), which must resolve via the control
+# node's own name resolution — normally /etc/hosts, managed by the pdg.update_hosts
+# role (playbooks/daily/daily-update-hosts.yml), driven by loginnode's
+# vault_host_mappings (see usegalaxy-be/network/loginnode in Vault). This keeps
+# the file itself free of internal IPs. The long-term plan is to replace this
+# file with inventories/netbox.yml (the netbox.netbox.nb_inventory dynamic
+# inventory plugin) instead. See inventories/netbox.yml for the plugin config
+# skeleton.
+# ============================================================================
+
+
+
+# ---------------------------------------------------------------------------
+# Galaxy Servers
+# ---------------------------------------------------------------------------
+
+[testgalaxyservers]
+test.usegalaxy.be ansible_port=22 ansible_user=galaxy_master
+
+[prodgalaxyservers]
+usegalaxy.be ansible_port=22 ansible_user=galaxy_master
+
+[galaxyservers:children]
+testgalaxyservers
+prodgalaxyservers
+
+
+# ---------------------------------------------------------------------------
+# Database Server (shared — hosts both test and prod databases)
+# ---------------------------------------------------------------------------
+
+[dbservers]
+db.usegalaxy.be ansible_port=22 ansible_user=galaxy_master
+
+
+# ---------------------------------------------------------------------------
+# NFS Server
+# ---------------------------------------------------------------------------
+
+[nfsservers]
+nfs.usegalaxy.be ansible_port=22 ansible_user=galaxy_master
+
+
+# ---------------------------------------------------------------------------
+# Proxy / Nginx
+# ---------------------------------------------------------------------------
+
+[proxyservers]
+proxy.usegalaxy.be ansible_port=22 ansible_user=galaxy_master
+
+
+# ---------------------------------------------------------------------------
+# Monitoring Infrastructure
+# ---------------------------------------------------------------------------
+# [monitoringservers] — dedicated VM running InfluxDB + Grafana
+# [monitoring]        — all hosts that share monitoring group_vars:
+#                       monitoringservers + galaxy servers (for shared Telegraf vars)
+
+[monitoringservers]
+monitoring.usegalaxy.be ansible_port=22 ansible_user=rocky
+
+[monitoring:children]
+monitoringservers
+testgalaxyservers
+prodgalaxyservers
+
+
+# ---------------------------------------------------------------------------
+# Sentry (co-located on galaxy server)
+# ---------------------------------------------------------------------------
+
+[sentryservers]
+test.usegalaxy.be
+usegalaxy.be
+
+
+# ---------------------------------------------------------------------------
+# Compute Workers
+# ---------------------------------------------------------------------------
+
+[prodcomputeservers]
+#worker1xl0.usegalaxy.be ansible_port=22 ansible_user=test #legacy
+worker12x0.usegalaxy.be ansible_port=22 ansible_user=test
+worker4x0.usegalaxy.be  ansible_port=22 ansible_user=test
+worker4x1.usegalaxy.be  ansible_port=22 ansible_user=test
+worker4x2.usegalaxy.be  ansible_port=22 ansible_user=test
+worker4x3.usegalaxy.be  ansible_port=22 ansible_user=test
+
+# VIB HTCondor workers — populated via inventories/vib.openstack.yml (keyed on metadata.ansible_group = "vibcomputeservers").
+[vibcomputeservers]
+#condor-worker-3x-0-vib  ansible_port=22 ansible_user=rocky # test node — NFS test via Terraform vsc_interfaces
+
+[computeservers:children]
+prodcomputeservers
+vibcomputeservers
+
+
+# ---------------------------------------------------------------------------
+# Login / Control Node
+# ---------------------------------------------------------------------------
+# The machine Ansible is run from. ansible_connection=local avoids SSH to self.
+
+[loginnode]
+vgcn-controller.usegalaxy.be ansible_connection=local ansible_user=galaxy_master
+
+
+# ---------------------------------------------------------------------------
+# Environment Groups  (use these with --limit to target a single environment)
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# Telegraf Agents  (all non-monitoring hosts that ship metrics to InfluxDB)
+# ---------------------------------------------------------------------------
+# These hosts run only dj-wasabi.telegraf (basic system metrics).
+# They send to monitoring.usegalaxy.be:8086 (central InfluxDB, internal network).
+# Galaxy servers are NOT listed here — they are in the [monitoring] group
+# and handled by 07-monitoring.yml (Play 2) which adds Galaxy-specific plugins.
+
+[telegrafservers:children]
+monitoringservers
+proxyservers
+dbservers
+computeservers
+nfsservers
+
+
+# ---------------------------------------------------------------------------
+# Environment Groups  (use these with --limit to target a single environment)
+# ---------------------------------------------------------------------------
+
+[testenv:children]
+testgalaxyservers
+
+[prodenv:children]
+prodgalaxyservers
+prodcomputeservers
+vibcomputeservers
+proxyservers

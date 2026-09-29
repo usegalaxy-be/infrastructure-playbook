@@ -1,0 +1,27 @@
+---
+# defaults file for pulsar-metrics
+
+# path for producer scripts
+# pulsar_data_path should be set as part of the pulsar deployment playbook
+pulsar_data_path: /data/share
+pulsar_metrics_scripts_path: "{{ pulsar_data_path }}/scripts"
+# pulsar_root should be set as part of the pulsar deployment playbook
+pulsar_root: /opt/pulsar
+# multi pulsar setup
+pulsar_app_dir_list: 
+  - "{{ pulsar_root }}/config"
+
+# role has to be one of consumer or producer
+pulsar_metric_role: consumer
+
+# consumer role variables
+pulsar_consumer_dir: "/opt/pulsar_metrics"
+consumer_venv_dir: "{{ pulsar_consumer_dir }}/venv"
+consumer_galaxy_job_conf: "{{ galaxy_config_dir }}/galaxy.yml"
+
+consumer_influx_address: ""
+consumer_influx_port: 8086
+consumer_influx_db: galaxy
+consumer_influx_username: "influx_user"
+consumer_influx_password: "influx_pass"
+consumer_influx_measurement: "htcondor_cluster_usage"

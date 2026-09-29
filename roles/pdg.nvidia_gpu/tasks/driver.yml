@@ -1,0 +1,81 @@
+---
+- name: Install EPEL (provides DKMS and build dependencies)
+  ansible.builtin.dnf:
+    name: epel-release
+    state: present
+
+# The driver's kernel module needs headers for the running kernel. On a node running a
+# kernel older than the repos carry, kernel-devel-<running> is unavailable, so update the
+# kernel + headers to the latest matching pair and reboot into it before building.
+# kernel-devel drags in a newer openssl-libs; these nodes exclude openssl/openssh from
+# updates (dnf.conf), so bypass that exclude and keep openssh in sync in the same transaction.
+- name: Update the kernel, build headers, and openssh
+  ansible.builtin.dnf:
+    name:
+      - kernel
+      - kernel-devel
+      - kernel-headers
+      - openssh
+      - openssh-clients
+      - openssh-server
+    state: latest
+    disable_excludes: main
+  register: nvidia_gpu_kernel
+  when: nvidia_gpu_update_kernel | bool
+
+- name: Reboot into the updated kernel before building the driver module
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ nvidia_gpu_reboot_timeout }}"
+  when:
+    - nvidia_gpu_update_kernel | bool
+    - nvidia_gpu_kernel is changed
+    - nvidia_gpu_reboot | bool
+
+# Must run before any get_url below: the kernel-devel update pulls openssl to 3.5.5-5,
+# which breaks ansible get_url TLS (ansible/ansible#87251). Pin back to the good build.
+- name: Pin openssl to a get_url-safe version
+  ansible.builtin.dnf:
+    name:
+      - "openssl-{{ nvidia_gpu_openssl_safe_version }}"
+      - "openssl-libs-{{ nvidia_gpu_openssl_safe_version }}"
+      - "openssl-devel-{{ nvidia_gpu_openssl_safe_version }}"
+    state: present
+    allow_downgrade: true
+    disable_excludes: main
+  when: nvidia_gpu_update_kernel | bool
+
+- name: Add NVIDIA CUDA repository
+  ansible.builtin.get_url:
+    url: "{{ nvidia_gpu_cuda_repo_url }}"
+    dest: /etc/yum.repos.d/cuda-rhel9.repo
+    mode: "0644"
+
+- name: Ensure kernel-devel matches the running kernel
+  ansible.builtin.dnf:
+    name: "kernel-devel-{{ ansible_kernel }}"
+    state: present
+  when: not (nvidia_gpu_update_kernel | bool)
+
+- name: Install NVIDIA driver module stream
+  ansible.builtin.dnf:
+    name: "@nvidia-driver:{{ nvidia_gpu_driver_stream }}"
+    state: present
+  register: nvidia_gpu_driver_install
+
+- name: Enable nvidia-persistenced
+  ansible.builtin.systemd:
+    name: nvidia-persistenced
+    enabled: true
+
+- name: Reboot to load the NVIDIA kernel module
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ nvidia_gpu_reboot_timeout }}"
+  when:
+    - nvidia_gpu_driver_install is changed
+    - nvidia_gpu_reboot | bool
+
+- name: Verify the GPU is visible to the driver
+  ansible.builtin.command: nvidia-smi -L
+  register: nvidia_gpu_smi
+  changed_when: false
+  failed_when: nvidia_gpu_smi.rc != 0 and (nvidia_gpu_reboot | bool)

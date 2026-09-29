@@ -1,0 +1,31 @@
+# Galaxy Interactive Tools subdomain proxy for test.usegalaxy.be
+# Handles *.ep.interactivetool.test.usegalaxy.be → gx-it-proxy on test server
+# Follows training: https://training.galaxyproject.org/training-material/topics/admin/tutorials/interactive-tools/tutorial.html
+#
+# SSL transition path:
+#   Self-signed:  set gxit_test_ssl_certificate / gxit_test_ssl_certificate_key in group_vars/proxyservers/nginx.yml
+#   Real cert:    update those same variables to the certbot/Let's Encrypt paths and re-run 00-proxy.yml
+server {
+    listen       *:443 ssl;
+    server_name  *.ep.interactivetool.test.usegalaxy.be;
+
+    access_log  /var/log/nginx/access.log;
+    error_log   /var/log/nginx/error.log;
+
+    ssl_certificate     {{ gxit_test_ssl_certificate }};
+    ssl_certificate_key {{ gxit_test_ssl_certificate_key }};
+
+    location / {
+        proxy_redirect      off;
+        proxy_http_version  1.1;
+        proxy_set_header    Host            $host;
+        proxy_set_header    X-Real-IP       $remote_addr;
+        proxy_set_header    Upgrade         $http_upgrade;
+        proxy_set_header    Connection      "upgrade";
+        proxy_set_header    X-Forwarded-For $remote_addr;
+        proxy_set_header    X-Forwarded-Proto $scheme;
+        proxy_hide_header   X-Frame-Options;
+        add_header          X-Frame-Options "SAMEORIGIN";
+        proxy_pass          http://test.usegalaxy.be:{{ gxit_proxy_port | default(4002) }};
+    }
+}

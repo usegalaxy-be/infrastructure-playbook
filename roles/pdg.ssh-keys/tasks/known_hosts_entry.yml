@@ -1,0 +1,37 @@
+---
+# Handles a single ssh_known_hosts entry (called in a loop from main.yml).
+# Using include_tasks per entry lets us loop over keyscan output lines without
+# needing complex nested loop constructs.
+
+- name: Ensure .ssh directory exists for known_hosts
+  ansible.builtin.file:
+    path: "{{ _known_host.known_hosts_file | dirname }}"
+    state: directory
+    owner: "{{ _known_host.owner }}"
+    group: "{{ _known_host.group | default(_known_host.owner) }}"
+    mode: '0700'
+
+- name: Fetch host key via ssh-keyscan
+  ansible.builtin.command: >-
+    ssh-keyscan
+    -t {{ _known_host.key_types | default(['ed25519']) | join(',') }}
+    {{ _known_host.host | default(_known_host.name) | quote }}
+  register: _keyscan
+  changed_when: false
+
+- name: Add host key lines to known_hosts
+  ansible.builtin.known_hosts:
+    path: "{{ _known_host.known_hosts_file }}"
+    name: "{{ _known_host.name }}"
+    key: "{{ _key_line }}"
+    state: present
+  loop: "{{ _keyscan.stdout_lines | reject('match', '^#') | list }}"
+  loop_control:
+    loop_var: _key_line
+
+- name: Ensure known_hosts file permissions
+  ansible.builtin.file:
+    path: "{{ _known_host.known_hosts_file }}"
+    owner: "{{ _known_host.owner }}"
+    group: "{{ _known_host.group | default(_known_host.owner) }}"
+    mode: "{{ _known_host.mode | default('0600') }}"

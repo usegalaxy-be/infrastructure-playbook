@@ -1,0 +1,318 @@
+---
+
+# pdg.update_hosts
+#
+# On the monitoring VM, InfluxDB runs in Docker on the same host.
+# Use 127.0.0.1 so Telegraf connects locally instead of via DNS
+# (public DNS resolves monitoring.usegalaxy.be → proxy floating IP, port 8086 not exposed).
+# Overrides group_vars/all/monitoring.yml which uses vault_host_mappings (<monitoring-ip> entry).
+host_mappings:
+  - ip: "127.0.0.1"
+    hostname: "monitoring.usegalaxy.be"
+
+# Remove the invalid legacy entry written by cloud-init/manual edit.
+host_mappings_absent:
+  - ip: "localhost"
+    hostname: "monitoring.usegalaxy.be"
+
+
+# hxr.monitor-cluster
+
+# Condor cluster monitoring scripts
+monitor_condor: true
+monitor_condor_split_util: true
+
+# usegalaxy_eu.influxdbserver
+# TODO: figure out why this needs to be defined here and not in monitoring.yml
+
+influxdb_users: "{{ vault_influxdb_users }}"
+influx_url: "https://{{ inventory_hostname }}:{{ influx_port }}"
+
+# Internal URL for Grafana datasources — bypasses nginx, hits Docker container directly
+# on port 8086 (mapped 1:1). Uses inventory_hostname so the TLS cert matches without
+# needing tlsSkipVerify.
+grafana_influx_url: "https://{{ inventory_hostname }}:8086"
+
+# Telegraf
+# this is used to set env variables before calling custom/gxadmin scripts
+
+custom_telegraf_env: "/usr/bin/env PGHOST={{postgres_host}} PGDATABASE={{ db_name }} PGUSER=telegraf PGPASSWORD={{ vault_prod_postgres_pass }} GALAXY_ROOT={{ galaxy_server_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} GALAXY_LOG_DIR={{ galaxy_log_dir }}"
+custom_telegraf_env_without_gdpr_mode: "/usr/bin/env GDPR_MODE=1 PGHOST={{postgres_host}} PGDATABASE={{ db_name }} PGUSER=telegraf PGPASSWORD={{ vault_prod_postgres_pass }} GALAXY_ROOT={{ galaxy_server_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} GALAXY_LOG_DIR={{ galaxy_log_dir }}"
+
+# dj-wasabi.telegraf
+
+telegraf_agent_hostname: "{{ hostname }}"
+
+telegraf_agent_package_state: latest
+telegraf_agent_metric_buffer_limit: 20000
+telegraf_agent_version: 1.17.2
+telegraf_agent_debug: False
+
+# The default plugins, applied to any telegraf-configured host
+telegraf_plugins_default:
+  - plugin: cpu
+    config: 
+      - percpu = true
+      - totalcpu = true
+      - collect_cpu_time = false
+  - plugin: disk
+  - plugin: kernel
+  - plugin: processes
+  - plugin: diskio
+  - plugin: mem
+  - plugin: system
+  - plugin: swap
+  # - plugin: net
+  - plugin: netstat
+
+### This can be useful for debbugging, just dumps the output to a file (can be stdout too)
+#  - type: file
+#    config:
+#    - files = ["/galaxy_base/src_prod/telegraf.stdout"]
+#    - data_format = "influx"
+
+
+# usegalaxy_eu.influxdbserver
+
+influxdb_user: "{{ galaxy_user_name }}"
+influxdb_group: "{{ galaxy_user_name }}"
+
+
+influxdb_http_https_enabled: "true"
+influxdb_http_https_certificate: "{{ galaxy_shared_certs_dir }}/{{ galaxy_shared_cert_domain }}/fullchain.pem" #"/etc/ssl/certs/fullchain.pem"
+influxdb_http_https_private_key: "{{ galaxy_shared_certs_user_dir }}/{{ galaxy_shared_cert_domain }}/privkey-nginx.pem" #"/etc/ssl/user/privkey-influxdb.pem"
+
+# InfluxDBserver
+# inventory_hostname: test.usegalaxy.be
+hostname: "{{ inventory_hostname }}"
+external_port: 8086
+influxdb_https_enabled: "true"
+
+  # admin:
+  #   - {username: "{{ vault_influxdb_users.admin.username }}", password: "{{ vault_influxdb_users.admin.password }}"}
+  # regular:
+  #   - {username: "{{ vault_influxdb_users.grafana.username }}", password: "{{ vault_influxdb_users.grafana.password }}"}
+  #   - {username: "{{ vault_influxdb_users.node.username }}", password: "{{ vault_influxdb_users.node.password }}"}
+# Note: manually creating dir
+# TODO: check if this needs to be on NFS
+# influxdb_data_dir: "{{ galaxy_mutable_data_dir }}/influxdb_data"
+
+influxdb_retention_policy:
+  policy_name: twoweeks
+  duration: 14d
+  replication: 1
+  default: "DEFAULT"
+  databases:
+    - galaxy
+    - notifications
+    - grt
+    - galaxy_stats
+  # internal_metrics intentionally excluded — infinite retention for historical data
+
+influxdb_container_standalone_setup_details:
+  ulimits:
+    nofile:
+      soft: 65536
+      hard: 65536
+  volumes:
+    - "{{ influxdb_data_dir }}:/var/lib/influxdb"
+    # - "/etc/pki/tls/certs:/etc/ssl/certs/"
+    # - "/etc/ssl/user:/etc/ssl/user"
+    - "{{ galaxy_shared_certs_dir }}/{{ galaxy_shared_cert_domain }}:{{ galaxy_shared_certs_dir }}/{{ galaxy_shared_cert_domain }}:ro"
+    - "{{ galaxy_shared_certs_user_dir }}/{{ galaxy_shared_cert_domain }}:{{ galaxy_shared_certs_user_dir }}/{{ galaxy_shared_cert_domain }}:ro"
+  ports:
+    - 8086:8086
+    - 8099:8088
+  env:
+    {
+      'INFLUXDB_HTTP_AUTH_ENABLED': "true",
+      'INFLUXDB_HTTP_ENABLED': "true",
+      'INFLUXDB_HTTP_HTTPS_ENABLED': "{{ influxdb_https_enabled }}",
+      'INFLUXDB_HTTP_HTTPS_CERTIFICATE': "{{ influxdb_http_https_certificate }}",
+      'INFLUXDB_HTTP_HTTPS_PRIVATE_KEY': "{{ influxdb_http_https_private_key }}",
+      'INFLUXDB_HTTP_LOG_ENABLED': "false",
+      'INFLUXDB_DATA_INDEX_VERSION': "tsi1",
+      'INFLUXDB_DATA_CACHE_MAX_MEMORY_SYZE': '1048576000',
+      'INFLUXDB_DATA_CACHE_SNAPSHOT_WRITE_COLD_DURATION': "10s",
+      'INFLUXDB_DATA_MAX_VALUES_PER_TAG': '3000000',
+      'INFLUXDB_LOGGING_LEVEL': "error"
+    }
+
+# grafana.grafana collection
+# https://github.com/grafana/grafana-ansible-collection
+#
+# Use file-based datasource provisioning so that the datasource UID (e.g. be-galaxy-new)
+# is preserved exactly as defined. API-based provisioning (grafana_use_provisioning: false)
+# calls community.grafana.grafana_datasource which never passes uid, so Grafana
+# auto-generates one — breaking alert rules that reference the UID by name.
+grafana_use_provisioning: true
+#
+# Workaround for https://github.com/grafana/grafana-ansible-collection/pull/414
+# (YUM repo URL changed upstream; remove once collection version > 2.0.0 ships the fix)
+grafana_yum_repo: "https://rpm.grafana.com"
+grafana_yum_key: "https://rpm.grafana.com/gpg.key"
+
+grafana_version: "11.4.0"
+
+# old var
+# grafana_url: "{{ instance_url }}stats"
+grafana_url: "https://{{ inventory_hostname }}/grafana/"
+# grafana_url: "http://127.0.0.1"
+grafana_domain: "{{ inventory_hostname }}"
+
+# SMTP for Grafana alert notifications — reuses Galaxy's mailgun credentials
+grafana_smtp:
+  host: smtp.eu.mailgun.org:465
+  user: noreply.datacore.galaxy@notifications.vib.be
+  password: "{{ vault_smtp_password }}"
+  from_address: noreply.datacore.galaxy@notifications.vib.be
+  from_name: Galaxy Belgium Monitoring
+
+# grafana_security: "{{ vault_grafana_security }}"
+grafana_security:
+  admin_user: "{{ vault_grafana_admin_user }}"
+  admin_password: "{{ vault_grafana_admin_password }}"
+  allow_embedding: "{{ vault_grafana_allow_embedding }}"
+
+# Secret key for signing sessions/cookies — must be stable across restarts.
+# Add vault_grafana_security_secret_key to the monitoring vault.
+grafana_security_secret_key: "{{ vault_grafana_security_secret_key }}"
+
+# These datasources will be automatically included into Grafana
+grafana_datasources:
+  # - name: Galaxy
+  #   type: influxdb
+  #   access: proxy
+  #   url: "{{ influx_url }}"
+  #   isDefault: true
+  #   version: 1
+  #   editable: false
+  #   database: telegraf
+  - name: GalaxyNew
+    uid: be-galaxy-new
+    type: influxdb
+    access: proxy
+    url: "{{ grafana_influx_url }}"
+    isDefault: true
+    version: 1
+    editable: true
+    database: galaxy
+    user: "{{ influxdb_users.regular[0].username }}"
+    secureJsonData:
+      password: "{{ influxdb_users.regular[0].password }}"
+  - name: Galaxy Historical
+    uid: be-galaxy-historical
+    type: influxdb
+    access: proxy
+    url: "{{ grafana_influx_url }}"
+    version: 1
+    editable: true
+    database: galaxy_stats
+    user: "{{ influxdb_users.regular[0].username }}"
+    secureJsonData:
+      password: "{{ influxdb_users.regular[0].password }}"
+  - name: GRT Tool Usage
+    uid: be-grt-tool-usage
+    type: influxdb
+    access: proxy
+    url: "{{ grafana_influx_url }}"
+    version: 1
+    editable: true
+    database: grt
+    user: "{{ influxdb_users.regular[0].username }}"
+    secureJsonData:
+      password: "{{ influxdb_users.regular[0].password }}"
+  - name: InfluxDB - internal
+    uid: be-influxdb-internal
+    type: influxdb
+    access: proxy
+    url: "{{ grafana_influx_url }}"
+    version: 1
+    editable: true
+    database: _internal
+    user: "{{ influxdb_users.regular[0].username }}"
+    secureJsonData:
+      password: "{{ influxdb_users.regular[0].password }}"
+  - name: Notifications
+    uid: be-notifications
+    type: influxdb
+    access: proxy
+    url: "{{ grafana_influx_url }}"
+    version: 1
+    editable: true
+    database: notifications
+    user: "{{ influxdb_users.regular[0].username }}"
+    secureJsonData:
+      password: "{{ influxdb_users.regular[0].password }}"
+  - name: Metrics
+    uid: be-internal-metrics
+    type: influxdb
+    access: proxy
+    url: "{{ grafana_influx_url }}"
+    version: 1
+    editable: true
+    database: internal_metrics
+    user: "{{ influxdb_users.regular[0].username }}"
+    secureJsonData:
+      password: "{{ influxdb_users.regular[0].password }}"
+
+# pdg.grafana
+
+grafana_users:
+  default_theme: "light"
+
+#NOTE: setting up the org is a manual process in grafana's GUI
+# Anonymous org-level access disabled — use per-dashboard public URLs instead.
+# Share individual dashboards via Grafana UI: Share → Public Dashboard → Enable.
+# Public dashboards are GA in Grafana 10.4+ and enabled by default in v11.
+grafana_auth:
+  anonymous:
+    enabled: "false"
+
+grafana_server:
+  serve_from_sub_path: true
+  # domain: "{{ hostname }}"
+  # root_url: "https://%(domain)s/"
+
+# Grafana logging — warn level reduces noise; logrotate handles /var/log/grafana (weekly, 4 rotations)
+grafana_log:
+  mode: file
+  level: warn
+
+# grafana.grafana collection: grafana_alerting controls the legacy [alerting] ini section.
+# Must be empty — legacy alerting was removed in Grafana 11.
+grafana_alerting: {}
+
+# Unified alerting (Grafana 9+). execute_alerts enables the scheduler.
+# max_annotations_to_keep caps alert annotation history in SQLite to prevent unbounded growth.
+grafana_unified_alerting:
+  enabled: "true"
+  execute_alerts: "true"
+  max_annotations_to_keep: 500
+
+# Legacy alert notification channels — unused with unified alerting (Grafana 9+).
+# Grafana ignores /etc/grafana/provisioning/notifiers/ when unified_alerting is enabled.
+# Contact points are provisioned via templates/grafana/provisioning/alerting/contact_points.yml.j2
+# grafana_alert_notifications: []
+
+
+# pdg.galaxy_stats
+
+# vars for stats_collection
+stats_dir: /home/centos/stats_collection
+stats_instance: main
+sinfo_hostname: 'Galaxy-Main'
+stats_db_server: "{{ postgres_host }}"
+stats_database: "{{ galaxy_db_name }}"
+stats_db_user: telegraf
+# influx_url: http://127.0.0.1:8086
+# influx_db_stats: "GA_server"
+stats_db_password: "{{ vault_prod_postgres_pass }}"
+influx_salt: "{{ prod_queue_size_salt }}"
+add_daily_stats: true
+add_monthly_stats: true
+add_utilisation_info: true
+add_queue_info: true
+add_volume_usage_info: true
+stats_galaxy_volume_list: "{{ galaxy_shared_root }}"
+stats_galaxy_volume_db: "{{ influx_db_stats }}"

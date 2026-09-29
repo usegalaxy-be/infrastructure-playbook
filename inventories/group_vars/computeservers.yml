@@ -1,0 +1,15 @@
+# grycap.htcondor
+htcondor_role_execute: true
+htcondor_type_of_node: "wn"
+htcondor_password: "{{ vault_condor_pass }}"
+htcondor_version: "25.0"
+htcondor_channel: "25.0"
+htcondor_firewall_condor: false
+htcondor_firewall_nfs: false
+
+# Galaxy servers that need to reach Docker-mapped ports on compute workers
+# for Galaxy Interactive Tools (gx-it-proxy → container ephemeral port).
+# Docker maps container entry-point ports to the Linux ephemeral range (32768-60999).
+galaxy_server_ips:
+  - "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_ip }}"
+  - "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"

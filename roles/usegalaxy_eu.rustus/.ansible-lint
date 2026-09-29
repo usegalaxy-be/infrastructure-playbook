@@ -1,0 +1,3 @@
+---
+kinds:
+  - vars: "**/molecule/*/vars.yml"

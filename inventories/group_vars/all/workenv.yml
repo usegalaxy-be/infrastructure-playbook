@@ -1,0 +1,4 @@
+---
+# On most hosts we only need the vim setup.
+# tmux is enabled for the login node via group_vars/loginnode/workenv.yml.
+workenv_tmux_install: false

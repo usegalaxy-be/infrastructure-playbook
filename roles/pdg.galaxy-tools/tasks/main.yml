@@ -1,0 +1,14 @@
+---
+- include: install_ephemeris.yml
+  when: install_ephemeris
+
+- include: install_galaxy_tool_util.yml
+  when: install_galaxy_tool_util
+
+- include: install_tool_list.yml
+  when: install_tools
+
+- include: test_tool_list.yml
+  when: test_tools
+
+

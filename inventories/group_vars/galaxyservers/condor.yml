@@ -1,0 +1,39 @@
+---
+# HTCondor head node configuration.
+# Drives templates/htcondor/condor_config.local.j2, deployed by
+# playbooks/infrastructure/06-galaxy-postrequisites.yml.
+#
+# condor_filesystem_domain / UID_DOMAIN: must match the domain set on VGCN
+# worker images. "vgcn" is the value baked into the VGCN image config.
+condor_filesystem_domain: vgcn
+
+# VSC floating IP of the Galaxy head. VIB workers (VSC_2024_002_vm) cannot reach the
+# Galaxy head's VM-network address (<galaxy-prod-ip>) directly — the two VM networks are
+# isolated between OpenStack projects. Setting TCP_FORWARDING_HOST causes all daemons
+# (collector + schedd) to advertise the floating IP alongside <galaxy-prod-ip>, so CCB
+# reverse connections from VIB workers succeed: they fail on <galaxy-prod-ip> then fall
+# through to <prod-floating-ip>.
+condor_tcp_forwarding_host: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_vip_ip }}"
+
+# This host's own VM-network IP, for the hairpin-NAT DNAT rule that redirects the
+# schedd's locally-originated connections to its own floating IP (condor_tcp_forwarding_host)
+# back to itself. Cannot use ansible_host here — inventories/hosts no longer sets it
+# (resolved via /etc/hosts instead), so it defaults to the bare hostname, which
+# iptables rejects as an invalid IP address.
+condor_hairpin_own_ip: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
+
+# ALLOW_WRITE covers all pool members (schedds, startds, negotiator).
+# The pool is on the private OpenStack network (<vsc-vm-network>) but we keep
+# this open until firewall rules are tightened at the network level.
+condor_allow_write: "*"
+
+# Negotiator matchmaking cycle (s). Dominates job-queue latency; 60 gave ~30-45s
+# waits. 15 matches usegalaxy.eu. Runs on the shared manager -> affects test+prod.
+condor_negotiator_interval: 15
+
+# Jobs the schedd starts per cycle (was 1, serialized on bursts).
+condor_job_start_count: 20
+condor_job_start_delay: 0
+
+# How long (seconds) a startd holds a claim for the same schedd between jobs.
+condor_claim_worklife: 1200

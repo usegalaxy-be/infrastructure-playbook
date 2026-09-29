@@ -1,0 +1,21 @@
+[Unit]
+Description=TPV FastAPI Application
+After=network.target
+
+[Service]
+User={{ tpv_broker_systemd_service_user }}
+WorkingDirectory={{ tpv_broker_dir }}
+{% if tpv_broker_proxy_config.proxy_pass_protocol == 'https' and tpv_broker_ssl_certificate_key is defined and tpv_broker_ssl_certificate is defined %}
+ExecStart={{ tpv_broker_venv_dir }}/bin/uvicorn main:app --reload --host {{ tpv_broker_proxy_config.proxy_pass_host }} --port {{ tpv_broker_proxy_config.proxy_pass_port }} --root-path {{ tpv_broker_proxy_config.location }} --ssl-keyfile {{ tpv_broker_ssl_certificate_key }}  --ssl-certfile {{ tpv_broker_ssl_certificate }}
+{% else %}
+ExecStart={{ tpv_broker_venv_dir }}/bin/uvicorn main:app --reload --host {{ tpv_broker_proxy_config.proxy_pass_host }} --port {{ tpv_broker_proxy_config.proxy_pass_port }} --root-path {{ tpv_broker_proxy_config.location }}
+{% endif %}
+Environment="INFLUXDB_HOST={{ influx_address }}"
+Environment="INFLUXDB_PORT={{ influx_port }}"
+Environment="INFLUXDB_DATABASE={{ influx_db }}"
+Environment="INFLUXDB_USERNAME={{ influx_username }}"
+Environment="INFLUXDB_PASSWORD={{ influx_password }}"
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

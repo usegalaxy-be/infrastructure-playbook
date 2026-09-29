@@ -1,0 +1,33 @@
+---
+# Deploy TPV rules only (usegalaxy_eu.tpv_auto_lint).
+# Does not touch Galaxy config files. Use when only TPV routing rules have changed.
+
+- name: TPV Configuration Update
+  hosts: galaxyservers
+  become_user: galaxy_master
+  vars:
+  pre_tasks:
+    - name: Load TPV python blobs
+      set_fact:
+        # NOTE: relative path from inventory
+        tpv_debug: "{{ inventory_dir }}/../files/galaxy/config/tpv/tpv_debug.py"
+        # tpv_debug: "{{ lookup('file', 'files/galaxy/config/tpv/tpv_debug.py') }}"
+    - name: Print
+      debug:
+        msg: "galaxy_server_dir: {{ galaxy_server_dir }}"
+    - name: Deploy sra_tools NCBI_VDB_CONFIG override
+      ansible.builtin.copy:
+        src: "{{ inventory_dir }}/../files/galaxy/config/tpv/sra_tools_ncbi_override.kfg"
+        dest: "{{ sra_tools_ncbi_override_path }}"
+        mode: "0644"
+  roles:
+    # Adds a TPV (Total Perspective Vortex) lint script that automatically lints all TPV YAML files
+    # some custom changes to allow a different user than root to install scripts and copy tpv related files
+
+    - role: usegalaxy_eu.tpv_auto_lint
+      # become: true
+      # become_user: "{{ galaxy_user_name }}"
+  handlers:
+  #TODO: Include a handler to reload toolbox
+
+# TODO: add `tpv dry-run` routing assertion here to verify each test tool maps to its expected destination.

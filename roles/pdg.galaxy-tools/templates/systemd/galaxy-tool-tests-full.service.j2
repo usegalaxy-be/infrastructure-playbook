@@ -1,0 +1,27 @@
+[Unit]
+Description=Galaxy Tool Tests - Full Sweep (every currently installed tool)
+After=network.target
+After=time-sync.target
+After=multi-user.target
+
+[Service]
+UMask=022
+Type=oneshot
+User={{ tools_user }}
+Group={{ tools_group }}
+WorkingDirectory={{ tool_install_dir }}
+TimeoutStartSec=0
+ExecStart={{ ephemeris_venv_dir }}/bin/get-tool-list -o "{{ galaxy_tools_full_sweep_tool_list }}" -a "{{ galaxy_singularity_user_api_key }}" -g "{{ galaxy_tools_galaxy_instance_url }}" -v --include-tool-panel-id
+ExecStart={{ tool_install_dir }}/tool-tests.sh "ephemeris" "{{ galaxy_tools_full_sweep_tool_list }}" "" "{{ sqlite_db_path }}" "{{ parallel_tests }}" "{{ galaxy_tools_full_sweep_force | ternary('true', 'false') }}"
+Environment=HOME={{ tool_install_dir }}
+Environment=VIRTUAL_ENV={{ ephemeris_venv_dir }}
+Environment=PATH={{ ephemeris_venv_dir }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin
+Environment=DOCUTILSCONFIG=
+MemoryLimit=4G
+
+MemoryAccounting=yes
+CPUAccounting=yes
+BlockIOAccounting=yes
+
+[Install]
+WantedBy=multi-user.target

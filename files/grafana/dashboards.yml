@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: Galaxy Belgium Dashboards
+    orgId: 1
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 60
+    # allowUiUpdates: false prevents accidental in-UI edits from being lost on
+    # next Ansible run (the provisioned file always wins on restart).
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

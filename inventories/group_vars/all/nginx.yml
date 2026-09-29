@@ -1,0 +1,58 @@
+---
+# galaxyproject.nginx 
+
+# NGINX
+
+# Resolve templates relative to the repo root rather than the playbook dir,
+# since Ansible searches relative to the role/playbook and not the invocation dir.
+nginx_server_src_dir: "{{ inventory_dir }}/../templates/nginx"
+
+# CentOS hosts where Nginx will need to access Galaxy
+nginx_selinux_allow_local_connections: true
+# Nginx packages come with a default configuration
+nginx_enable_default_server: false
+nginx_conf_http:
+  # increases the POST limit to 1Gb which makes uploads easier
+  client_max_body_size: 10g
+  #client_body_temp_path: "{{ nginx_tmp }}"
+  client_body_buffer_size: 1024m
+  # This is enabled by default in Ubuntu, and the duplicate directive will cause a crash.
+  # gzip: "on"
+  gzip_proxied: "any"
+  # The ngx_http_gzip_static_module module allows sending precompressed files with the ".gz" filename extension 
+  # instead of regular files.
+  gzip_static: "on"   
+  gzip_vary: "on"
+  gzip_min_length: 128
+  # Tradeoff of better compression for slightly more CPU time.
+  gzip_comp_level: 6  
+  gzip_types: |
+      text/plain
+      text/css
+      text/xml
+      text/javascript
+      application/javascript
+      application/x-javascript
+      application/json
+      application/xml
+      application/xml+rss
+      application/xhtml+xml
+      application/x-font-ttf
+      application/x-font-opentype
+      image/png
+      image/svg+xml
+      image/x-icon
+# nginx_ssl_role: usegalaxy_eu.certbot
+# Location of the certificate / private key
+# nginx_conf_ssl_certificate: "{{ galaxy_shared_certs_dir }}/{{ inventory_hostname }}/fullchain.pem" #/etc/ssl/certs/fullchain.pem
+# nginx_conf_ssl_certificate_key: "{{ galaxy_shared_certs_user_dir }}/{{ inventory_hostname }}/privkey-nginx.pem" #/etc/ssl/user/privkey-nginx.pem
+
+# Shared SSL certs dir used by certbot role to share certs with nginx and other users
+# Used by multiple groups to share certs between them
+# TODO: internal services should use self signed certs instead of shared certs, 
+# and only the proxyservers should use the certs from certbot
+# All public domains are covered by the single SAN certificate in this lineage;
+# every cert consumer (nginx vhosts, RabbitMQ, InfluxDB) points here.
+galaxy_shared_cert_domain: usegalaxy.be
+galaxy_shared_certs_dir: "{{ galaxy_shared_root }}/shared_certs/live"
+galaxy_shared_certs_user_dir: "{{ galaxy_shared_root }}/shared_certs/user"

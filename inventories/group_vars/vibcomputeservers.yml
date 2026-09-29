@@ -1,0 +1,99 @@
+# HTCondor VIB compute workers — in the VIB OpenStack project.
+#
+# VIB VMs are deployed from Rocky Linux cloud images, so the `rocky` cloud-init
+# user exists here in addition to galaxy_master.
+workenv_users:
+  - uname: galaxy_master
+    uhome: /home/galaxy_master
+    uid: 1001
+    password: "{{ vault_galaxy_master_console_password }}"
+    groups: [ wheel, adm ]
+  - uname: rocky
+    uhome: /home/rocky
+    uid: 1000
+    password: "{{ vault_rocky_console_password }}"
+    groups: [ wheel, adm ]
+
+# VIB workers connect as `rocky`. Common galaxy_master set + the loginnode fleet key
+# and the existing padge key for `rocky`.
+workenv_ssh_authorized_keys: "{{ workenv_ssh_authorized_keys_common + [
+  {'user': 'rocky', 'key': loginnode_infra_key, 'state': 'present'},
+  {'user': 'rocky', 'key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJcsN/tuCA6hyV/kUOiakJwp3sQPe7mzEeisP/WDoA4 padge@mac0208', 'state': 'present'}] }}"
+
+
+# These workers join the same Galaxy HTCondor pool as prodcomputeservers but run only
+# VIB user jobs (enforced via GalaxyGroup = "vib" ClassAd + TPV requirements expression).
+#
+# Inherits base worker config from computeservers.yml (htcondor_role_execute, etc.).
+# Overrides: htcondor_server (prod CM), autofs mounts (cross-project NFS via VSC).
+
+# Galaxy user — must match UID on the NFS share (set on Galaxy head by galaxyservers group_vars).
+galaxy_user_uid: 1001
+
+# SSH access — loginnode has direct access to VSC_2024_002
+ansible_user: rocky
+
+# grycap.htcondor
+# htcondor_server must be the CM's CONDOR_HOST identity (<galaxy-prod-ip>), not the floating IP.
+# The role uses this for both CONDOR_HOST and condor_token_create; the token iss must match
+# the CM's identity or authentication fails. The floating IP is set as COLLECTOR_HOST in
+# 10-vib.conf so workers actually connect via the VSC-routable address.
+htcondor_server: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
+
+
+# galaxyproject.cvmfs
+cvmfs_quota_limit: 10000
+influx_url: https://usegalaxy.be:59086
+
+# Cross-project NFS via VSC network.
+# vgcn-nfs-server.usegalaxy.be VSC floating IP (VSC_00003_vsc).
+# VIB workers reach it via VSC_2024_002_vsc (<vib-network>): the subnet carries
+# a host route for <vib-floating-network> → <vib-network-ip> which covers <vib-nfs-ip>.
+vib_nfs_server: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').vib_nfs_server_ip }}"
+
+# pdf.autofs
+autofs_mounts:
+  - name: "prod"
+    conf:
+      - "database  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/database"
+      - "local_tools  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/local_tools"
+      - "etc  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/etc"
+      - "dm-data  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/dm_data"
+      - "src  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/src"
+      - "tmp  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/tmp"
+    mountpoint: "/srv/galaxy/shared"
+    conf_location: "/etc/auto.prod"
+    map_options: "nfsvers=3 browse"
+  - name: "test"
+    conf:
+      - "database  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/database"
+      - "local_tools  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/local_tools"
+      - "server  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/server"
+      - "tmp  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/tmp"
+      - "venv  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/venv"
+      - "shared_data -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/shared_data"
+    mountpoint: "/srv/galaxy_test/shared"
+    conf_location: "/etc/auto.test"
+    map_options: "nfsvers=3 browse"
+  # - name: "legacy"
+  #   conf:
+  #     - "dm-data      -rw,hard,intr,nosuid,quota      <dm-nfs-ip>:/volumes/_nogroup/4df70bac-5d53-442e-aba9-0d5a8dd81a8f"
+  #   mountpoint: "/galaxy_base/scratch_prod"
+  #   conf_location: "/etc/auto.legacy"
+  #   map_options: "nfsvers=4.1 browse"
+  - name: "staging"
+    conf:
+      - "psb_data     -rw,hard,intr,nosuid,quota      {{ vib_nfs_server }}:/data/share/data_stage/psb_data"
+    mountpoint: "/data_stage"
+    conf_location: "/etc/auto.staging"
+    map_options: "nfsvers=3 browse"
+
+autofs_cleanup_entries:
+  - conf_location: /etc/auto.srv
+    key: galaxy
+    unmount_path: /srv/galaxy
+    remove_master_entry: srv
+  - conf_location: /etc/auto.legacy
+    key: dm-data
+    unmount_path: /galaxy_base/scratch_prod/dm-data
+    remove_master_entry: galaxy_base/scratch_prod

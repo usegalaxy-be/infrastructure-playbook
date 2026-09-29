@@ -1,0 +1,4 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+# Same Vault path as galaxyservers and proxyservers — single source of truth.
+vault_sentry_password: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/sentry').vault_sentry_password }}"

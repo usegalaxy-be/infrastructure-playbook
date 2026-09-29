@@ -1,0 +1,28 @@
+[Unit]
+Description=Galaxy Tool Installation
+After=network.target
+After=time-sync.target
+After=multi-user.target
+
+[Service]
+UMask=022
+Type=simple
+User={{ tools_user }}
+Group={{ tools_group }}
+WorkingDirectory={{ tool_install_dir }}
+TimeoutStartSec=60
+ExecStart={{ tool_install_dir }}/tool-install.sh
+Environment=HOME={{ tool_install_dir }}
+Environment=VIRTUAL_ENV={{ ephemeris_venv_dir }}
+Environment=PATH={{ ephemeris_venv_dir }}/bin:/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin
+Environment=DOCUTILSCONFIG=
+Restart=on-failure
+RestartSec=30
+MemoryLimit=4G
+
+MemoryAccounting=yes
+CPUAccounting=yes
+BlockIOAccounting=yes
+
+[Install]
+WantedBy=multi-user.target

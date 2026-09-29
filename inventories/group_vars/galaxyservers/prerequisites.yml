@@ -1,0 +1,58 @@
+---
+# pdg.update_hosts variables for galaxyservers group.
+# /etc/hosts overrides for Galaxy servers.
+#
+# The pdg.update_hosts role (used in 04-galaxy.yml) sets manage_etc_hosts: false
+# in /etc/cloud/cloud.cfg to prevent cloud-init from regenerating /etc/hosts on
+# boot and wiping custom entries, then applies host_mappings / host_mappings_absent.
+# Sensitive entries are stored in vault.yml (encrypted):
+#
+# Historical note: during the 2026-03 iRODS incident, a pin for
+# vsc-galaxy.irods.hpc.kuleuven.be → <kuleuven-irods-ip-1> was required because
+# <kuleuven-irods-ip-2> (the other DNS round-robin node) was unreachable due to a
+# firewall issue on the KU Leuven side. That was resolved on 2026-03-12
+# and the pin was removed (see host_mappings_absent in vault.yml).
+#
+# 2026-06-01: KU Leuven firewalled the public iRODS IPs (<kuleuven-irods-ip-1>/53)
+# on port 1247. The internal IPs <kuleuven-irods-internal-ip-1>/138 bypass the firewall
+# and are reachable from the VSC network. KU Leuven should notify us when
+# this workaround needs to be reverted.
+
+host_mappings: "{{ vault_host_mappings }}"
+
+# galaxyproject.nginx
+
+# NOTE: nginx users needs to be the galaxy user to access gunicorn.sock
+nginx_conf_user: "{{ galaxy_user_name }}"
+
+# galaxyproject.miniconda
+
+# defined at host level
+# in prod there is an old /miniconda path which got screwed but may be recoverable in case of disaster
+# miniconda_prefix: "{{ galaxy_tool_dependency_dir }}/_conda"
+miniconda_prefix: '{{ galaxy_dependency_dir }}/miniconda3'
+
+# Community-built conda envs, same repo usegalaxy.org uses (see dependency_resolvers_conf.xml).
+galaxy_cvmfs_conda_prefix: /cvmfs/main.galaxyproject.org/deps/_conda
+
+# miniconda_version: 4.12.0 #3.16.0
+# miniconda_installer_version: "{{ miniconda_version }}"
+# miniconda_installer_python: "38"
+# miniconda_python: "{{ miniconda_installer_python }}"
+# miniconda_channels: ['conda-forge', 'defaults']
+# miniconda_installer_checksum: ""
+# miniconda_update_conda: False
+# miniconda_env: "galaxy"
+
+galaxy_conda_create_env: true
+galaxy_conda_env_packages:
+  - python=3.11
+  - pip
+
+# galaxyproject.tusd
+
+# NOTE: Rocky 9 has GLIBC 2.34 built-in - full compatibility with modern tusd
+# Configured to run on galaxy servers directly (like AU, IT, ORG deployments)
+galaxy_tusd_port: 1080
+galaxy_tus_upload_store: "{{ galaxy_mutable_data_dir }}/data_stage/tus"
+

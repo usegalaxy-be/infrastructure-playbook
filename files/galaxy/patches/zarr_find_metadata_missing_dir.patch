@@ -1,0 +1,11 @@
+--- a/lib/galaxy/datatypes/data.py
++++ b/lib/galaxy/datatypes/data.py
+@@ -1348,6 +1348,8 @@ class OmeZarr(Html):
+     def _find_zarr_metadata_file(self, store_root_path: str) -> Optional[str]:
+         """Returns the path to the metadata file in the Zarr store."""
+         meta_file = None
++        if not os.path.isdir(store_root_path):
++            return None
+         files_in_store = os.listdir(store_root_path)
+
+         # Depending on the Zarr version, the metadata file can be in different locations

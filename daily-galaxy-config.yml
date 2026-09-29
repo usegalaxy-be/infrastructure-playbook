@@ -1,0 +1,80 @@
+---
+# ============================================================================
+# Galaxy Configuration-Only Playbook
+# ============================================================================
+#
+# Purpose: Apply configuration updates to an existing Galaxy instance WITHOUT
+#          re-deploying or reinstalling dependencies. Ideal for quick iteration
+#          and testing configuration changes.
+#
+# Target Hosts: galaxyservers (prod.usegalaxy.be, test.usegalaxy.be)
+# Deployment Order: Can be run independently at any time after
+# Scope: Configuration-only changes that do NOT require:
+#   - Database setup or migrations (handled separately)
+#   - Role installation/updates (use galaxy.yml for that)
+#   - System package updates
+#
+# Key Roles Deployed:
+#   - galaxyproject.galaxy: Configuration tasks only (static setup, mutable setup)
+#     * Manages job_conf.xml configuration
+#     * Updates Galaxy config files (galaxy.yml)
+#     * Syncs tool panel XML
+#   - usegalaxy_eu.tpv_auto_lint: Validates TPV (job routing) configuration
+#
+# When to Use:
+#   - After modifying any Galaxy configuration
+#   - After changing TPV (Total Perspective Vortex) routing rules
+#   - For tool panel or authentication config updates
+#   - When testing config changes before full deployment
+#
+# Usage Examples:
+#   ansible-playbook playbooks/galaxy/galaxy-config.yml                 # Update prod
+#   ansible-playbook playbooks/galaxy/galaxy-config.yml -i inventories/test  # Update test
+#
+# Frequency: Can be run often without side effects (config-only)
+#
+# Safety:   Safe for frequent runs; no service restarts or reinstalls
+#           Does NOT stop/start Galaxy processes (manual restart needed)
+#
+# Related Playbooks:
+#   - playbooks/galaxy/galaxy.yml: Full provisioning (includes this)
+#   - playbooks/galaxy/galaxy-tools.yml: Tool installation & testing
+#
+# Reference: https://galaxyproject.github.io/training-material/topics/admin/tutorials/ansible-galaxy/tutorial.html#comment-role-dependencies
+# ============================================================================
+
+- name: Galaxy Configuration Update
+  hosts: galaxyservers
+  become_user: galaxy_master
+  vars:
+  pre_tasks:
+    - name: Load TPV python blobs
+      set_fact:
+        tpv_debug: "{{ lookup('file', 'files/galaxy/config/tpv/tpv_debug.py') }}"
+    - name: Print tpv_debug
+      debug:
+        msg: "tpv_debug: {{ tpv_debug }}"
+  roles:
+    # set up local galaxy clone and local config
+    - role: galaxyproject.galaxy
+      galaxy_separate_privileges: no
+      galaxy_manage_clone: no
+      galaxy_manage_static_setup: yes
+      galaxy_manage_mutable_setup: no
+      galaxy_manage_subdomain_static: no
+      # galaxy_manage_themes: "{{ __galaxy_manage_themes | default(true) }}"
+      galaxy_manage_database: no
+      galaxy_fetch_dependencies: yes
+      galaxy_manage_errordocs: no
+      galaxy_build_client: no
+      galaxy_manage_systemd: no
+      galaxy_manage_gravity: no
+
+    # Adds a TPV (Total Perspective Vortex) lint script that automatically lints all TPV YAML files
+    # some custom changes to allow a different user than root to install scripts and copy tpv related files
+
+    - role: usegalaxy_eu.tpv_auto_lint
+      # become: true
+      # become_user: "{{ galaxy_user_name }}"
+  handlers:
+  #TODO: Include a handler to reload toolbox

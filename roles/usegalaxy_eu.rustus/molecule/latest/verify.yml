@@ -1,0 +1,7 @@
+---
+# This is a playbook to execute Ansible tests.
+
+- name: Verify
+  ansible.builtin.import_playbook: ../default/verify.yml
+  vars:
+    rustus_version: "latest"

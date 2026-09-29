@@ -1,0 +1,52 @@
+---
+- name: Install Postgres
+  yum:
+    name: postgresql
+    state: present
+  become: yes
+ 
+#- name: Obtain user info
+  #user:
+    #name: "{{ galaxy_user }}"
+  #register: user
+
+- name: Check for bashrc
+  stat:
+    path: "{{ galaxy_user_home }}/.bashrc"
+  register: bashrc_stat_out
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+
+- name: Copy default bashrc when not existing
+  copy:
+    src: /etc/skel/.bashrc
+    dest: "{{ galaxy_user_home }}/.bashrc"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_group.name }}"
+    remote_src: yes
+    mode: 0750
+  when: not bashrc_stat_out.stat.exists
+
+- name: Add env vars in bashrc
+  lineinfile:
+    path: "{{ galaxy_user_home }}/.bashrc"
+    regexp: "^export {{ item.var }}"
+    line: "export {{ item.var }}='{{ item.val }}'"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_group.name }}"
+  with_items:
+    - var: PGUSER
+      val: "{{ postgres_user }}"
+    - var: PGHOST
+      val: "{{ postgres_host }}"
+    - var: PGDATABASE
+      val: "{{ db_name }}"
+
+- name: Copy using the 'content' for inline data
+  copy:
+    content: |
+      {{ postgres_host }}:{{ postgres_port }}:*:{{ postgres_user }}:{{ postgres_pass }}
+    dest: "{{ galaxy_user_home }}/.pgpass"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_group.name }}"
+    mode: 0600

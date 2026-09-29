@@ -1,0 +1,41 @@
+#User running stats collection
+stats_collection_user: centos
+
+#Directory to copy the scripts to
+stats_dir: ~/stats_collection
+
+#Script settings
+add_daily_stats: false
+add_monthly_stats: false
+add_utilisation_info: false
+add_queue_info: false
+add_volume_usage_info: false
+
+#Virtualenv
+virtualenv_dir: "{{ stats_dir }}/stats_venv"
+
+# Influx settings
+influx_url: "localhost"
+influx_db_utilisation: "utilisation-db"
+influx_db_queue: "queue-db"
+influx_db_stats: "stats-db"
+
+#Galaxy Database settings
+stats_db_server: localhost
+stats_database: galaxy
+stats_db_user: galaxy
+stats_db_port: 5432 
+
+# Galaxy settings
+galaxy_root: /mnt/galaxy/galaxy-app/
+galaxy_config_dir: /mnt/galaxy/config/
+galaxy_config_file: "{{ galaxy_config_dir }}/galaxy.yml"
+galaxy_mutable_config_dir: /mnt/galaxy/var/
+galaxy_log_dir: /var/log/galaxy
+
+#sinfo format string
+sinfo_format: "%24n %.16C %.6t"
+sinfo_hostname: "{{ ansible_hostname }}"
+
+#variable to switch off posting to influx
+stats_dry_run_only: False

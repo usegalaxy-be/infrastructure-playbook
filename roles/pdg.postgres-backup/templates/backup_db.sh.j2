@@ -1,0 +1,19 @@
+#!/bin/bash
+source ~/.bashrc
+set -o pipefail
+
+outfile="Galaxy-{{ galaxy_instance_codename }}-$(date '+%Y%m%d-%H%M%S').pgsql.gz"
+dumpfile="{{ backup_path }}/$outfile"
+
+if ! /etc/alternatives/pgsql-pg_dump -v | gzip - > "$dumpfile"; then
+    echo "backup_db: pg_dump failed, not copying offsite" >&2
+    exit 1
+fi
+
+if ! /usr/local/bin/mcli cp --recursive "$dumpfile" "{{ minio_backup_path }}/$outfile"; then
+    echo "backup_db: offsite copy to {{ minio_backup_path }} failed" >&2
+    exit 1
+fi
+
+# Marker read by galaxy-backup-freshness; only written after a successful upload.
+printf '%s %s\n' "$(date +%s)" "$(stat -c %s "$dumpfile")" > "{{ backup_path }}/.last_offsite_backup"

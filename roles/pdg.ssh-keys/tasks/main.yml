@@ -1,0 +1,15 @@
+---
+- name: Manage SSH keypairs
+  ansible.builtin.include_tasks: keypairs.yml
+  when: ssh_keypairs | length > 0
+
+- name: Manage known_hosts entries
+  ansible.builtin.include_tasks: known_hosts_entry.yml
+  loop: "{{ ssh_known_hosts }}"
+  loop_control:
+    loop_var: _known_host
+  when: ssh_known_hosts | length > 0
+
+- name: Manage authorized_keys entries
+  ansible.builtin.include_tasks: authorized_keys.yml
+  when: ssh_authorized_keys | length > 0

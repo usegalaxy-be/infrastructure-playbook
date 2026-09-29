@@ -1,0 +1,10 @@
+<tool id="test-pulsar-vib-gpu" name="TPV test: Pulsar VIB GPU" version="1.0" hidden="true">
+    <description>Routing test for VIB GPU Pulsar destination (admin use only)</description>
+    <command><![CDATA[
+        echo "TPV test OK: $(hostname) $(date)" > '$output'
+    ]]></command>
+    <inputs/>
+    <outputs>
+        <data name="output" format="txt" label="tpv-test-pulsar-vib-gpu"/>
+    </outputs>
+</tool>

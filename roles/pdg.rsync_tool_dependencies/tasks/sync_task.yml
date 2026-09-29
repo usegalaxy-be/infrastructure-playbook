@@ -1,0 +1,37 @@
+- name: Build base rsync command
+  set_fact:
+    sync_cron_rsync_cmd_base: "rsync {{ sync_cron_rsync_flags }} {{ sync_task.src_path }} {{ sync_task.dest_url }}"
+
+# - name: Add additional commands if present
+#   set_fact:
+#     sync_cron_rsync_cmd: >-
+#       bash -c '{{ sync_cron_rsync_cmd_base }}
+#       {% for cmd in sync_task.additional_commands | default([]) %}
+#       && {{ cmd }}
+#       {% endfor %}'
+#   when: sync_task.additional_commands is defined and sync_task.additional_commands | length > 0
+
+- name: Use base rsync if no additional commands
+  set_fact:
+    sync_cron_rsync_cmd: "{{ sync_cron_rsync_cmd_base }}"
+  when: sync_task.additional_commands is not defined or sync_task.additional_commands | length == 0
+
+- name: Run rsync manually if requested
+  ansible.builtin.command:
+    cmd: "{{ sync_cron_rsync_cmd }}"
+    chdir: "{{ sync_cron_chdir_path }}"
+  when: sync_cron_manual_run
+
+- name: Install cron job if enabled
+  ansible.builtin.cron:
+    # src_path ends in a trailing slash, basename() on that returns '' -- strip it first.
+    name: "sync {{ sync_task.src_path | regex_replace('/+$', '') | basename }} to {{ sync_task.dest_url }}"
+    job: "{{ sync_cron_rsync_cmd }}"
+    user: "{{ sync_cron_username }}"
+    minute: "{{ sync_cron_frequency.minute }}"
+    hour: "{{ sync_cron_frequency.hour }}"
+    day: "{{ sync_cron_frequency.day }}"
+    weekday: "{{ sync_cron_frequency.weekday }}"
+    month: "{{ sync_cron_frequency.month }}"
+    disabled: "{{ sync_cron_frequency.disabled }}"
+  when: sync_cron_setup_cron

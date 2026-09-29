@@ -1,0 +1,20 @@
+---
+# pdg.kui
+# KUI (Key User Indicators) Configuration
+# https://github.com/galaxyproject/kui
+
+# Enable or disable KUI reporting
+kui_enable: true
+
+# KUI git repository and version
+kui_repo: https://github.com/galaxyproject/kui.git
+kui_version: main
+kui_install_path: /opt/kui
+
+# Instance-specific configuration
+# These should be overridden in host_vars for each environment
+instance_code: "be"  # Override in host_vars (e.g., "prod", "test", "dev")
+galaxy_domain: "usegalaxy.be"  # Override in host_vars
+# galaxy_db_name: "galaxy"  # Override in host_vars (usually already defined)
+# galaxy_user: galaxy  # Usually already defined in galaxy configuration
+# galaxy_log_dir: "/path/to/logs"  # Usually already defined in galaxy configuration

@@ -1,0 +1,59 @@
+---
+# ============================================================================
+# Galaxy Performance Check Playbook
+# ============================================================================
+#
+# Purpose: Deploy and run scripts/perf_check.sh on Galaxy headnode(s) to
+#          diagnose performance bottlenecks (NFS latency, conda activation,
+#          job timing breakdown).
+#
+# Target Hosts: galaxyservers
+#
+# When to Use:
+#   - After changes to NFS mount options or export flags
+#   - When users report slow tool execution
+#   - Before/after tuning changes (async exports, actimeo, conda env moves)
+#   - As a baseline snapshot to compare over time
+#
+# Usage:
+#   # Run against all galaxy servers:
+#   ansible-playbook playbooks/daily/daily-perf-check.yml
+#
+#   # Run against test only:
+#   ansible-playbook playbooks/daily/daily-perf-check.yml --limit testgalaxyservers
+#
+#   # Check a specific tool (default: protein_calculator):
+#   ansible-playbook playbooks/daily/daily-perf-check.yml -e "perf_tool_pattern=plink"
+#
+# Output: Written to /tmp/perf_check_<hostname>_<date>.log on each host,
+#         and printed to the Ansible run output.
+#
+# Safety: Read-only diagnostics — no Galaxy config or service changes.
+# ============================================================================
+
+- name: Galaxy Performance Check
+  hosts: galaxyservers
+  gather_facts: false
+
+  vars:
+    perf_tool_pattern: "protein_calculator"
+    perf_script_dest: "/tmp/perf_check.sh"
+    perf_log: "/tmp/perf_check_{{ inventory_hostname }}_{{ lookup('pipe', 'date +%Y%m%d') }}.log"
+
+  tasks:
+    - name: Deploy perf_check.sh to host
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../scripts/perf_check.sh"
+        dest: "{{ perf_script_dest }}"
+        mode: "0755"
+
+    - name: Run perf_check.sh
+      ansible.builtin.shell: >
+        bash {{ perf_script_dest }} "{{ perf_tool_pattern }}"
+        2>&1 | tee {{ perf_log }}
+      register: perf_output
+      changed_when: false
+
+    - name: Print perf_check output
+      ansible.builtin.debug:
+        msg: "{{ perf_output.stdout_lines }}"

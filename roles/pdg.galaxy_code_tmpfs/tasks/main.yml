@@ -1,0 +1,88 @@
+---
+- name: Derive the tmpfs systemd unit + instance names
+  ansible.builtin.set_fact:
+    _tmpfs_unit: "{{ galaxy_code_tmpfs_mount | regex_replace('^/', '') | regex_replace('/', '-') }}.mount"
+    # Per-instance id from the mount basename (e.g. /opt/galaxy_test -> galaxy_test),
+    # so multiple envs (test + prod) can coexist on the same shared worker without
+    # their populate scripts/services colliding.
+    _tmpfs_instance: "{{ galaxy_code_tmpfs_mount | basename }}"
+  tags: [galaxy_code_tmpfs]
+
+- name: Verify the Galaxy NFS sources are reachable on this worker
+  become: true
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ galaxy_code_tmpfs_src_lib }}"
+    - "{{ galaxy_code_tmpfs_src_venv }}"
+  register: _src
+  tags: [galaxy_code_tmpfs]
+
+- name: Fail if a source path is missing
+  ansible.builtin.fail:
+    msg: "Galaxy source not found on this host: {{ item.item }}"
+  loop: "{{ _src.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+  when: not item.stat.exists
+  tags: [galaxy_code_tmpfs]
+
+- name: Install the tmpfs mount unit
+  become: true
+  ansible.builtin.template:
+    src: galaxy-code-tmpfs.mount.j2
+    dest: "/etc/systemd/system/{{ _tmpfs_unit }}"
+    mode: "0644"
+  tags: [galaxy_code_tmpfs]
+
+- name: Install the populate script
+  become: true
+  ansible.builtin.template:
+    src: galaxy-code-tmpfs-populate.sh.j2
+    dest: "/usr/local/sbin/galaxy-code-tmpfs-populate-{{ _tmpfs_instance }}"
+    mode: "0755"
+  tags: [galaxy_code_tmpfs]
+
+- name: Install the populate service (runs on boot, after the mount + NFS)
+  become: true
+  ansible.builtin.template:
+    src: galaxy-code-tmpfs-populate.service.j2
+    dest: "/etc/systemd/system/galaxy-code-tmpfs-populate-{{ _tmpfs_instance }}.service"
+    mode: "0644"
+  tags: [galaxy_code_tmpfs]
+
+- name: Reload systemd
+  become: true
+  ansible.builtin.systemd:
+    daemon_reload: true
+  tags: [galaxy_code_tmpfs]
+
+- name: Enable and start the tmpfs mount
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ _tmpfs_unit }}"
+    enabled: true
+    state: started
+  tags: [galaxy_code_tmpfs]
+
+- name: Enable the populate service (for boot)
+  become: true
+  ansible.builtin.systemd:
+    name: "galaxy-code-tmpfs-populate-{{ _tmpfs_instance }}.service"
+    enabled: true
+  tags: [galaxy_code_tmpfs]
+
+# Refresh now (also the mechanism to re-run after a Galaxy deploy for version lockstep).
+- name: Populate the tmpfs now
+  become: true
+  ansible.builtin.command: "/usr/local/sbin/galaxy-code-tmpfs-populate-{{ _tmpfs_instance }}"
+  register: _populate
+  changed_when: true
+  when: galaxy_code_tmpfs_populate_now
+  tags: [galaxy_code_tmpfs]
+
+- name: Show populate result
+  ansible.builtin.debug:
+    var: _populate.stdout_lines
+  when: galaxy_code_tmpfs_populate_now
+  tags: [galaxy_code_tmpfs]

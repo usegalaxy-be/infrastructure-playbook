@@ -1,0 +1,26 @@
+---
+- name: Install bc
+  yum:
+    pkg: bc
+
+- name: Pulsar cron task
+  become_user: pulsar
+  become: yes
+  block:
+  - name: Copy producer files
+    ansible.builtin.copy:
+      src: "{{ item }}"
+      dest: "{{ pulsar_metrics_scripts_path }}/{{ item }}"  
+      owner: pulsar
+      group: pulsar
+      mode: 0700
+    with_items:
+      - producer.py
+      - cluster_util.sh
+
+  - name: Add cron to collect stats
+    cron:
+      name: "condor stats"
+      minute: "*"
+      job: "/opt/pulsar/venv3/bin/python {{ pulsar_metrics_scripts_path }}/producer.py {{ pulsar_app_dir }}/app.yml {{ pulsar_metrics_scripts_path }}/cluster_util.sh"
+    with_items: "{{ grafana_api_keys }}"

@@ -1,0 +1,162 @@
+<tool id="openfold3" name="OpenFold3" version="@TOOL_VERSION@+galaxy@VERSION_SUFFIX@" profile="@PROFILE@">
+    <description>Biomolecular structure prediction model based on AlphaFold3 </description>
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <expand macro="requirements"/>
+    <required_files>
+        <include path="scripts/build_query_json.py"/>
+        <include path="scripts/mock_openfold.sh"/>
+    </required_files>
+    <version_command>echo @TOOL_VERSION@</version_command>
+    <command detect_errors="aggressive"><![CDATA[
+## Developers: set PLANEMO_TESTING=1 to mock inference (copies canned outputs
+## from test-data instead of running the GPU model / calling ColabFold).
+
+## All logging and tracebacks are folded into stdout (2>&1) so the full run
+## log appears in the Galaxy "Tool Standard Output".
+
+## Build the OpenFold3 query.json from the structured chain form -------------
+python3 '$__tool_directory__/scripts/build_query_json.py'
+    --spec '$chains_spec'
+    --name '$job_name'
+    --use-msa-server '$msa_server'
+    --output query.json 2>&1
+
+## Point OpenFold3 at the admin-populated model/param cache ------------------
+&& export OPENFOLD_CACHE=\${OPENFOLD_CACHE:-/data/openfold3}
+
+## Run inference (or mock it) ------------------------------------------------
+#if os.environ.get('PLANEMO_TESTING')
+    && bash '$__tool_directory__/scripts/mock_openfold.sh' '$job_name' '$__tool_directory__'
+        #if str($advanced.num_model_seeds)# $advanced.num_model_seeds #else# 1 #end if#
+        #if str($advanced.num_diffusion_samples)# $advanced.num_diffusion_samples #else# 5 #end if#
+        2>&1
+#else
+    && run_openfold predict
+        --query-json query.json
+        --output-dir output
+        --use-msa-server $msa_server
+        #if str($advanced.num_diffusion_samples)
+            --num-diffusion-samples $advanced.num_diffusion_samples
+        #end if
+        #if str($advanced.num_model_seeds)
+            --num-model-seeds $advanced.num_model_seeds
+        #end if
+        2>&1
+#end if
+    ]]></command>
+    <configfiles>
+        <configfile name="chains_spec"><![CDATA[#slurp
+#for $chain in $chains#protein	1	${chain.sequence}
+#end for#]]></configfile>
+    </configfiles>
+    <inputs>
+        <param name="job_name" type="text" value="prediction" label="Prediction name" help="A short name for this job (max 20 characters). Used as the query identifier and in output file names.">
+            <validator type="regex" message="Use only letters, numbers, underscore and hyphen.">[A-Za-z0-9_-]+</validator>
+            <validator type="length" max="20" message="Keep the prediction name to 20 characters or fewer."/>
+        </param>
+        <repeat name="chains" title="Protein chain" min="1" default="1" help="Add one entry per protein chain. A single chain models a monomer; multiple chains model a complex (multimer).">
+            <param name="sequence" type="text" area="true" value="" label="Amino acid sequence" help="Single-letter amino acid sequence (IUPAC). X for unknown, U for selenocysteine. Whitespace is ignored. Runtime scales steeply with total length.">
+                <validator type="regex" message="Only amino acid letters (ACDEFGHIKLMNPQRSTVWY, plus X and U) are allowed.">(?i)^[ACDEFGHIKLMNPQRSTVWYXU\s]+$</validator>
+            </param>
+        </repeat>
+        <param name="msa_server" type="boolean" truevalue="true" falsevalue="false" checked="true" label="Generate MSAs with the ColabFold server" help="Uses the public ColabFold MSA server (requires outbound internet on the compute node). This is OpenFold3's default alignment pipeline."/>
+        <section name="advanced" title="Advanced options" expanded="false">
+            <param argument="--num-diffusion-samples" type="integer" value="" optional="true" min="1" max="50" label="Diffusion samples per seed" help="Number of predicted structures generated per random seed. Leave blank to use the model default (5)."/>
+            <param argument="--num-model-seeds" type="integer" value="" optional="true" min="1" max="50" label="Model seeds" help="Number of random seeds. More seeds broaden sampling at the cost of runtime. Leave blank to use the model default (1)."/>
+        </section>
+    </inputs>
+    <outputs>
+        <collection name="structures" type="list" label="${tool.name} on ${job_name}: predicted structures (mmCIF)">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+_sample_\d+)_model\.cif" directory="output" recurse="true" format="cif"/>
+        </collection>
+        <collection name="confidences_aggregated" type="list" label="${tool.name} on ${job_name}: confidence summaries">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+_sample_\d+)_confidences_aggregated\.json" directory="output" recurse="true" format="json"/>
+        </collection>
+        <collection name="confidences" type="list" label="${tool.name} on ${job_name}: per-atom confidences">
+            <discover_datasets pattern="(?P&lt;designation&gt;.+_sample_\d+)_confidences\.json" directory="output" recurse="true" format="json"/>
+        </collection>
+    </outputs>
+    <tests>
+        <!-- Monomer with defaults: 1 seed x 5 diffusion samples = 5 structures -->
+        <test expect_num_outputs="3">
+            <param name="job_name" value="ubiquitin"/>
+            <repeat name="chains">
+                <param name="sequence" value="MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"/>
+            </repeat>
+            <output_collection name="structures" type="list" count="5">
+                <element name="ubiquitin_seed_42_sample_1">
+                    <assert_contents>
+                        <has_text text="_atom_site"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+            <output_collection name="confidences_aggregated" type="list" count="5">
+                <element name="ubiquitin_seed_42_sample_1">
+                    <assert_contents>
+                        <has_text text="ptm"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+            <output_collection name="confidences" type="list" count="5"/>
+        </test>
+        <!-- Multimer (2 chains) with 2 seeds x 2 samples = 4 structures -->
+        <test expect_num_outputs="3">
+            <param name="job_name" value="complex"/>
+            <repeat name="chains">
+                <param name="sequence" value="MQIFVKTLTGKTITLEVEPSDTIENVKAKIQDKEGIPPDQQRLIFAGKQLEDGRTLSDYNIQKESTLHLVLRLRGG"/>
+            </repeat>
+            <repeat name="chains">
+                <param name="sequence" value="GSHMKTAYIAKQRQISFVKSHFSRQLEERLGLIEVQAPILSRVGDGTQDNLSGAEKAVQVKVKALPDAQFEVVHSLAKWKR"/>
+            </repeat>
+            <section name="advanced">
+                <param name="num_diffusion_samples" value="2"/>
+                <param name="num_model_seeds" value="2"/>
+            </section>
+            <output_collection name="structures" type="list" count="4"/>
+            <output_collection name="confidences_aggregated" type="list" count="4">
+                <element name="complex_seed_42_sample_1">
+                    <assert_contents>
+                        <has_text text="iptm"/>
+                        <has_text text="chain_pair_iptm"/>
+                    </assert_contents>
+                </element>
+            </output_collection>
+            <output_collection name="confidences" type="list" count="4"/>
+        </test>
+    </tests>
+    <help format="markdown"><![CDATA[
+**OpenFold3** predicts the 3D structure of biomolecules. It is an open-source (Apache 2.0)
+reproduction of AlphaFold3 by the AlQuraishi Lab at Columbia University and the OpenFold consortium.
+
+-----
+
+**Inputs**
+
+- **Prediction name** — identifier for the job; appears in output file names.
+- **Protein chain(s)** — add one entry per chain. One chain models a *monomer*;
+  several chains model a *complex (multimer)*.
+- **ColabFold MSAs** — when enabled (default), multiple sequence alignments are
+  generated via the public ColabFold server.
+
+-----
+
+**Outputs**
+
+- **Predicted structures (mmCIF)** — one structure per diffusion sample.
+- **Confidence summaries** — complex-level scores (``ptm``, ``iptm``, ranking score, etc.).
+- **Per-atom confidences** — per-atom ``pLDDT`` / ``PAE`` / ``PDE``.
+
+-----
+
+**Notes**
+
+This wrapper currently supports **protein** chains with ColabFold MSAs. RNA, DNA,
+ligands, structural templates and precomputed MSAs are planned follow-ups.
+
+A GPU is required for practical runtimes, and model parameters must be pre-staged
+by the Galaxy administrator into the shared ``$OPENFOLD_CACHE`` directory.
+    ]]></help>
+    <expand macro="citations"/>
+</tool>

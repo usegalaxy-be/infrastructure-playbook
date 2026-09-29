@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Define paths
+SOURCE_DIR="{{ source_certs_dir }}"
+TMP_DIR="{{ source_certs_dir }}"
+NFS_DIR="{{ shared_certs_dir }}"
+
+# Ensure the NFS directory exists
+
+# Copy certificates to NFS directory with specific ownership
+echo "Copying certificates to NFS directory..."
+rsync -avz --chown=galaxy_master:galaxy_master --delete "$LETSENCRYPT_DIR" "$NFS_DIR"
+
+echo "Certificate copy to NFS completed."

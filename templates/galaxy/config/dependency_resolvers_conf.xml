@@ -1,0 +1,11 @@
+<dependency_resolvers>
+  <tool_shed_packages />
+  <galaxy_packages />
+  <!-- Community-built envs on CVMFS, checked before any local build; falls through on a miss. -->
+  <conda prefix="{{ galaxy_cvmfs_conda_prefix }}" auto_install="False" read_only="True" />
+  <conda prefix="{{ miniconda_prefix }}" auto_install="True" auto_init="False"/>
+  <conda prefix="{{ galaxy_cvmfs_conda_prefix }}" versionless="true" auto_install="False" read_only="True" />
+  <conda versionless="true" />
+  <!-- <galaxy_packages base_path="tool-dependencies/custom/" /> -->
+  <galaxy_packages versionless="true" />
+</dependency_resolvers>

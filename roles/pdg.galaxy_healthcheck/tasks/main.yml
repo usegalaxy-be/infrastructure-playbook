@@ -1,0 +1,91 @@
+---
+- name: Assert required configuration is set
+  ansible.builtin.assert:
+    that:
+      - galaxy_healthcheck_url | length > 0
+      - galaxy_healthcheck_api_key | length > 0
+    fail_msg: "galaxy_healthcheck_url and galaxy_healthcheck_api_key must be set."
+
+- name: Create healthcheck directory
+  ansible.builtin.file:
+    path: "{{ galaxy_healthcheck_dir }}"
+    state: directory
+    owner: "{{ galaxy_healthcheck_user }}"
+    group: "{{ galaxy_healthcheck_group }}"
+    mode: "0755"
+
+- name: Ensure log directory exists
+  ansible.builtin.file:
+    path: "{{ galaxy_healthcheck_log | dirname }}"
+    state: directory
+    owner: "{{ galaxy_healthcheck_user }}"
+    group: "{{ galaxy_healthcheck_group }}"
+    mode: "0755"
+
+- name: Install BioBlend into a dedicated venv
+  ansible.builtin.pip:
+    name: "{{ galaxy_healthcheck_pip_packages }}"
+    virtualenv: "{{ galaxy_healthcheck_venv }}"
+    virtualenv_command: "{{ galaxy_healthcheck_virtualenv_command }}"
+  become: true
+  become_user: "{{ galaxy_healthcheck_user }}"
+
+- name: Install the healthcheck script
+  ansible.builtin.copy:
+    src: galaxy_job_healthcheck.py
+    dest: "{{ galaxy_healthcheck_dir }}/galaxy_job_healthcheck.py"
+    owner: "{{ galaxy_healthcheck_user }}"
+    group: "{{ galaxy_healthcheck_group }}"
+    mode: "0755"
+
+# Tool list as a JSON file, so no JSON needs shell-quoting in the sourced env file.
+- name: Write the healthcheck tool list
+  ansible.builtin.copy:
+    content: "{{ galaxy_healthcheck_tools | to_nice_json }}\n"
+    dest: "{{ galaxy_healthcheck_dir }}/tools.json"
+    owner: "{{ galaxy_healthcheck_user }}"
+    group: "{{ galaxy_healthcheck_group }}"
+    mode: "0644"
+
+# Secrets live only in this 0600 env file, never on the cron command line or in logs.
+- name: Write the healthcheck environment file (secrets)
+  ansible.builtin.template:
+    src: healthcheck.env.j2
+    dest: "{{ galaxy_healthcheck_dir }}/healthcheck.env"
+    owner: "{{ galaxy_healthcheck_user }}"
+    group: "{{ galaxy_healthcheck_group }}"
+    mode: "0600"
+  no_log: true
+
+- name: Install the healthcheck runner wrapper
+  ansible.builtin.template:
+    src: run-healthcheck.sh.j2
+    dest: "{{ galaxy_healthcheck_dir }}/run-healthcheck.sh"
+    owner: "{{ galaxy_healthcheck_user }}"
+    group: "{{ galaxy_healthcheck_group }}"
+    mode: "0755"
+
+- name: Schedule the healthcheck
+  ansible.builtin.cron:
+    name: "Galaxy job healthcheck"
+    user: "{{ galaxy_healthcheck_user }}"
+    hour: "{{ galaxy_healthcheck_cron_hour }}"
+    minute: "{{ galaxy_healthcheck_cron_minute }}"
+    job: "{{ galaxy_healthcheck_dir }}/run-healthcheck.sh"
+
+- name: Rotate the healthcheck log
+  ansible.builtin.copy:
+    dest: "/etc/logrotate.d/galaxy-job-healthcheck"
+    content: |
+      {{ galaxy_healthcheck_log }} {
+          weekly
+          rotate 4
+          compress
+          missingok
+          notifempty
+          copytruncate
+      }
+    owner: root
+    group: root
+    mode: "0644"
+  become: true

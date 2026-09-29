@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export view</title>
+        <style>
+        body {
+            color: #1B2944;
+            background-color: white;
+        }
+        h1 {
+            color: black;
+        }
+        h2 {
+            color: #42B7BA;
+        }
+        p, table {
+            color: #1B2944;
+        }
+        input[type="submit"] {
+            background-color: #42B7BA;
+            color: white;
+            border: none;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #1B2944;
+        }
+
+        @media print {
+            table, th, td {
+            border: 1px solid black !important;
+            }
+        }
+    </style>
+
+    <!--
+    Naam
+    Sequence
+    Preferred Monoisotopic MW
+    Preferred Extinctie
+    dn/dc
+    pI
+    Charge division -->
+<table border="1">
+    <tr>
+        <td>Protein name</td>
+        <td>{{ name }}</td>
+    </tr>
+    <tr>
+        <td>Protein Sequence</td>
+        <td>{{ sequence }}</td>
+    </tr>
+    <tr>
+        <td>Monoisotopic MW</td>
+        <td>{{ molecular_weight_info.mono_weight }}</td>
+    </tr>
+    <tr>
+        <td>Extinction Coefficient</td>
+        <td>{{ molar_absorbance_info.absorbance_mono_reduced }}</td>
+    </tr>
+    <tr>
+        <td>dn/dc</td>
+        <td>{{ dn_dc_value }}</td>
+    </tr>
+    <tr>
+        <td>pI</td>
+        <td>{{ pI }}</td>
+    </tr>
+    <tr>
+        <td colspan="2">Charge division</td>
+            <table border="1">
+                    <thead>
+                        <tr>
+                            <th>pH</th>
+                            <th>Net Charge</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for nc in net_charge_at_different_pH %}
+                        <tr>
+                            <td>{{ nc.pH }}</td>
+                            <td>{{ nc.net_charge }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+    </tr>
+</table>
+
+</head>
+<body>
+
+</body>
+</html>

@@ -1,0 +1,29 @@
+---
+name: Ansible Molecule (latest rustus)
+
+"on":
+  schedule:
+    - cron: '30 5 * * 1'
+
+jobs:
+  molecule:
+    name: Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - default
+    steps:
+      - name: Install Ansible Molecule.
+        run: |
+          pip3 install --user molecule molecule-plugins[podman] ansible-core
+
+      - name: Check out the codebase.
+        uses: actions/checkout@v3
+
+      - name: Run Ansible Molecule.
+        run: |
+          molecule --base-config molecule/base.yml test --scenario-name ${{ matrix.scenario }}
+        env:
+          ANSIBLE_FORCE_COLOR: '1'

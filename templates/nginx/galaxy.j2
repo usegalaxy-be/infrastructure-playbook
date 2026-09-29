@@ -1,0 +1,203 @@
+# www.usegalaxy.be
+
+# Required for WebSocket proxying: only set Connection: upgrade when client sends Upgrade header
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+upstream galaxy {
+    server unix:{{ galaxy_config_dir }}/gunicorn0.sock;
+    server unix:{{ galaxy_config_dir }}/gunicorn1.sock;
+
+    # Or if you serve galaxy at a path like http(s)://fqdn/galaxy
+    # Remember to set galaxy_url_prefix in the galaxy.yml file.
+    # server unix:{{ galaxy_mutable_config_dir }}/gunicorn.sock:/galaxy;
+}
+
+server {
+    # Listen on port 80
+    listen 80 default_server;
+	listen [::]:80 default_server;
+
+    # Listen on port 443 for HTTPS
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+
+    # SSL certificate and key paths
+    #ssl_certificate /etc/ssl/certs/fullchain.pem;
+    #ssl_certificate_key /etc/ssl/certs/privkey.pem;
+    ssl_certificate {{ galaxy_shared_certs_dir }}/{{ galaxy_shared_cert_domain }}/fullchain.pem;
+    ssl_certificate_key {{ galaxy_shared_certs_user_dir }}/{{ galaxy_shared_cert_domain }}/privkey-nginx.pem;
+
+    # Other SSL settings
+    #ssl_protocols TLSv1.2 TLSv1.3;
+    #ssl_ciphers 'TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384';
+    #ssl_prefer_server_ciphers off;
+    #ssl_session_timeout 5m;
+
+    # The virtualhost is our domain name
+    server_name   "{{ server_hostname }}";
+
+    # Our log files will go here.
+    access_log  /var/log/nginx/access.log;
+    error_log   /var/log/nginx/error.log;
+
+    # Trust proxy.usegalaxy.be so $remote_addr is the real client IP, not the proxy.
+    set_real_ip_from {{ vault_proxy_internal_ip }};
+    real_ip_header    X-Forwarded-For;
+
+    location /api/upload/resumable_upload {
+		# Disable request and response buffering
+		proxy_request_buffering     off;
+		proxy_buffering             off;
+		proxy_http_version          1.1;
+
+		# Add X-Forwarded-* headers
+		proxy_set_header X-Forwarded-Host   $host;
+		proxy_set_header X-Forwarded-Proto  $scheme;
+
+		proxy_set_header Upgrade            $http_upgrade;
+		proxy_set_header Connection         "upgrade";
+		client_max_body_size        0;
+		proxy_pass http://localhost:{{ galaxy_tusd_port }}/files;
+	}
+
+    # The most important location block, by default all requests are sent to gunicorn
+    # If you serve galaxy at a path like /galaxy, change that below (and all other locations!)
+    location / {
+        # This is the backend to send the requests to.
+        proxy_pass http://galaxy;
+
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+
+        # Timeouts for large file uploads (e.g., 1.9GB Pulsar output files)
+        # Default is 60s, but large files buffered on NFS need more time
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+
+        # proxy_pass 127.0.0.1:4001;
+        # uwsgi_param UWSGI_SCHEME $scheme;
+        # include uwsgi_params;
+        # proxy_hide_header x-frame-options;
+        # proxy_set_header Host $http_host;
+        # proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # proxy_set_header X-Forwarded-Proto $scheme;
+        # proxy_set_header Upgrade $http_upgrade;
+        if (-f /var/www/html/maintenance.disable) {
+            return 302 https://usegalaxy-be.github.io/maintenance;
+        }
+
+    }
+
+
+
+	# Static files can be more efficiently served by Nginx. Why send the
+	# request to Gunicorn which should be spending its time doing more useful
+	# things like serving Galaxy!
+	location /static {
+		alias {{ galaxy_server_dir }}/static;
+		expires 24h;
+	}
+
+	# In Galaxy instances started with run.sh, many config files are
+	# automatically copied around. The welcome page is one of them. In
+	# production, this step is skipped, so we will manually alias that.
+	location /static/welcome.html {
+		alias {{ galaxy_themes_static_dir }}/welcome.html;
+		expires 24h;
+	}
+
+    # serve visualization and interactive environment plugin static content
+    location ~ ^/plugins/(?<plug_type>[^/]+?)/((?<vis_d>[^/_]*)_?)?(?<vis_name>[^/]*?)/static/(?<static_file>.*?)$ {
+        alias {{ galaxy_server_dir }}/config/plugins/$plug_type/;
+        try_files $vis_d/${vis_d}_${vis_name}/static/$static_file
+                  $vis_d/static/$static_file =404;
+    }
+
+    # Path-based Galaxy Interactive Tools (gx-it-proxy on port 4002)
+    # Legacy subdomain-based /gie_proxy replaced; see gxconfig.yml gravity.gx_it_proxy
+    location ~* ^/(interactivetool/.+)$ {
+        proxy_redirect      off;
+        proxy_http_version  1.1;
+        proxy_set_header    Host            $host;
+        proxy_set_header    X-Real-IP       $remote_addr;
+        proxy_set_header    Upgrade         $http_upgrade;
+        proxy_set_header    X-Forwarded-For $remote_addr;
+        proxy_set_header    Connection      $connection_upgrade;
+        proxy_hide_header   X-Frame-Options;
+        add_header          X-Frame-Options "SAMEORIGIN";
+        proxy_pass          http://127.0.0.1:4002;
+    }
+
+    location /robots.txt {
+        alias {{ galaxy_server_dir }}/static/robots.txt;
+    }
+
+    location /favicon.ico {
+        alias {{ galaxy_server_dir }}/static/favicon.ico;
+    }
+
+    location /_x_accel_redirect {
+        internal;
+        alias /;
+        add_header X-Frame-Options SAMEORIGIN;
+        add_header X-Content-Type-Options nosniff;
+    }
+
+    # Support click-to-run in the GTN-in-Galaxy Webhook
+    location /training-material/ {
+        proxy_pass https://training.galaxyproject.org/training-material/;
+        proxy_ssl_server_name on;
+    }
+
+    location ~* /rabbitmq/(.*) {
+		rewrite ^/rabbitmq/(.*)$ /$1 break;
+		proxy_pass http://127.0.0.1:15672;
+		proxy_buffering                    off;
+		proxy_set_header Host              $http_host;
+		proxy_set_header X-Real-IP         $remote_addr;
+		proxy_set_header X-Forwarded-For   $remote_addr;
+		proxy_set_header X-Forwarded-Proto $scheme;
+	}
+
+	location /flower {
+		proxy_pass http://localhost:5555;
+		proxy_set_header Host $host;
+		proxy_redirect off;
+		proxy_http_version 1.1;
+		proxy_set_header Upgrade $http_upgrade;
+		proxy_set_header Connection "upgrade";
+	}
+
+    #location /stats/ {
+    #    proxy_pass https://127.0.0.1:3000;
+    #}
+
+
+    {{ tiaas_nginx_routes }}
+
+
+#    location /tiaas {
+#        alias {{ galaxy_server_dir }}/tiaas;
+#        # uwsgi_param UWSGI_SCHEME $scheme;
+#        # include uwsgi_params;
+#    }    
+#    location /tiaas/static {
+#        alias /opt/tiaas/static;
+#    }
+#    location /join-training {
+#        alias {{ galaxy_server_dir }}/join-training;
+#        # uwsgi_param UWSGI_SCHEME $scheme;
+#        # include uwsgi_params;
+#    }
+
+}
+
+upstream rabbitmq_upstream {
+    server 127.0.0.1:5671;  # Assuming RabbitMQ is on the same machine
+}

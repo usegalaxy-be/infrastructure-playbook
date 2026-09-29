@@ -1,0 +1,20 @@
+### 
+### This file is maintained by Ansible - CHANGES WILL BE OVERWRITTEN
+###
+
+[Unit]
+Description=rustus server for {{ item.name }}
+After={{ rustus_systemd_target }}
+
+[Service]
+UMask=022
+Type=simple
+User={{ item.user }}
+Group={{ item.group }}
+WorkingDirectory={{ item.working_directory }}
+TimeoutStartSec=10
+ExecStart={{ rustus_path }} {{ item.args | join(' ') }}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

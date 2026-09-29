@@ -1,0 +1,26 @@
+# Managed by Ansible (roles/pdg.galaxy_code_tmpfs)
+[Unit]
+Description=Populate node-local Galaxy code tmpfs ({{ _tmpfs_instance }}) from NFS
+Requires={{ _tmpfs_unit }}
+# autofs.service being up does not mean the indirect mount is live yet (it mounts
+# on first access) - the ExecStartPre stat calls below force+wait for that, and
+# Restart=on-failure below covers the case where NFS still isn't ready.
+After={{ _tmpfs_unit }} autofs.service remote-fs.target network-online.target
+ConditionPathIsMountPoint={{ galaxy_code_tmpfs_mount }}
+StartLimitIntervalSec=600
+StartLimitBurst=10
+
+[Service]
+Type=oneshot
+# Force the autofs indirect mount to trigger (and wait for it) before the
+# populate script runs, instead of racing a lazy on-demand mount at boot.
+ExecStartPre=/usr/bin/timeout 30 /usr/bin/stat {{ galaxy_code_tmpfs_src_lib }}
+ExecStartPre=/usr/bin/timeout 30 /usr/bin/stat {{ galaxy_code_tmpfs_src_venv }}
+ExecStart=/usr/local/sbin/galaxy-code-tmpfs-populate-{{ _tmpfs_instance }}
+RemainAfterExit=yes
+TimeoutStartSec=900
+Restart=on-failure
+RestartSec=15
+
+[Install]
+WantedBy=multi-user.target

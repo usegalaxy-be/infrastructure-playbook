@@ -1,0 +1,15 @@
+# igegu.galaxy_extras reference data variables
+# legacy reference data variables
+
+# loc_files_list:
+#     - all_fasta.loc
+#     - all_gff.loc
+#     - bowtie2.loc
+#     - bwa_mem.loc
+#     - dbkeys.loc
+#     - hisat2.loc
+#     - kallisto.loc
+#     - rnastar.loc
+#     - salmon_versioned.loc
+#     - tophat2.loc
+#     - tx2gene.loc

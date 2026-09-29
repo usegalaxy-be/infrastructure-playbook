@@ -1,0 +1,16 @@
+---
+- name: Install packages
+  dnf:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - autofs
+    - nfs-utils
+  when: autofs_service.install
+
+- name: Enable and start autofs
+  systemd:
+    name: autofs
+    state: started
+    enabled: true
+  when: autofs_service.enable

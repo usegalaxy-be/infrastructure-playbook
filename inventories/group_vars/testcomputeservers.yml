@@ -1,0 +1,3 @@
+# LEGACY — testcomputeservers group has been removed.
+# worker1xl0 has been moved to prodcomputeservers and now points to the prod CM (<cm-ip>).
+# This file is kept for reference only and is no longer applied.

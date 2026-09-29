@@ -1,0 +1,6 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+vault_host_mappings: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/all').vault_host_mappings }}"
+
+# NFS server's storage-network IP, used by nfs_config.yml.
+vault_nfs_server_address: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').nfs_storage_network_ip }}"

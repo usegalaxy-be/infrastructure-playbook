@@ -1,0 +1,28 @@
+--- a/lib/galaxy/jobs/runners/local.py
++++ b/lib/galaxy/jobs/runners/local.py
+@@ -97,17 +97,20 @@
+             stdout_file = tempfile.NamedTemporaryFile(mode="wb+", suffix="_stdout", dir=job_wrapper.working_directory)
+             stderr_file = tempfile.NamedTemporaryFile(mode="wb+", suffix="_stderr", dir=job_wrapper.working_directory)
+             log.debug(f"({job_id}) executing job script: {job_file}")
+-            # The preexec_fn argument of Popen() is used to call os.setpgrp() in
+-            # the child process just before the child is executed. This will set
+-            # the PGID of the child process to its PID (i.e. ensures that it is
+-            # the root of its own process group instead of Galaxy's one).
++            # The start_new_session argument of Popen() puts the child in its own
++            # process group (PGID equal to its PID), i.e. ensures it is the root
++            # of its own process group instead of Galaxy's one. This replaces the
++            # previous preexec_fn=os.setpgrp, which ran Python code in the forked
++            # child and could deadlock it if another thread held a lock at fork
++            # time (see the preexec_fn warning at
++            # https://docs.python.org/3/library/subprocess.html).
+             proc = subprocess.Popen(
+                 args=[job_file],
+                 cwd=job_wrapper.working_directory,
+                 stdout=stdout_file,
+                 stderr=stderr_file,
+                 env=self._environ,
+-                preexec_fn=os.setpgrp,
++                start_new_session=True,
+             )
+
+             # Add custom attribute to track if the job was terminated by a shutdown

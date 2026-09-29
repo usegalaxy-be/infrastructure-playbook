@@ -1,0 +1,3552 @@
+{
+  "__elements": {},
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "See https://github.com/usegalaxy-be/metrics_internal for more information. ",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "log": 10,
+              "type": "log"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: ILVO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ILVO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: INBO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "INBO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: ITG }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ITG"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: KULEUVEN }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "KULeuven"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: MEISE }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Botanical garden Meise"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: UANTWERP }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UAntwerpen"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: UGENT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UGent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: UHASSELT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UHasselt"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: VITO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VITO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: VLIZ }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VLIZ"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: VUB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VUB"
+              }
+            ]
+          },
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "ILVO"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 11,
+        "x": 0,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Last",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "jobs_submitted_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT cumulative_sum(sum(\"total_jobs_submitted\"))\nFROM \"jobs_submitted_-_flemish_institutions\"\nWHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/))\nGROUP BY time(30d), \"institution\"::tag fill(0)\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Total jobs - Flemish institutions (log10, cumulative)",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "log": 10,
+              "type": "log"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: ILVO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ILVO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: INBO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "INBO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.cumulative_sum { vib_domain: IRC }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "IRC"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.cumulative_sum { vib_domain: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.cumulative_sum { vib_domain: PSB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "PSB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.cumulative_sum { vib_domain: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 10,
+        "x": 11,
+        "y": 0
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Last",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "jobs_submitted_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT cumulative_sum(sum(\"total_jobs_submitted\"))\nFROM \"jobs_submitted_-_vib_centers\"\nWHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/))\nGROUP BY time(30d), \"vib_domain\"::tag fill(0)\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Total jobs - VIB Centers (log10, cumulative)",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 3,
+        "x": 21,
+        "y": 0
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "jobs_submitted_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"total_jobs_submitted\" FROM \"jobs_submitted_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Total jobs",
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "includeTimeField": false,
+            "labelsToFields": false,
+            "mode": "seriesToRows",
+            "reducers": [
+              "sum"
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "log": 10,
+              "type": "log"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: ILVO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ILVO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: INBO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "INBO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: ITG }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ITG"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: KULEUVEN }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "KULeuven"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: MEISE }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Botanical garden Meise"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: UANTWERP }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UAntwerpen"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: UGENT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UGent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: UHASSELT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UHasselt"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: VITO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VITO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.cumulative_sum { institution: VLIZ }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VLIZ"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: VUB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VUB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: VLIZ }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VLIZ"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 11,
+        "x": 0,
+        "y": 7
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "jobs_submitted_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"total_jobs_submitted\" FROM \"jobs_submitted_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Total jobs - Flemish institutions",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "log": 10,
+              "type": "log"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "fieldMinMax": false,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: ILVO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ILVO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: INBO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "INBO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: ITG }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ITG"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: KULEUVEN }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "KULeuven"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: MEISE }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Botanical garden Meise"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_flemish_institutions.total_jobs_submitted { institution: UANTWERP }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UAntwerpen"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.total_jobs_submitted { vib_domain: IRC }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "IRC"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.total_jobs_submitted { vib_domain: PSB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "PSB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.total_jobs_submitted { vib_domain: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "jobs_submitted_-_vib_centers.total_jobs_submitted { vib_domain: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 10,
+        "x": 11,
+        "y": 7
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "jobs_submitted_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"total_jobs_submitted\" FROM \"jobs_submitted_-_vib_centers\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/)) GROUP BY \"vib_domain\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Total jobs - VIB Centers",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: HOWEST }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "HOWEST"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: ILVO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ILVO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: IMEC }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "IMEC"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: INBO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "INBO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: ITG }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ITG"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: KULEUVEN }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "KULeuven"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: MEISE }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "MEISE"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: UANTWERP }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UAntwerpen"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: UGENT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UGent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: UHASSELT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UHasselt"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: VLIZ }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VLIZ"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: VUB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VUB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_flemish_institutions.new_users_count { institution: VITO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VITO"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 14
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Total",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "institution::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "new_users_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"new_users_count\" FROM \"new_users_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "new_users_count"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "New users - Flemish institutions",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_vib_centers.new_users_count { vib_domain: IRC }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "IRC"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_vib_centers.new_users_count { vib_domain: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_vib_centers.new_users_count { vib_domain: PSB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "PSB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "new_users_-_vib_centers.new_users_count { vib_domain: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 11,
+        "y": 14
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "sum"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Total",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "vib_domain::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "new_users_-_vib_centers",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "new_users_count"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "is_vib_data_core",
+              "operator": "=~",
+              "value": "/^${vib_data_core:raw}$/"
+            },
+            {
+              "condition": "AND",
+              "key": "vib_domain",
+              "operator": "=~",
+              "value": "/^$vib_domain$/"
+            }
+          ]
+        }
+      ],
+      "title": "New users - VIB Centers",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 3,
+        "x": 21,
+        "y": 14
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "institution::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "new_users_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"new_users_count\" FROM \"new_users_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/))",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "new_users_count"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Total new Users",
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "includeTimeField": false,
+            "mode": "seriesToRows",
+            "reducers": [
+              "sum"
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: ILVO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ILVO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: VLIZ }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VLIZ"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: ITG }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "ITG"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: INBO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "INBO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: UANTWERP }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UAntwerpen"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: MEISE }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Botanical garden Meise"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: KULEUVEN }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "KULeuven"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: UGENT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UGent"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: UHASSELT }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "UHasselt"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: VITO }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VITO"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_flemish_institutions.active_users_count { institution: VUB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VUB"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 22
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "institution::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "new_users_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"active_users_count\" FROM \"active_users_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "new_users_count"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Active users - Flemish institutions",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_vib_centers.active_users_count { vib_domain: IRC }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "IRC"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_vib_centers.active_users_count { vib_domain: Others }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Others"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_vib_centers.active_users_count { vib_domain: PSB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "PSB"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users_-_vib_centers.active_users_count { vib_domain: VIB }"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "VIB"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 11,
+        "y": 22
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "vib_domain::tag"
+              ],
+              "type": "tag"
+            }
+          ],
+          "measurement": "active_users_-_vib_centers",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "active_users_count"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": [
+            {
+              "key": "is_vib_data_core",
+              "operator": "=~",
+              "value": "/^${vib_data_core:raw}$/"
+            },
+            {
+              "condition": "AND",
+              "key": "vib_domain",
+              "operator": "=~",
+              "value": "/^$vib_domain$/"
+            }
+          ]
+        }
+      ],
+      "title": "Active users - VIB Centers",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 3,
+        "x": 21,
+        "y": 22
+      },
+      "id": 13,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "groupBy": [
+            {
+              "params": [
+                "$__interval"
+              ],
+              "type": "time"
+            },
+            {
+              "params": [
+                "null"
+              ],
+              "type": "fill"
+            }
+          ],
+          "hide": false,
+          "measurement": "jobs_submitted_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"active_users_count\" FROM \"active_users_-_vib_centers\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/)) GROUP BY \"vib_domain\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "field"
+              },
+              {
+                "params": [],
+                "type": "mean"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "title": "Peak daily active users",
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "includeTimeField": false,
+            "labelsToFields": false,
+            "mode": "seriesToRows",
+            "reducers": [
+              "max"
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "description": "Current total registered users per institution (point-in-time snapshot, not a cumulative daily sum). Will show data once the new Telegraf query has run at least once. Download CSV: panel menu \u2192 Download data.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "id": 14,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Registered users"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "hide": false,
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"new_users_count\") AS \"Registered users\" FROM \"new_users_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table"
+        }
+      ],
+      "title": "Registered users by institution: total over time range",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "institution": "Institution",
+              "Registered users": "Registered users"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": [
+              {
+                "desc": true,
+                "displayName": "Registered users"
+              }
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "description": "Total jobs submitted per institution, summed across the Grafana time range. Download CSV: panel menu \u2192 Download data.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "id": 15,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Jobs submitted"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "hide": false,
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"total_jobs_submitted\") AS \"Jobs submitted\" FROM \"jobs_submitted_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table"
+        }
+      ],
+      "title": "Jobs submitted by institution: total over time range",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "institution": "Institution",
+              "Jobs submitted": "Jobs submitted"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": [
+              {
+                "desc": true,
+                "displayName": "Jobs submitted"
+              }
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "displayName": "${__field.labels.institution}"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 44
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "measurement": "cpu_hours_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"cpu_hours\" FROM \"cpu_hours_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "tags": []
+        }
+      ],
+      "title": "CPU hours - Flemish institutions",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "displayName": "${__field.labels.vib_domain}"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 11,
+        "y": 44
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "measurement": "cpu_hours_-_vib_centers",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"cpu_hours\" FROM \"cpu_hours_-_vib_centers\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/)) GROUP BY \"vib_domain\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "tags": []
+        }
+      ],
+      "title": "CPU hours - VIB Centers",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 3,
+        "x": 21,
+        "y": 44
+      },
+      "id": 18,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "measurement": "cpu_hours_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"cpu_hours\" FROM \"cpu_hours_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/))\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table",
+          "tags": []
+        }
+      ],
+      "title": "Total CPU hours",
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "includeTimeField": false,
+            "labelsToFields": false,
+            "mode": "seriesToRows",
+            "reducers": [
+              "sum"
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 12,
+        "x": 0,
+        "y": 52
+      },
+      "id": 19,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "CPU hours"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "hide": false,
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"cpu_hours\") AS \"CPU hours\" FROM \"cpu_hours_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table"
+        }
+      ],
+      "title": "CPU hours by institution: total over time range",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "institution": "Institution"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": [
+              {
+                "desc": true,
+                "displayName": "CPU hours"
+              }
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "table",
+      "description": "Total CPU-hours per institution, summed across the Grafana time range. Set the VIB Data Core filter to \"Exclude\" for official/reported numbers."
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "displayName": "${__field.labels.state}"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 66
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"job_count\") AS \"jobs\" FROM \"jobs_by_state_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY time($__interval), \"state\"::tag fill(0)\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Jobs by state - Flemish institutions",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "displayName": "${__field.labels.state}"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 11,
+        "y": 66
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"job_count\") AS \"jobs\" FROM \"jobs_by_state_-_vib_centers\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/)) GROUP BY time($__interval), \"state\"::tag fill(0)\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Jobs by state - VIB Centers",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 74
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"jobs_executed\") AS \"Executed\", SUM(\"jobs_never_executed\") AS \"Never executed\" FROM \"jobs_executed_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY time($__interval) fill(0)\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Jobs executed vs never-executed - Flemish institutions",
+      "transparent": true,
+      "type": "timeseries",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "^.*\\.(.*)$",
+            "renamePattern": "$1"
+          }
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 11,
+        "y": 74
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"jobs_executed\") AS \"Executed\", SUM(\"jobs_never_executed\") AS \"Never executed\" FROM \"jobs_executed_-_vib_centers\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/)) GROUP BY time($__interval) fill(0)\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ],
+      "title": "Jobs executed vs never-executed - VIB Centers",
+      "transparent": true,
+      "type": "timeseries",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "^.*\\.(.*)$",
+            "renamePattern": "$1"
+          }
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 12,
+        "x": 0,
+        "y": 82
+      },
+      "id": 24,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Jobs submitted"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "hide": false,
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"jobs_submitted\") AS \"Jobs submitted\", SUM(\"jobs_executed\") AS \"Executed\", SUM(\"jobs_never_executed\") AS \"Never executed\" FROM \"jobs_executed_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table"
+        }
+      ],
+      "title": "Executed vs never-executed by institution: total over time range",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "institution": "Institution"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": [
+              {
+                "desc": true,
+                "displayName": "Jobs submitted"
+              }
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "table",
+      "description": "\"Executed\" = job_state_history ever recorded a running row for that job (robust to jobs later being deleted/cancelled by their owner). Set the VIB Data Core filter to \"Exclude\" for official/reported numbers."
+    }
+  ],
+  "refresh": "",
+  "_note_table_panels": "Panels 14+15 added below: exportable tables. Download CSV via panel menu \u2192 Download data.",
+  "schemaVersion": 41,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "name": "institution",
+        "type": "query",
+        "label": "Institution",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "be-internal-metrics"
+        },
+        "definition": "SHOW TAG VALUES FROM \"jobs_submitted_-_flemish_institutions\" WITH KEY = \"institution\"",
+        "query": "SHOW TAG VALUES FROM \"jobs_submitted_-_flemish_institutions\" WITH KEY = \"institution\"",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0
+      },
+      {
+        "name": "vib_domain",
+        "type": "query",
+        "label": "VIB center",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "be-internal-metrics"
+        },
+        "definition": "SHOW TAG VALUES FROM \"jobs_submitted_-_vib_centers\" WITH KEY = \"vib_domain\"",
+        "query": "SHOW TAG VALUES FROM \"jobs_submitted_-_vib_centers\" WITH KEY = \"vib_domain\"",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 2,
+        "sort": 1,
+        "hide": 0
+      },
+      {
+        "name": "vib_data_core",
+        "type": "custom",
+        "label": "VIB Data Core",
+        "query": "All : .*,Exclude VIB Data Core : false,Only VIB Data Core : true",
+        "current": {
+          "text": "All",
+          "value": ".*"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": ".*",
+            "selected": true
+          },
+          {
+            "text": "Exclude VIB Data Core",
+            "value": "false",
+            "selected": false
+          },
+          {
+            "text": "Only VIB Data Core",
+            "value": "true",
+            "selected": false
+          }
+        ],
+        "hide": 0
+      }
+    ]
+  },
+  "time": {
+    "from": "2018-01-01T00:00:00.000Z",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Internal metrics",
+  "uid": "77c70d5c-6c90-4ea6-9a0b-247033a0a6fe",
+  "version": 39,
+  "weekStart": ""
+}

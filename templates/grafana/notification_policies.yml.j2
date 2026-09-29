@@ -1,0 +1,64 @@
+{{ ansible_managed | comment }}
+# Grafana Unified Alerting — Notification Policies
+# Deployed to: /etc/grafana/provisioning/alerting/notification_policies.yml
+# Controls how alerts are routed to contact points.
+#
+# Severity tiers map to an expected response, not to how bad a metric looks:
+#   critical  page   — drop everything, now. Re-pings every 12h until resolved.
+#   warning   ticket — look at it today, during working hours. Once, then daily.
+#   info      log    — context, not action. Weekly digest.
+# See docs/monitoring/alerting.md for the full rationale and the rules for
+# choosing a tier when adding an alert.
+#
+# Routes are first-match-wins, so the env = test route must stay first:
+# it keeps every test-instance alert in the test channel regardless of severity.
+#
+# repeat_interval is checked once per group_interval, so it is always kept a
+# whole multiple of group_interval; otherwise Grafana rounds it up silently.
+
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: galaxy-be-teams
+    # Group by severity rather than alertname so one incident that trips several
+    # rules arrives as a single message instead of one per rule.
+    group_by:
+      - grafana_folder
+      - severity
+      - env
+    group_wait: 30s
+    group_interval: 30m
+    repeat_interval: 24h
+    routes:
+      # Test instance: own channel, never louder than a ticket.
+      - receiver: galaxy-be-teams-test
+        matchers:
+          - env = test
+        group_wait: 5m
+        group_interval: 30m
+        repeat_interval: 24h
+
+      # Page: drop everything. Fast first notification, re-ping twice a day.
+      - receiver: galaxy-be-teams
+        matchers:
+          - severity = critical
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+
+      # Ticket: needs attention today, not this minute.
+      - receiver: galaxy-be-teams
+        matchers:
+          - severity = warning
+        group_wait: 5m
+        group_interval: 30m
+        repeat_interval: 24h
+
+      # Log: real but not actionable on a same-day timescale.
+      - receiver: galaxy-be-teams
+        matchers:
+          - severity = info
+        group_wait: 10m
+        group_interval: 6h
+        repeat_interval: 168h

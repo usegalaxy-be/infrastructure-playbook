@@ -1,0 +1,14 @@
+# Example toolshed URL list for tool testing
+# This file contains toolshed repository URLs, one per line
+# Lines starting with # are treated as comments and ignored
+# 
+# Format: toolshed.g2.bx.psu.edu/repos/<owner>/<repo_name>/<tool_name>/<version>
+#
+# The script will extract the tool name (4th component after repos) and test it.
+
+toolshed.g2.bx.psu.edu/repos/devteam/bwa/bwa_mem/0.7.17.1
+toolshed.g2.bx.psu.edu/repos/earlhaminst/lotus2/lotus2/2.28.1+galaxy0
+toolshed.g2.bx.psu.edu/repos/iuc/metaphlan2/metaphlan2/2.6.0.1
+toolshed.g2.bx.psu.edu/repos/devteam/bwa/bwa/0.7.17.4
+toolshed.g2.bx.psu.edu/repos/proteore/proteore_venn_diagram/Jvenn/2019.02.21
+toolshed.g2.bx.psu.edu/repos/peterjc/tmhmm_and_signalp/signalp3/0.0.14

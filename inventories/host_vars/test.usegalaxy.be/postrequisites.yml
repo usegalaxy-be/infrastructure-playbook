@@ -1,0 +1,29 @@
+---
+# pdg.postgres-backup
+# Minio vars for external backup duplication
+minio_backup_path: "{{ minio_alias }}/{{ minio_buckets[0].name }}/db_backups/test"
+
+# grycap.htcondor
+# Submit-only node — points at the prod central manager (usegalaxy.be).
+# The prod headnode is the CM; test is a second submit node to the same cluster.
+htcondor_role_manager: false
+htcondor_role_submit: true
+# IPs sourced from OpenStack, stored in Vault as an interim measure until scoped
+# NetBox access is available (see usegalaxy-be/network/device_ips).
+_vault_device_ips: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips') }}"
+htcondor_server: "{{ _vault_device_ips.usegalaxy_be_ip }}"
+# Override the galaxyservers group default (<prod-floating-ip>, the prod head's VSC floating IP).
+# VIB workers make CCB reverse connections to this address; each schedd must advertise
+# its own VSC floating IP so workers can reach it.
+condor_tcp_forwarding_host: "{{ _vault_device_ips.test_usegalaxy_be_vip_ip }}"
+# Override the galaxyservers group default (prod's own VM-network IP) — see condor.yml
+# for why ansible_host can't be used here.
+condor_hairpin_own_ip: "{{ _vault_device_ips.test_usegalaxy_be_ip }}"
+
+# Floating IPs that condor daemons on this host need to reach but can't via the VM
+# network (same hairpin NAT problem as the self-hairpin rule above).
+# The prod CM advertises <prod-floating-ip> as its address; the test schedd can't reach
+# that floating IP directly and needs a DNAT redirect to the VM-network IP.
+condor_peer_schedd_dnat:
+  - floating_ip: "{{ _vault_device_ips.usegalaxy_be_vip_ip }}"   # prod head VSC floating IP (CM + negotiator)
+    vm_ip: "{{ _vault_device_ips.usegalaxy_be_ip }}"           # prod head VM-network IP

@@ -1,0 +1,44 @@
+---
+# The script always exits 0 (non-gating), so the result is read from the summary line it logs.
+- name: Check that the healthcheck is provisioned
+  ansible.builtin.stat:
+    path: "{{ galaxy_healthcheck_dir }}/run-healthcheck.sh"
+  register: galaxy_healthcheck_runner
+
+- name: Fail if the healthcheck is not provisioned
+  ansible.builtin.assert:
+    that: galaxy_healthcheck_runner.stat.exists
+    fail_msg: "{{ galaxy_healthcheck_dir }}/run-healthcheck.sh not found, provision the healthcheck first."
+    quiet: true
+
+- name: Count healthcheck log lines before the run
+  ansible.builtin.shell: "wc -l < {{ galaxy_healthcheck_log }} 2>/dev/null || echo 0"
+  register: galaxy_healthcheck_log_before
+  changed_when: false
+  become: true
+  become_user: "{{ galaxy_healthcheck_user }}"
+
+- name: Run the healthcheck now
+  ansible.builtin.command: "{{ galaxy_healthcheck_dir }}/run-healthcheck.sh"
+  environment:
+    HEALTHCHECK_KEEP_HISTORY: "{{ galaxy_healthcheck_keep_history | bool | string | lower }}"
+  changed_when: false
+  become: true
+  become_user: "{{ galaxy_healthcheck_user }}"
+
+- name: Read the summary line of this run
+  ansible.builtin.shell: >-
+    tail -n +{{ galaxy_healthcheck_log_before.stdout | int + 1 }} {{ galaxy_healthcheck_log }}
+    | grep -E 'healthcheck (OK|DEGRADED|aborted)' | tail -1
+  register: galaxy_healthcheck_summary
+  changed_when: false
+  failed_when: false
+  become: true
+  become_user: "{{ galaxy_healthcheck_user }}"
+
+- name: Check that every probe tool passed
+  ansible.builtin.assert:
+    that: "'healthcheck OK' in galaxy_healthcheck_summary.stdout"
+    fail_msg: "{{ galaxy_healthcheck_summary.stdout | default('', true) or 'no summary line logged by this run' }}"
+    success_msg: "{{ galaxy_healthcheck_summary.stdout }}"
+  when: galaxy_healthcheck_run_require_ok | bool

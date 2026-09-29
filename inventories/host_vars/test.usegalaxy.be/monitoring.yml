@@ -1,0 +1,282 @@
+# Monitoring
+# usegalaxy_eu.influxdbserver
+
+# TODO: this variable needs to loaded by the role, make a PR
+influxdb_databases:
+  - galaxy
+  - "{{ consumer_influx_db }}"
+  - grt
+  - galaxy_stats
+  - notifications
+  - internal_metrics
+
+# Role: dj-wasabi.telegraf
+
+telegraf_agent_output:
+  - type: influxdb
+    config:
+      - urls = ["http://monitoring.usegalaxy.be:8086"]
+      - database = "galaxy"
+      - username = "{{ influxdb_users.regular[1].username }}"
+      - password = "{{ influxdb_users.regular[1].password }}"
+      - timeout = "10s"
+  # ESG WP4 output removed 2026-07-08: it wrote esg-tagged metrics to the local
+  # influxdb container (port 59886), which was decommissioned along with the
+  # rest of the head-node monitoring stack. Last esg-tagged point: 2026-03-29.
+  # Preserved data: /data/monitoring/influxdb_data (esg_tpv_broker DB).
+
+telegraf_plugins_extra:
+  postgres:
+    plugin: "postgresql_extensible"
+    config:
+      - address = "{{ galaxy_db_connection }}"
+      # TODO: move to vault?
+      - databases = ["{{ vault_test_db_name }}"]
+
+  listen_galaxy_routes:
+    plugin: "statsd"
+    config:
+      - service_address = ":8125"
+      - percentiles = [90]
+      - metric_separator = "."
+      - allowed_pending_messages = 10000
+      - percentile_limit = 100
+  
+  # ESG TPV Broker metrics
+
+  # telegraf plugin for sending pulsar metrics to influx
+  # Disabled: pulsar-util role is part of an inactive research project
+  # pulsar_monitor_esg:
+  #   plugin: exec
+  #   config:
+  #     - commands = [
+  #       "{{ consumer_venv_dir }}/bin/python {{ pulsar_consumer_dir }}/pulsar_metric_consumer.py {{ consumer_galaxy_job_conf }} {{ tpv_destinations_conf }} {{ consumer_destinations | join(',') }}",
+  #       ]
+  #     - timeout = "10s"
+  #     - data_format = "influx"
+  #     - interval = "1m"
+  #   tags:
+  #     - destination = "esg"
+
+  # monitor_galaxy_tool_times_esg:  # Disabled: ESG/pulsar project inactive, script not deployed
+  #   plugin: "exec"
+  #   config:
+  #     - commands = ["/usr/bin/monitor-galaxy-tool-times"]
+  #     - timeout = "10m"
+  #     - data_format = "influx"
+  #     - interval = "10m"
+  #   tags:
+  #     - destination = "esg"
+
+  # galaxy_jobs_destination_overview_esg:  # Disabled: duplicate of galaxy_jobs_destination_overview; ESG output inactive
+  #   plugin: "exec"
+  #   config:
+  #     - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery queue --by destination"]
+  #     - timeout = "30s"
+  #     - data_format = "influx"
+  #     - interval = "1m"
+  #   tags:
+  #     - destination = "esg"
+        
+
+  # TODO: remove old monitor commands from igegu.monitoring and use hxr.monitor-cluster instead
+#   condor_monitor:
+#     plugin: exec
+#     config:
+#  #     - commands = [ "python /usr/local/galaxy/galaxy-monit/galaxy_queue_size.py", "python /usr/local/galaxy/galaxy-monit/iostat.py","bash /usr/local/galaxy/galaxy-monit/cluster_queue-condor.sh",
+#  #        "bash /usr/local/galaxy/galaxy-monit/cluster_util-condor.sh",]
+#       - commands = [ "bash /usr/local/galaxy/galaxy-monit/cluster_queue-condor.sh","bash /usr/local/galaxy/galaxy-monit/cluster_util-condor.sh",]
+#       - timeout = "10s"
+#       - data_format = "influx"
+#       - interval = "1m"
+
+  monitor_condor_queue:
+    plugin: "exec"
+    config:
+      - commands = ["/usr/bin/monitor-condor-queue"]
+      - timeout = "2m"
+      - data_format = "influx"
+      - interval = "2m"
+
+  monitor_condor_queue_jobs:
+    plugin: "exec"
+    config:
+      - commands = ["/usr/bin/monitor-condor-queue-jobs"]
+      - timeout = "2m"
+      - data_format = "influx"
+      - interval = "2m"
+
+  monitor_condor_util:
+    plugin: "exec"
+    config:
+      - commands = ["/usr/bin/monitor-condor-utilisation"]
+      - timeout = "5m"
+      - data_format = "influx"
+      - interval = "10m"
+
+  monitor_nfsstat:
+    plugin: "exec"
+    config:
+      - commands = ["/usr/bin/nfsstat-influx"]
+      - timeout = "10s"
+      - data_format = "influx"
+      - interval = "1m"
+
+  # Some custom galaxy monitoring stuff
+  galaxy_uploaded:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery upload-gb-in-past-hour"]
+      - timeout = "120s"
+      - data_format = "influx"
+      - interval = "1h"
+  galaxy_lastlog:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin gunicorn lastlog"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "1m"
+  galaxy_jobs_queued:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery jobs-queued"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "1m"
+  galaxy_jobs_queued_internal:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery jobs-queued-internal-by-handler"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "1m"
+  galaxy_jobs_queue_overview:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery queue-overview --short-tool-id"]
+      - timeout = "30s"
+      - data_format = "influx"
+      - interval = "1m"
+  galaxy_jobs_destination_overview:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/galaxy-queue-by-destination"]
+      - timeout = "30s"
+      - data_format = "influx"
+      - interval = "1m"
+  galaxy_oidc:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery users-with-oidc"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "720m"
+  galaxy_workflow:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery workflow-invocation-status"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "10m"
+  galaxy_workflow_totals:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery workflow-invocation-totals"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "10m"
+  galaxy_active_users:
+    plugin: "exec"
+    config:
+      - commands = ["/usr/bin/gxadmin gunicorn active-users"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "1m"
+  galaxy_job_radar_visualization_stats:
+    plugin: "exec"
+    config:
+      - commands = [
+        "{{ custom_telegraf_env }} /usr/bin/galaxy_failed_jobs_by_destination.sh",
+        "{{ custom_telegraf_env }} /usr/bin/galaxy_most_used_tools_by_destination.sh",
+        "{{ custom_telegraf_env_without_gdpr_mode }} /usr/bin/galaxy_num_anonymous_jobs_by_destination.sh",
+        "{{ custom_telegraf_env }} /usr/bin/galaxy_unique_users_job_count_by_destination.sh",
+        "{{ custom_telegraf_env }} /usr/bin/galaxy_longest_running_jobs_by_destination.sh",
+        "{{ custom_telegraf_env }} /usr/bin/galaxy_num_user_running_jobs_count_by_destination.sh",
+        ]
+      - timeout = "300s"
+      - data_format = "influx"
+      - interval = "1h"
+  galaxy_job_radar_visualization_job_stats:
+    plugin: "exec"
+    config:
+      - commands = [
+        "{{ custom_telegraf_env }} /usr/bin/galaxy_jobs_stats.sh",
+        ]
+      - timeout = "60s"
+      - data_format = "influx"
+      - interval = "4h"  
+  postgres_extra:
+    plugin: "exec"
+    config:
+      - commands = [
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-cache-hit",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-index-size",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-index-usage",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-table-bloat",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-table-size",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-unused-indexes",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-vacuum-stats",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-stat-bgwriter",
+        "{{ custom_telegraf_env }} /usr/bin/gxadmin iquery pg-stat-user-tables",
+        ]
+      - timeout = "60s"
+      - data_format = "influx"
+      - interval = "60m"
+
+  # Count ERROR/WARNING/CRITICAL lines from Galaxy systemd services (last 60s)
+  galaxy_journalctl_errors:
+    plugin: "exec"
+    config:
+      - commands = ["/usr/bin/galaxy-journalctl-monitor"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "1m"
+
+  # Count any systemd unit in "failed" state -- generic catch-all for a
+  # broken cron/timer/service, rather than a bespoke metric per job.
+  galaxy_failed_units:
+    plugin: "exec"
+    config:
+      - commands = ["/usr/bin/galaxy-failed-units"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "5m"
+
+  # Count Galaxy jobs that entered error state in the past 5 minutes
+  galaxy_job_errors:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/galaxy-job-error-stats"]
+      - timeout = "30s"
+      - data_format = "influx"
+      - interval = "5m"
+
+  # Count local_runner jobs queued 30m+ with no job_runner_external_id
+  # (signature of the LocalJobRunner preexec_fn fork deadlock, see local.py)
+  galaxy_stuck_local_jobs:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/galaxy-stuck-local-jobs"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "5m"
+
+  # Per-destination average queue and run times for jobs running longer than 90s
+  monitor_galaxy_tool_times:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/monitor-galaxy-tool-times"]
+      - timeout = "30s"
+      - data_format = "influx"
+      - interval = "10m"

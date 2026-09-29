@@ -1,0 +1,44 @@
+object_store_belgium:
+  latitude: 50.5010789
+  longitude: 4.4764595
+  other_stuff_that_we_find_useful: foobar
+object_store_germany:
+  latitude: 51.165691
+  longitude: 10.451526
+  other_stuff_that_we_find_useful: foobar
+object_store_czechia:
+  latitude: 49.817492
+  longitude: 15.472962
+  other_stuff_that_we_find_useful: foobar
+object_store_italy:
+  latitude: 41.87194
+  longitude: 12.56738
+  other_stuff_that_we_find_useful: foobar
+object_store_spain:
+  latitude: 40.463667
+  longitude: -3.74922
+  other_stuff_that_we_find_useful: foobar
+object_store_uk:
+  latitude: 55.378051
+  longitude: -3.435973
+  other_stuff_that_we_find_useful: foobar
+object_store_turkey:
+  latitude: 38.963745
+  longitude: 35.243322
+  other_stuff_that_we_find_useful: foobar
+object_store_norway:
+  latitude: 60.472024
+  longitude: 8.468946
+  other_stuff_that_we_find_useful: foobar
+object_store_poland:
+  latitude: 51.919438
+  longitude: 19.145136
+  other_stuff_that_we_find_useful: foobar
+object_store_switzerland:
+  latitude: 46.818188
+  longitude: 8.227512
+  other_stuff_that_we_find_useful: foobar
+object_store_slovenia:
+  latitude: 46.151241
+  longitude: 14.995463
+  other_stuff_that_we_find_useful: foobar

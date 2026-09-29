@@ -1,0 +1,350 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {"type": "grafana", "uid": "-- Grafana --"},
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Current Galaxy Belgium compute cluster load: use this to get an idea of how busy the cluster is and how long your jobs might take to start.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "title": "Current Status",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 100},
+              {"color": "red", "value": 300}
+            ]
+          },
+          "unit": "short",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "title": "Jobs in Queue",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT last(\"count\") FROM \"jobs-queued\" WHERE $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "blue", "value": null}
+            ]
+          },
+          "unit": "short",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "title": "Jobs Running",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT last(\"claimed_busy_slots\") FROM \"htcondor_cluster_usage\" WHERE \"classad\" = 'machine' AND $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 4},
+              {"color": "green", "value": 16}
+            ]
+          },
+          "unit": "short",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "title": "Available CPU Slots",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT last(\"unclaimed_cpus\") FROM \"htcondor_cluster_usage\" WHERE \"classad\" = 'machine' AND $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "fixed", "fixedColor": "text"},
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "text", "value": null}]
+          },
+          "unit": "short",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "id": 5,
+      "options": {
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "title": "Total CPU Slots",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT last(\"total_detected_cpus\") FROM \"htcondor_cluster_usage\" WHERE \"classad\" = 'machine' AND $timeFilter",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "id": 10,
+      "title": "History",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Jobs",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 6},
+      "id": 11,
+      "options": {
+        "legend": {"calcs": ["last", "max"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single", "sort": "none"}
+      },
+      "title": "Job Queue Depth",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT last(\"count\") AS \"queued\" FROM \"jobs-queued\" WHERE $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "CPUs",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "total"},
+            "properties": [
+              {"id": "custom.lineStyle", "value": {"dash": [10, 10], "fill": "dash"}},
+              {"id": "color", "value": {"fixedColor": "gray", "mode": "fixed"}}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 6},
+      "id": 12,
+      "options": {
+        "legend": {"calcs": ["last"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "multi", "sort": "none"}
+      },
+      "title": "Cluster CPU Utilisation",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT last(\"claimed_cpus\") AS \"in use\", last(\"unclaimed_cpus\") AS \"available\", last(\"total_detected_cpus\") AS \"total\" FROM \"htcondor_cluster_usage\" WHERE \"classad\" = 'machine' AND $timeFilter GROUP BY time($__interval) fill(previous)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 15},
+      "id": 20,
+      "title": "Queue by Destination",
+      "type": "row"
+    },
+    {
+      "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisLabel": "Jobs",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "gradientMode": "none",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 1,
+            "pointSize": 4,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {"group": "A", "mode": "none"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "unit": "short",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16},
+      "id": 21,
+      "options": {
+        "legend": {"calcs": ["last"], "displayMode": "table", "placement": "right"},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "title": "Jobs Queued per Destination",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": {"type": "influxdb", "uid": "be-galaxy-new"},
+          "query": "SELECT last(\"count\") FROM \"queue_by_destination\" WHERE \"state\" = 'queued' AND \"destination_id\" != 'none' AND $timeFilter GROUP BY time($__interval), \"destination_id\" fill(0)",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series"
+        }
+      ]
+    }
+  ],
+  "refresh": "1m",
+  "schemaVersion": 41,
+  "tags": ["public", "status"],
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Cluster Status",
+  "uid": "be-public-cluster-status",
+  "version": 1,
+  "weekStart": ""
+}

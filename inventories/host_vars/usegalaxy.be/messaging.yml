@@ -1,0 +1,26 @@
+---
+# pdg.rabbitmqserver
+
+rabbitmq_vhosts:
+  - /pulsar/pulsar_be
+  - galaxy_internal
+  - /pulsar/galaxy_vib
+
+rabbitmq_users:
+  - user: admin
+    password: "{{ vault_rabbitmq_admin_password }}"
+    tags: administrator
+    vhost: /
+  - user: pulsar_be
+    password: "{{ vault_rabbitmq_password_vhost }}"
+    vhost: /pulsar/pulsar_be
+  - user: galaxy
+    password: "{{ vault_rabbitmq_password_galaxy }}"
+    vhost: galaxy_internal
+  - user: flower
+    password: "{{ vault_rabbitmq_password_flower }}"
+    tags: administrator
+    vhost: galaxy_internal
+  - user: galaxy_vib
+    password: "{{ vault_rabbitmq_password_vib }}"
+    vhost: /pulsar/galaxy_vib

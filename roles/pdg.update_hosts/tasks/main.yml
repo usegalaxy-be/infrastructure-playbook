@@ -1,0 +1,43 @@
+---
+
+# Prevent cloud-init from regenerating /etc/hosts on every boot and wiping
+# our custom entries. Safe to set even if cloud-init is not installed.
+- name: Disable cloud-init /etc/hosts management
+  ansible.builtin.lineinfile:
+    path: /etc/cloud/cloud.cfg
+    regexp: '^\s*manage_etc_hosts\s*:'
+    line: 'manage_etc_hosts: false'
+    state: present
+  ignore_errors: true
+
+# Guarantee the standard localhost block that cloud-init would normally write.
+# Necessary on hosts where the legacy pdg.condor_cm cron wiped /etc/hosts
+# completely, and on any host where manage_etc_hosts was previously true
+# (disabling it above means cloud-init will no longer restore these on boot).
+- name: Ensure standard localhost entries are present
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item }}"
+    state: present
+  loop:
+    - "127.0.0.1 {{ ansible_fqdn }} {{ ansible_hostname }}"
+    - "127.0.0.1 localhost.localdomain localhost"
+    - "127.0.0.1 localhost4.localdomain4 localhost4"
+    - "::1 {{ ansible_fqdn }} {{ ansible_hostname }}"
+    - "::1 localhost.localdomain localhost"
+    - "::1 localhost6.localdomain6 localhost6"
+
+- name: Ensure /etc/hosts contains the necessary mappings
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.hostname }}"
+    state: present
+    insertafter: EOF
+  loop: "{{ host_mappings }}"
+
+- name: Remove stale /etc/hosts entries
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ item.ip }} {{ item.hostname }}"
+    state: absent
+  loop: "{{ host_mappings_absent }}"

@@ -1,0 +1,130 @@
+---
+# pdg.postgres-backup
+
+# Role to set up postgres backup scripts and cron jobs
+# also includes installation of the Minio client for external backup duplication
+# TODO: move minio client installation to a separate role if it's used for other purposes as well, or if the backup role becomes too big
+# TODO: check if there's no built in backup in galaxyproject roles
+
+backup_path: "{{ galaxy_mutable_data_dir }}/backup" #"{{ galaxy_server_scratch_dir }}/backup"
+keep_recent_db_backups: 1
+keep_oldest_db_backups: 0
+keep_daily_months_backups: 1
+
+# Minio vars for external backup duplication
+minio_client_release: "20240731155833.0.0-1"
+minio_alias: "vibminio"
+minio_url: https://objectstor.vib.be
+minio_access_key: "{{ vault_minio_access_key }}"
+minio_secret_key: "{{ vault_minio_secret_key }}"
+minio_buckets:
+ - name: usegalaxy-be
+   policy: private
+   object_lock: false
+minio_client_bin: "{{ galaxy_user.home }}/mc"
+minio_temp_rpm_dest: "{{ galaxy_user.home }}/mc.rpm"
+
+# galaxyproject.gxadmin
+
+gxadmin_dir: /opt/gxadmin
+gxadmin_bin_dir: /usr/bin
+gxadmin_force: true
+gxadmin_create_bin_dir: true
+gxadmin_local_functions_dir: ~/.config  
+gxadmin_local_functions_path: "{{ gxadmin_local_functions_dir }}/gxadmin-local.sh"  #path to copy the local functions sh file
+gxadmin_local_functions_src: files/gxadmin/gxadmin-local.sh
+
+
+# galaxyproject.tiaas2
+
+# TIaaS Configuration
+
+tiaas_dir: /srv/tiaas
+
+# Variables from pdg.tiaas2 role defaults that the nginx template needs at
+# render time (before the tiaas2 role runs in 05-tiaas.yml).
+tiaas_socket: /run/tiaas.sock
+tiaas_socket_listen: "unix:{{ tiaas_socket }}"
+tiaas_static_dir: "{{ tiaas_dir }}/static"
+tiaas_galaxy_prefix: ""
+tiaas_nginx_routes: |
+  location /tiaas {
+      proxy_pass            http://{{ tiaas_socket_listen }};
+      proxy_redirect        off;
+      proxy_set_header      Host                 $host;
+      proxy_set_header      X-Real-IP            $remote_addr;
+      proxy_set_header      X-Forwarded-For      $remote_addr;
+      proxy_hide_header     X-Frame-Options;
+      proxy_read_timeout    600;  # seconds
+  }
+
+  location /tiaas/static {
+      alias {{ tiaas_static_dir }};
+  }
+
+  location {{ tiaas_galaxy_prefix }}/join-training {
+      proxy_pass            http://{{ tiaas_socket_listen }};
+      proxy_redirect        off;
+      proxy_set_header      Host                 $host;
+      proxy_set_header      X-Real-IP            $remote_addr;
+      proxy_set_header      X-Forwarded-For      $remote_addr;
+      proxy_hide_header     X-Frame-Options;
+      proxy_read_timeout    600;  # seconds
+  }
+
+tiaas_admin_user: "{{ vault_tiaas_admin_user }}"
+tiaas_admin_pass: "{{ vault_tiaas_admin_pass }}"
+
+tiaas_force_checkout: true
+tiaas_create_user: true
+tiaas_create_group: true
+tiaas_secret_key: '{{ vault_id_secret }}'
+tiaas_galaxy_idsecret: '{{ vault_id_secret }}'
+
+# Galaxy DB access
+tiaas_galaxy_db_name: '{{ db_name }}'
+tiaas_galaxy_db_user: '{{ postgres_user }}'
+tiaas_galaxy_db_pass: '{{ postgres_pass }}'
+tiaas_galaxy_db_host: '{{ postgres_host }}'
+tiaas_galaxy_db_port: '{{ postgres_port }}'
+
+# TIaaS DB access (default is SQLite in {{ tiaas_dir }}/db.sqlite3)
+tiaas_tiaas_use_sqlite: false  # disable and set options below as needed for PostgreSQL
+tiaas_tiaas_db_name: "{{vault_tiaas_tiaas_db_name}}"
+tiaas_tiaas_db_user: "{{vault_tiaas_tiaas_db_user}}"
+tiaas_tiaas_db_pass: "{{vault_tiaas_tiaas_db_pass}}"
+tiaas_tiaas_db_host: "{{vault_tiaas_tiaas_db_host}}"
+tiaas_tiaas_db_port: "{{vault_tiaas_tiaas_db_port}}"
+
+tiaas_show_username: true
+tiaas_send_email_to_requester: true
+tiaas_send_email_from: Galaxy Belgium <noreply.datacore.galaxy@notifications.vib.be>
+tiaas_late_request_prevention_days: 0
+
+tiaas_info:
+  owner: UseGalaxy.be
+  owner_email: "{{ vault_error_email }}"
+  owner_site: "http://{{ inventory_hostname }}"  # Your galaxy website
+  domain: "{{ inventory_hostname }}"    
+
+tiaas_galaxy_stylesheet: "{{ galaxy_server_dir }}/static/dist/base.css"
+
+tiaas_repo: "https://github.com/pauldg/tiaas2"
+tiaas_version: feature/add-email-logging
+
+#location of the Galaxy BE custom TIAAS HTML template snippets:
+tiaas_templates_dir: files/tiaas/html
+
+# Additional TIaaS configuration mainl;y for email settings
+tiaas_other_config: |
+  EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+  EMAIL_HOST = 'smtp.eu.mailgun.org'
+  EMAIL_PORT = 465
+  EMAIL_HOST_USER = '{{ tiaas_send_email_from }}'
+  EMAIL_HOST_PASSWORD = '{{ vault_smtp_password }}'
+  EMAIL_USE_SSL = True
+  EMAIL_USE_TLS = False
+  EMAIL_TIMEOUT = 60
+  TIAAS_LATE_REQUEST_PREVENTION_DAYS = 0
+  TIAAS_GDPR_AUTO_REDACT = False
+  TIAAS_SHOW_ADVERTISING = False

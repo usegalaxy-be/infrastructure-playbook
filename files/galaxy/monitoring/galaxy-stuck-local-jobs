@@ -1,0 +1,26 @@
+#!/bin/bash
+# galaxy-stuck-local-jobs
+# Counts jobs on local_runner that have been "queued" for over 30 minutes
+# without ever getting a job_runner_external_id. A local_runner job normally
+# gets an external id within seconds, so this is a reliable sign the job
+# was never actually picked up (e.g. a handler-side fork deadlock).
+# Outputs InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/galaxy-stuck-local-jobs
+# Telegraf exec plugin interval: 5m
+#
+# Requires env vars set by custom_telegraf_env:
+#   PGHOST, PGDATABASE, PGUSER, PGPASSWORD
+
+count=$(psql -t -A -c \
+  "SELECT COUNT(*) FROM job
+   WHERE state = 'queued'
+     AND job_runner_name = 'local_runner'
+     AND job_runner_external_id IS NULL
+     AND create_time < NOW() - INTERVAL '30 minutes'" \
+  2>/dev/null | tr -d '[:space:]')
+
+# Default to 0 if psql fails or returns empty
+count=${count:-0}
+
+printf 'galaxy_stuck_local_jobs count=%si\n' "$count"

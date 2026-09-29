@@ -1,0 +1,161 @@
+# ALL tags must be with dashes (-) instead of underscores (_)
+global:
+  # default_inherits is the default inheritance for all tools unless overridden in the tool definition or rules
+  # this is typically used to set a default container technology (e.g. singularity) or execution environment (e.g. conda)
+  # to be used for all tools unless overridden in the tool definition or rules
+  default_inherits: default
+
+tools:
+  default:
+    # most of these setttings have been copied from usegalaxy.eu, usegalaxy.org, and usegalaxy.org.au TPV configs
+    # and adapted to our needs
+    cores: 1
+    mem: cores * 3.8
+    gpus: 0
+    env:
+      # C (not C.UTF-8) is always present in containers, avoids setlocale warnings failing jobs
+      - name: LC_ALL
+        value: C
+      - name: SINGULARITYENV_LC_ALL
+        value: $LC_ALL
+      ## The execute statement should be removed once https://github.com/galaxyproject/galaxy/issues/20562 is fixed
+      - execute: cd $_GALAXY_JOB_DIR
+      - name: GALAXY_MEMORY_MB
+        value: "{int(mem * 1024)}" # set 5/2023 might be moved to runner or tool wrappers, related to Galaxy issue 15952
+      - name: HDF5_USE_FILE_LOCKING
+        value: "FALSE"
+      - name: SINGULARITYENV_HDF5_USE_FILE_LOCKING
+        value: $HDF5_USE_FILE_LOCKING
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: "when_required"
+      - name: TERM
+        value: vt100
+      - name: SINGULARITYENV_TERM
+        value: $TERM
+    params:
+      # NOTE: any params starting with 'submit_' are passed to the job runner (e.g. condor, slurm) as submission parameters
+      # see https://docs.galaxyproject.org/en/latest/admin/job_runners.html#
+      # set here (not on destination) so tool rules can override it per-tool
+      metadata_strategy: 'extended'
+      tmp_dir: true
+      # Capped to our largest worker (350GB/20 cores, matching condor_tpv's max_accepted_*).
+      request_cpus: "{min(cores, 20)}"
+      # Escalates with NumJobStarts so periodic_release retries get more memory (HoldReasonCode 34 = cgroup OOM).
+      # {{ '{{' }}/{{ '}}' }} escape TPV's literal-brace syntax past Ansible's own Jinja2 templating.
+      request_memory: "min({{ '{{' }}ifthenelse(NumJobStarts =?= undefined, {int(mem*1024)}, {int(mem*1024)} * (NumJobStarts + 1)), 358400{{ '}}' }})"
+      request_gpus: "{gpus or 0}"
+      singularity_enabled: true
+      singularity_volumes: "{{ galaxy_container_volumes.local | join(',') }}"
+      singularity_default_container_id: "/cvmfs/singularity.galaxyproject.org/all/python:3.8.3"
+      docker_default_container_id: "quay.io/biocontainers/python:3.8-20210803-1"
+      docker_memory: "{mem}G"
+      description: "{tool.id if not tool.id.count('/') == 5 else tool.id.split('/')[4]}"
+      # GPU node preference: Non-GPU tools prefer non-GPU nodes, fallback to GPU if needed
+      # TotalGPUs is a standard HTCondor ClassAd advertised by all nodes (0 on non-GPU nodes)
+      # 'rank' is the HTCondor submit file keyword for job-side slot ranking preference
+      rank: "(TotalGPUs > 0 ? -1000 : 1)"
+      # walltime settings
+      # NOTE: EU also has a 2 day hold period before jobs are purged
+      # No 'submit_' prefix - see periodic_remove note below, same bug applied here too.
+      +MaxWallTimeSeconds: "{{ 15 * 24 * 60 * 60 }}"
+      +MaxWallTime: "{{ 15 * 24 * 60 * 60 }}"
+      # Purge: held >1h (OOM retries exhausted, etc.) or running past MaxWallTimeSeconds.
+      # No 'submit_' prefix - condor runner's submission_params(prefix="") never strips it.
+      periodic_remove: "((JobStatus == 5) && ((CurrentTime - EnteredCurrentStatus) > 3600)) || ((JobStatus == 2) && ((CurrentTime - JobStartDate) > MaxWallTimeSeconds))"
+      # Retry a cgroup-OOM hold (code 34) with more memory, up to 5 attempts.
+      periodic_release: "(HoldReasonCode == 34) && (NumJobStarts < 5)"
+    # tags are used to do the actual matching of the tool to the destination. 
+    # No other settings are considered for matching, besides the ranking of the matched destinations
+    # by default we want to use singularity for all tools whether locally or on a remote Pulsar node
+    scheduling:
+      # TODO: by default we want to use singularity for all tools whether locally or on a remote Pulsar node
+      # This requires identifying which tools need a local conda environment or local Galaxy Python environment
+      # to run properly and setting up rules for these tools to not use singularity
+      prefer:
+        - singularity
+      # accept:
+      #   - pulsar
+      reject:
+        - offline
+    rules:
+      # Rule to disallow anonymous users to run jobs
+      - id: requires_login
+        if: not user
+        fail: |
+          You must be logged in to use this Galaxy instance
+      # data_source tools require a local conda environment
+      - id: tool_requires_local_conda
+        if: tool.tool_type in ("data_source", "manage_data")
+        scheduling:
+          # prefer:
+          # - conda
+          reject:
+          - pulsar
+          # - singularity
+      # these tools require a local Galaxy Python environment, i.e. not on pulsar
+      - id: tool_requires_local_galaxy
+        if: tool.tool_type == "expression"
+        # params:
+        #   container_override:
+        #   - type: singularity
+        #     shell: /bin/sh
+        #     identifier: /cvmfs/main.galaxyproject.org/singularity/rockylinux:9.5.20241118--0
+        # env:
+        # - name: SINGULARITYENV_PREPEND_PATH
+        #   value: $GALAXY_VIRTUAL_ENV/bin
+        # - name: SINGULARITYENV_PYTHONPATH
+        #   value: $GALAXY_LIB
+        scheduling:
+          reject:
+          - pulsar
+      # GPU tools prefer GPU nodes: reverse the ranking to prioritize GPU-capable slots
+      - id: gpu_tools_prefer_gpu_nodes
+        if: entity.gpus > 0
+        params:
+          rank: "(TotalGPUs > 0 ? 1000 : -1)"
+      # Tools that require Galaxy's Python environment must run natively (no container).
+      # Galaxy's job setup adds $GALAXY_VIRTUAL_ENV/bin to PATH when preserve_python_environment=True,
+      # so 'python' resolves correctly on the compute node.
+      # Singularity + SINGULARITYENV_PREPEND_PATH was the old approach, but breaks when the Galaxy
+      # venv Python version (e.g. 3.11) is not installed inside the container image (Rocky 9 has 3.9).
+      - id: tool_requires_galaxy
+        if: tool.tool_type not in ("data_source", "expression") and tool.requires_galaxy_python_environment and not entity.params.get('container_override') and entity.params.get('singularity_enabled', True) is not False
+        params:
+          singularity_enabled: false
+        scheduling:
+          reject:
+          - pulsar
+      # - id: remote_resources
+      #   if: user is not None
+      #   execute: |
+      #     # user preferences for remote resources (pulsar), not currently set up on this instance
+      #     from tpv.core.entities import Tag, TagSetManager, TagType
+
+      #     user_preferences = user.extra_preferences
+      #     pulsar_tag = user_preferences.get("distributed_compute|remote_resources", "None")
+      #     pulsar_tag = Tag("scheduling", pulsar_tag, TagType.REQUIRE) if pulsar_tag != "None" else None
+
+      #     if pulsar_tag:
+      #         entity.tpv_tags = entity.tpv_tags.combine(
+      #             TagSetManager(tags=[pulsar_tag])
+      #         )
+      # - if: user is not None
+      #   execute: |
+      #     training_roles = [r.name for r in user.all_roles() if not r.deleted and "training" in r.name]
+      #     training_expr = " || ".join(['(GalaxyGroup == "%s")' % role for role in training_roles])
+      #     training_labels = '"' + ", ".join(training_roles) + '"'
+      #     entity.params['requirements'] = '(GalaxyGroup == "compute") || (%s)' % training_expr if training_expr else '(GalaxyGroup == "compute")'
+      #     entity.params['+Group'] = training_labels
+      # TODO: move to abstract tool?
+      # NOTE: Seems to give issues
+      # - id: gpu_tools_to_condor_gpu
+      #   if: entity.gpus > 0
+      #   scheduling:
+      #     require:
+      #       - gpu
+    # NOTE: we rely on default TPV scheduling tag matching and ranking behavior
+    # rank: |
+    #   # this ranking function is used to rank the candidate destinations randomly, howeverin the future we want to implement
+    #   # a more sophisticated ranking function that takes into account the current load on the destination, the estimated runtime of the job, etc.
+    #   final_destinations = helpers.weighted_random_sampling(candidate_destinations)
+    #   final_destinations

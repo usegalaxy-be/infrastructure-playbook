@@ -1,0 +1,17 @@
+---
+
+- name: Manage Paths
+  block:
+
+    - name: Create additional local directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ galaxy_user_name }}"
+        group: "{{ galaxy_user_name }}" #This is set so that the galaxy_user can read the files in the priv_sep dirs. (As priv_sep dirs have defauly perms of 0640.)
+        # mode: "{{ __galaxy_dir_perms }}"
+      loop: "{{ galaxy_local_ro_dirs + galaxy_local_rw_dirs }}"
+      # when: item | default(False)
+
+  become: true
+  become_user: root

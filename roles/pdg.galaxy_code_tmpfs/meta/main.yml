@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: galaxy_code_tmpfs
+  author: usegalaxy.be
+  description: >-
+    Keep a node-local RAM (tmpfs) copy of the Galaxy codebase + venv on condor
+    workers, so the in-job metadata step imports the framework from RAM instead
+    of cold from NFS. Paired with a TPV env override that points GALAXY_LIB /
+    GALAXY_VIRTUAL_ENV at the tmpfs for condor jobs.
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions: ["9"]
+dependencies: []

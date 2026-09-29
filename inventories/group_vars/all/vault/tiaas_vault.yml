@@ -1,0 +1,10 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+_vault_tiaas: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/tiaas') }}"
+vault_tiaas_admin_user: "{{ _vault_tiaas.vault_tiaas_admin_user }}"
+vault_tiaas_admin_pass: "{{ _vault_tiaas.vault_tiaas_admin_pass }}"
+vault_tiaas_tiaas_db_name: "{{ _vault_tiaas.vault_tiaas_tiaas_db_name }}"
+vault_tiaas_tiaas_db_user: "{{ _vault_tiaas.vault_tiaas_tiaas_db_user }}"
+vault_tiaas_tiaas_db_pass: "{{ _vault_tiaas.vault_tiaas_tiaas_db_pass }}"
+vault_tiaas_tiaas_db_host: "{{ _vault_tiaas.vault_tiaas_tiaas_db_host }}"
+vault_tiaas_tiaas_db_port: "{{ _vault_tiaas.vault_tiaas_tiaas_db_port }}"

@@ -1,0 +1,19 @@
+#!/bin/bash
+# galaxy-job-error-stats
+# Counts Galaxy jobs that entered 'error' state in the past 5 minutes.
+# Outputs InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/galaxy-job-error-stats
+# Telegraf exec plugin interval: 5m
+#
+# Requires env vars set by custom_telegraf_env:
+#   PGHOST, PGDATABASE, PGUSER, PGPASSWORD
+
+count=$(psql -t -A -c \
+  "SELECT COUNT(*) FROM job WHERE state = 'error' AND update_time > NOW() - INTERVAL '5 minutes'" \
+  2>/dev/null | tr -d '[:space:]')
+
+# Default to 0 if psql fails or returns empty
+count=${count:-0}
+
+printf 'galaxy_job_errors count=%si\n' "$count"

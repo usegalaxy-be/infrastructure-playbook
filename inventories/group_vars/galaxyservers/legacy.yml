@@ -1,0 +1,294 @@
+---
+# igegu.galaxy_extras
+
+# installs custom tool_data_table and loc files
+# TODO: Figure out wheter manually installing ref data loc files is a good idea.
+# install_reference_data: false
+
+# galaxyproject.galaxy
+
+# galaxy_uwsgi_yaml_parser: 'libyaml'
+# galaxy_uwsgi_config_file_basename: "galaxy.{{ galaxy_config_style }}"
+# galaxy_uwsgi_config_file: "{{ galaxy_server_dir }}/config/{{ galaxy_uwsgi_config_file_basename }}"
+
+# Dynamic jobs
+# these are already defined in the defaults , sorting hat is replaced by tpv
+# galaxy_dynamic_job_rules_dir: "{{ galaxy_server_dir }}/lib/galaxy/jobs/rules"
+# galaxy_dynamic_job_rules:
+#   - sorting_hat.py
+#   - destination_specifications.yaml
+#   - tool_destinations.yaml
+
+# Static files  (copied from defaults/templates in local ansible repo)
+
+# local base dirs to get shared files and templates from.
+# galaxy_config_template_src_dir: templates/galaxy/config
+# galaxy_config_file_src_dir: files/galaxy/config
+
+# TODO: split into test and prod
+
+# When galaxy_manage_static_setup is set to Yes, these files are copied from the ansible(local) dir to their corresponding locations during static_setup task. 
+# If (and only) there is a change in file contents this task will OVERWRITE the previous file in server saving a backup version in the same location (named '.backup + the date')! 
+# galaxy_config_files:
+  # - src: "{{ galaxy_config_file_src_dir }}/auth_conf.xml"
+  #   dest: "{{ galaxy_config_merged[galaxy_app_config_section].auth_config_file }}"  #"{{ galaxy_config_dir }}/auth_conf.xml"
+  # - src: "{{ galaxy_config_file_src_dir }}/welcome.html"
+  #   dest: "{{ galaxy_mutable_config_dir }}/welcome.html"
+  # NOTE: switch to default
+  # - src: "{{ galaxy_config_file_src_dir }}/datatypes_conf.xml.sample"
+  #   dest: "{{ galaxy_config_dir }}/datatypes_conf.xml" #"{{ galaxy_config_merged[galaxy_app_config_section].datatypes_config_file }}"
+  # - src: "{{ galaxy_config_file_src_dir }}/tool_conf_interactive.xml"
+  #   dest: "{{ galaxy_interactive_tools_conf_file }}"
+  # - src: "{{ galaxy_tpv_files_src_dir }}/tpv_rules_local.yml"
+  #   dest: "{{ tpv_mutable_dir }}/tpv_rules_local.yml"
+  # TODO: necessary when sentry is configured
+  # - src: "{{ galaxy_config_file_src_dir }}/error_reports.yml"
+  #   dest: "{{ galaxy_config.galaxy.error_report_file }}"
+
+
+# Anything that is based on a template obtained from the ansible dir should go here
+# the galaxy config galaxy.ini/galaxy.yml is treated separatedly 
+# galaxy_config_templates:
+  # NOTE: Currently job_conf is definied in galaxy.yml 
+  # - src: "{{ galaxy_config_template_src_dir }}/job_conf.xml.j2"
+  #   dest: "{{ galaxy_config_merged[galaxy_app_config_section].job_config_file }}" #"{{ galaxy_config_dir }}/job_conf.xml"
+  # - src: "{{ galaxy_config_template_src_dir }}/job_conf.yml.j2"
+  #   dest: "{{ galaxy_config_dir }}/job_conf.yml"    #"{{ galaxy_config_dir }}/job_conf.xml
+  # TODO: check if removing this resolves workflow scheduling issues
+  # - src: "{{ galaxy_config_template_src_dir }}/galaxy_workflow_scheduler.xml.j2"
+  #   dest: "{{ galaxy_config_dir }}/galaxy_workflow_scheduler.xml"
+  #- src: "{{ galaxy_config_template_src_dir }}/manage_db.sh.j2"
+    #dest: "{{ galaxy_mutable_data_dir }}/manage_db.sh"
+  # TODO: check which notation is correct
+  # - src: "{{ galaxy_config_template_src_dir }}/dependency_resolvers_conf.xml"
+  #   dest: "{{ galaxy_config_merged[galaxy_app_config_section].dependency_resolvers_config_file }}"
+  # - src: "{{ galaxy_config_template_host_src_dir }}/tpv_rules_local.yml.j2"
+  #   dest: "{{ tpv_mutable_dir }}/tpv_rules_local.yml"
+  # - src: "{{ galaxy_config_template_src_dir }}/config/file_source_templates.yml.j2"
+  #   dest: "{{ galaxy_config['galaxy']['file_source_templates_config_file'] }}"
+
+
+# TODO: check that these files are necessary to copy over?
+ #- src: "{{ galaxy_server_dir }}/config/tool_data_table_conf.xml.sample"
+   #dest: "{{ galaxy_tool_data_table_conf_path }}"
+ #- src: "{{ galaxy_server_dir }}/config/data_manager_conf.xml.sample"
+   #dest: "{{ galaxy_data_manager_conf_path }}"
+ #- src: "{{ galaxy_server_dir }}/config/oidc_config.xml.sample"
+   #dest: "{{ galaxy_server_dir }}/config/oidc_config.xml"
+
+
+# Mutable files and entries
+# Mutable files are files whose content/entries can change in time. 
+# Entries in these files are managed by Ansible tasks.
+# This section contains file names (in the servers) and the location of .yaml files 
+# If the dest file is already present then it is not overwritten
+
+# NOTE: moved url for welcome.html to galaxy_themes_default_welcome
+# galaxy_config_files_public:
+# galaxy_mutable_config_files:
+  # - src: "{{ galaxy_config_file_src_dir }}/welcome.html"
+  #   dest: "{{ galaxy_mutable_config_dir }}/welcome.html"
+  # NOTE: these seemed to be the default values from the role
+  # - src: "shed_data_manager_conf.xml"
+  #   dest: "{{ galaxy_config_merged[galaxy_app_config_section].shed_data_manager_config_file }}"
+  # - src: "shed_tool_data_table_conf.xml"
+  #   dest: "{{ galaxy_config_merged[galaxy_app_config_section].shed_tool_data_table_config }}"
+  #   #dont use the galaxy_config entry because it has 2 paths there: 1 for the default tool_data and 1 for the legacy
+  #   dest: "{{ galaxy_config_merged[galaxy_app_config_section].tool_data_table_config_path }}"
+
+# Mutable files and entries
+
+# Mutable files are files whose content/entries can change in time by galaxy adding new entries for example. 
+# If the dest file is already present on the host then it is not overwritten
+# TODO: some of these files are potentially better managed through ansible instead of galaxy, 
+#       for example the tool_data_table_conf.xml which galaxy updates when new tools are added, 
+#       but it can also be updated by ansible when new tools are added through ansible.
+
+# galaxy_mutable_config_files:
+
+# in the role default these are 
+# galaxy_mutable_config_templates:
+  # Not referenced anywhere
+  # - src: "{{ galaxy_config_template_src_dir }}/shed_tool_data_table_conf.legacy.xml.j2"
+  #   dest: "{{ galaxy_mutable_config_dir }}/shed_tool_data_table_conf_legacy.xml"
+  # shed_tool_conf should have a custom path inside, that's why I use a template
+  # NOTE: these files are managed by galaxyproject.galaxy role
+  # - src: "{{ galaxy_config_template_src_dir }}/shed_tool_conf.xml.j2"   
+  #   dest: "{{ galaxy_shed_tool_conf_file }}"
+  # - src: "{{ galaxy_config_template_src_dir }}/shed_tool_conf.xml.j2"
+  #   dest: "{{ galaxy_config_merged[galaxy_app_config_section].migrated_tools_config }}"
+
+# This is a file of variables that will be processed in job_conf.yml.j2
+# This is needed, because it contains other variables
+# Galaxy Job Configuration
+# TODO: check how to set up tpv correctly and remove sortinghat
+# galaxy_job_config:
+# galaxy_jobconf:
+#   runners:
+#     local_runner:
+#       load: galaxy.jobs.runners.local:LocalJobRunner
+#     condor:
+#       load: galaxy.jobs.runners.condor:CondorJobRunner
+#       workers: 4
+    # TODO: setup ESG pulsar destinations
+    # pulsar_runner:
+    #   load: galaxy.jobs.runners.pulsar:PulsarMQJobRunner
+    #   amqp_url: "pyamqp://pulsar_au:{{ vault_rabbitmq_password_vhost }}@localhost:5671/{{ rabbitmq_vhosts[0] }}?ssl=1"
+    #   amqp_acknowledge: true
+    #   amqp_ack_republish_time: 1200
+    #   amqp_consumer_timeout: 2
+    #   amqp_publish_retry: true
+    #   amqp_publish_retry_max_retries: 60
+    #   galaxy_url: "https://{{ inventory_hostname }}"
+    #   manager: _default_
+  # handling:
+  #   # causes Galaxy to use the job handler processes we defined earlier in the tutorial to handle jobs, 
+  #   # rather than handling them in the (gunicorn) web server process.
+  #   assign: ['db-skip-locked']
+  # execution:
+  #   default: tpv_dispatcher
+  #   environments:
+  #     local_env:
+  #       runner: local_runner
+  #       tmp_dir: true
+  #     tpv_dispatcher:
+  #       runner: dynamic
+  #       type: python
+  #       function: map_tool_to_destination
+  #       rules_module: tpv.rules
+  #       tpv_config_files:
+  #         # - "{{ tpv_config_dir }}/tpv_rules_local.yml"
+  #         - "{{ tpv_config_dir }}/tool_defaults.yml"
+  #         - "https://raw.githubusercontent.com/galaxyproject/tpv-shared-database/main/tools.yml"
+  #         - "{{ tpv_config_dir }}/destinations.yml"
+  #         - "{{ tpv_config_dir }}/tools.yml"
+  #         - "{{ tpv_config_dir }}/interactive_tools.yml"
+  #         - "{{ tpv_config_dir }}/users.yml"
+  #         - "{{ tpv_config_dir }}/roles.yml"
+  # resources:
+  #   default: default
+  #   groups:
+  #     default: []
+  #     testing: [cores, time]
+  # tools:
+  #   # these special tools that aren't parameterized for remote execution - expression tools, upload, etc
+  #   - class: local
+  #     environment: local_env
+  #   - id: testing
+  #     environment: tpv_dispatcher
+  #     resources: testing
+  # limits:
+  #   walltime: '148:00:00'
+  #   output_size: '300GB'
+  #   registered_user_concurrent_jobs: '3'
+  #   anonymous_user_concurrent_jobs: '1'
+
+# galaxy_jobconf:
+#   plugin_workers: 4
+#   handlers:
+#     count: "{{ galaxy_systemd_handlers }}"
+#     # causes Galaxy to use the job handler processes we defined earlier in the tutorial to handle jobs, 
+#     # rather than handling them in the (gunicorn) web server process.
+#     assign_with: db-skip-locked
+#     # max_grab: 16
+#     # ready_window_size: 32
+#   plugins:
+#     #- id: drmaa
+#     #load: galaxy.jobs.runners.drmaa:DRMAAJobRunner
+#     #workers: 3
+#     - id: condor
+#       load: galaxy.jobs.runners.condor:CondorJobRunner
+#     - id: local
+#       load: galaxy.jobs.runners.local:LocalJobRunner
+#     # - id: pulsar_embedded
+#     #   load: galaxy.jobs.runners.pulsar:PulsarEmbeddedJobRunner
+#     #   pulsar_config: "{{ galaxy_config_dir }}/pulsar_app.yml"
+#   default_destination: tpv_dispatcher
+#   destinations:
+#     - id: local
+#       runner: local
+#     - id: tpv_dispatcher
+#       runner: dynamic
+#       type: python
+#       function: map_tool_to_destination
+#       rules_module: tpv.rules
+#       tpv_config_files:
+#         - "{{ tpv_config_dir }}/tool_defaults.yml"
+#         - "https://raw.githubusercontent.com/galaxyproject/tpv-shared-database/main/tools.yml"
+#         - "{{ tpv_config_dir }}/destinations.yml"
+#         - "{{ tpv_config_dir }}/tools.yml"
+#         - "{{ tpv_config_dir }}/interactive_tools.yml"
+#         - "{{ tpv_config_dir }}/users.yml"
+#         - "{{ tpv_config_dir }}/roles.yml"
+#   tools:
+#       # these special tools that aren't parameterized for remote execution - expression tools, upload, etc
+#     - id: local
+#       class: local
+#       environment: local_env
+#     - id: testing
+#       environment: tpv_dispatcher
+#       resources: testing
+#     # TODO(hxr): implement validation that checks that every destination
+#     # used here is defined above.
+#     # - id: keras_train_and_eval
+#     #   resources: usegpu
+#     # - id: gmx_sim
+#     #   resources: usegpu
+#   resources:
+#     - id: default
+#       default: default
+#       names: [default]
+#       groups:
+#         default: []
+#         testing: [cores, time]   
+#   limits:
+#     - type: "destination_user_concurrent_jobs"
+#       id: "condor_upload"
+#       value: "10"
+#     - type: "walltime"
+#       value: "'148:00:00'"
+#     # Limited time for Interactive tools
+#     - type: "output_size"
+#       value: "'300GB'"
+#     - type: "registered_user_concurrent_jobs"
+#       value: "10"
+#     - type: "anonymous_user_concurrent_jobs"
+#       value: "3"
+
+
+
+# usegalaxy_eu.galaxy_systemd
+# NOTE: replaced by gravity in galaxyproject.galaxy role, but may be useful to set up gunicorn in the future
+
+# galaxy_systemd_mode: "gunicorn"
+# galaxy_systemd_gunicorns: 1
+# galaxy_systemd_gunicorn_workers: 2
+# galaxy_systemd_handlers: 4
+# galaxy_systemd_workflow_schedulers: 1
+# galaxy_systemd_memory_limit: 10
+# galaxy_systemd_handler_env: ""
+# galaxy_systemd_workflow_scheduler_env: ""
+
+# celery_root_dir: "{{ galaxy_local_root }}/celery"
+# galaxy_systemd_celery: true
+# galaxy_systemd_celery_beat_schedule_path: "{{ celery_root_dir }}/celery-beat-schedule"
+# galaxy_systemd_watchdog: true
+# galaxy_systemd_memory_limit_celery_internal: 1
+# galaxy_systemd_memory_limit_celery_external: 1
+# galaxy_systemd_memory_limit_celery_beat: 1
+
+# # The sum of autoscale max * workers for internal and external should not exceed your CPUs
+# galaxy_systemd_celery_internal_workers: 1
+# galaxy_systemd_celery_internal_concurrency: 1
+# galaxy_systemd_celery_internal_autoscale: "1,1"
+# galaxy_systemd_celery_internal_max_tasks: 1
+
+# # Worker for external queue
+# galaxy_systemd_celery_external_workers: 1
+# galaxy_systemd_celery_external_concurrency: 1
+# galaxy_systemd_celery_external_autoscale: "1,1"
+# galaxy_systemd_celery_external_max_tasks: 1
+
+# galaxy_workflow_scheduler_count: 1 #"{{ galaxy_systemd_workflow_schedulers }}"
+
+

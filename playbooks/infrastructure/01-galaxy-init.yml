@@ -1,0 +1,24 @@
+---
+# Initialize Galaxy infrastructure: remaps users, creates paths, installs SSL certs, and configures NTP
+# One time playbook to set up Galaxy servers
+- hosts: galaxyservers
+  become: true
+  become_user: root
+  vars_files:
+  pre_tasks:
+    - name: Install Dependencies
+      package:
+        name: ['acl']
+      become: true
+      become_user: root
+  roles:
+      # Remap galaxy and condor users (as the user IDs are pre set in the VM images)
+      - role: pdg.remap-user
+
+      # Installs and configures the Galaxy local paths
+      # TODO: should handle Galaxy NFS paths too in the future
+      # TODO: let galaxy role handle this.
+      # - role: pdg.create-paths
+
+      # Set NTP
+      - role: influxdata.chrony

@@ -1,0 +1,57 @@
+---
+# grycap.htcondor
+htcondor_role_manager: true
+htcondor_role_submit: true
+htcondor_type_of_node: "front"
+htcondor_password: "{{ vault_condor_pass }}"
+htcondor_server: "{{ internal_address }}"
+htcondor_version: "25.0"
+htcondor_channel: "25.0"
+htcondor_firewall_condor: false
+htcondor_firewall_nfs: false
+condor_ip_range: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').condor_ip_range }}"
+
+# galaxyproject.proftpd
+
+proftpd_galaxy_auth: yes
+# old
+# galaxy_ftp_upload_dir: "{{ galaxy_config.galaxy.ftp_upload_dir }}"
+# TODO: galaxy_server_scratch_dir needs to be c
+galaxy_ftp_upload_dir: "{{galaxy_mutable_data_dir}}/data_stage/ftp/"
+proftpd_display_connect: |
+  {{ inventory_hostname }} FTP
+
+  Unauthorized access is prohibited
+proftpd_galaxy_options:
+  - User: "{{ galaxy_user }}"
+  - Group: "{{ galaxy_group }}"
+proftpd_create_ftp_upload_dir: false
+proftpd_options:
+  - User: "{{ galaxy_user_name }}"
+  - Group: "{{ galaxy_user_name }}"
+  - Port: 21
+# proftpd_sql_db: galaxy@/var/run/postgresql
+proftpd_sql_db: "{{ galaxy_db_name }}@{{ postgres_host }}"
+proftpd_sql_user: "{{ postgres_user }}"
+proftpd_sql_password: "{{ postgres_pass }}"
+proftpd_conf_ssl_certificate: "/etc/letsencrypt/live/{{ server_hostname }}/cert.pem"
+# proftpd_conf_ssl_certificate: /etc/ssl/certs/cert.
+proftpd_conf_ssl_certificate_key: "/etc/letsencrypt/live/{{ server_hostname }}/privkey.pem"
+# proftpd_conf_ssl_certificate_key: /etc/ssl/user/privkey-proftpd.pem
+#proftpd_conf_ssl_ca_certificate:  "/etc/letsencrypt/live/{{ server_hostname }}/chain.pem"
+proftpd_global_options:
+  - PassivePorts: 56000 60000
+proftpd_use_mod_tls_shmcache: false
+proftpd_tls_options: NoSessionReuseRequired
+
+# TODO: Check if this is necessary
+proftpd_virtualhosts:
+  - id: galaxy
+    address: "{{ server_hostname }}"
+    options:
+      - ServerAdmin: admin@usegalaxy.be
+      - ServerName: Galaxy FTP
+      - TransferLog: "/var/log/proftpd/xfer/{{ server_hostname }}"
+      - MaxLoginAttempts: 3
+      - RequireValidShell: no
+      - AllowOverwrite: yes

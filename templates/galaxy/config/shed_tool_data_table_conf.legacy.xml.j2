@@ -1,0 +1,43 @@
+<!-- Paths are relative to the value of `tool_data_path` in galaxy.ini, move to templates-->
+<tables>
+    <table allow_duplicate_entries="False" comment_char="#" name="salmon_indexes_versioned">
+        <columns>value, dbkey, name, path, version</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/iuc/data_manager_salmon_index_builder/7d4fd734b078/salmon_indexes_versioned.loc"/>
+    </table>
+    <table allow_duplicate_entries="False" comment_char="#" name="tx2gene">
+        <columns>value, dbkey, name, path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/ieguinoa/data_manager_fetch_tx2gene/bacd91d8b05a/tx2gene.loc"/>
+    </table>
+    <table comment_char="#" name="bowtie2_indexes">
+        <columns>value, dbkey, name, path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/devteam/data_manager_bowtie2_index_builder/83da94c0e4a6/bowtie2_indices.loc"/>
+    </table>
+    <table allow_duplicate_entries="False" comment_char="#" name="rnastar_index2">
+        <columns>value, dbkey, name, path, with-gtf</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/iuc/data_manager_star_index_builder/6ef6520f14fc/rnastar_index2.loc"/>
+    </table>
+    <table comment_char="#" name="bwa_mem_indexes">
+        <columns>value, dbkey, name, path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/devteam/data_manager_bwa_mem_index_builder/46066df8813d/bwa_mem_index.loc"/>
+    </table>
+    <table allow_duplicate_entries="False" comment_char="#" name="kallisto_indexes">
+        <columns>value, dbkey, name, path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/iuc/data_manager_kallisto_index_builder/6843a0db2da0/kallisto_indexes.loc"/>
+    </table>
+    <table comment_char="#" name="all_gff">
+        <columns>value, dbkey, name, path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/ieguinoa/data_manager_fetch_gff/0bdfe2e85fb0/all_gff.loc"/>
+    </table>
+    <table allow_duplicate_entries="False" comment_char="#" name="hisat2_indexes">
+        <columns>value, dbkey, name, path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/iuc/data_manager_hisat2_index_builder/d210e1f185bd/hisat2_indexes.loc"/>
+    </table>
+    <table comment_char="#" name="all_fasta">
+        <columns>value, dbkey, name, path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/devteam/data_manager_fetch_genome_dbkeys_all_fasta/b1bc53e9bbc5/all_fasta.loc"/>
+    </table>
+    <table comment_char="#" name="__dbkeys__">
+        <columns>value, name, len_path</columns>
+        <file path="{{ galaxy_mutable_config_dir }}/tool-data-legacy/toolshed.g2.bx.psu.edu/repos/devteam/data_manager_fetch_genome_dbkeys_all_fasta/b1bc53e9bbc5/dbkeys.loc"/>
+    </table>
+</tables>

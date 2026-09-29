@@ -1,0 +1,31 @@
+---
+- name: Set Git configuration and cherry-pick commits using Ansible
+  hosts: target_host
+  become: yes
+  tasks:
+  - name: Set Git user email for the repository
+    ansible.builtin.command:
+      cmd: 'git config user.email "pauldegeest1@gmail.com"'
+      chdir: "{{ galaxy_server_dir }}"  # Path to the existing Git repository on the remote machine
+      
+  - name: Set Git user name for the repository
+    ansible.builtin.command:
+      cmd: 'git config user.name "pauldg"'
+      chdir: "{{ galaxy_server_dir }}"
+
+  - name: Fetch Git irods related changes from dev
+    ansible.builtin.command:
+      cmd: 'git remote add irods-changes https://github.com/pauldg/galaxy'
+      chdir: "{{ galaxy_server_dir }}"  # Path to the existing Git repository on the remote machine
+
+  - name: Fetch Git irods related changes from dev
+    ansible.builtin.command:
+      cmd: 'git fetch irods-changes'
+      chdir: "{{ galaxy_server_dir }}"  # Path to the existing Git repository on the remote machine
+
+  - name: Checkout irods.py from development branch
+    ansible.builtin.shell: 
+      cmd: 'git checkout irods-changes/irods_ssl lib/galaxy/objectstore/irods.py'
+    args:
+      chdir: "{{ galaxy_server_dir }}"  # This ensures the command runs in the correct directory
+    ignore_errors: yes  # Ignores errors to handle any conflicts or issues manually

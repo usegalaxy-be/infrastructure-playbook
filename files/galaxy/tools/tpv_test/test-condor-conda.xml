@@ -1,0 +1,17 @@
+<tool id="test-condor-conda" name="TPV test: Condor Conda" version="1.0" hidden="true">
+    <description>Routing test for condor+conda destination (admin use only)</description>
+    <requirements>
+        <requirement type="package" version="8.31">coreutils</requirement>
+    </requirements>
+    <stdio>
+        <!-- Only fail on non-zero exit code; ignore benign conda activation warnings in stderr -->
+        <exit_code range="1:" level="fatal"/>
+    </stdio>
+    <command><![CDATA[
+        echo "TPV test OK" > '$output'
+    ]]></command>
+    <inputs/>
+    <outputs>
+        <data name="output" format="txt" label="tpv-test-condor-conda"/>
+    </outputs>
+</tool>

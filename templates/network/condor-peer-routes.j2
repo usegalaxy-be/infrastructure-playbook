@@ -1,0 +1,14 @@
+#!/bin/bash
+# Managed by Ansible (06-galaxy-postrequisites.yml).
+# Adds host routes for condor peer schedd floating IPs so that the OUTPUT
+# DNAT rules use the VM-network interface as egress. Without these routes,
+# packets to a peer floating IP use the VSC interface, giving them a VSC
+# source IP that the peer cannot reply to via the VM network after DNAT.
+IFACE="$1"
+EVENT="$2"
+
+if [[ "$IFACE" == "{{ ansible_default_ipv4.interface }}" && "$EVENT" == "up" ]]; then
+{% for item in condor_peer_schedd_dnat %}
+    ip route replace {{ item.floating_ip }}/32 dev {{ ansible_default_ipv4.interface }}
+{% endfor %}
+fi

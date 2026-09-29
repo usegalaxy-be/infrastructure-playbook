@@ -1,0 +1,14 @@
+---
+# Block device attached to NFS server for shared storage
+nfs_data_device: "/dev/vdb"
+
+# nfsd thread count. Stock default (8) leaves most vCPUs idle on a
+# metadata/IO-bound workload; tune relative to flavor size.
+nfs_server_threads: 64
+
+# geerlingguy.nfs — exports. Matches live /etc/exports (no path changes).
+# NFSv3 allows mounting any subdirectory of an exported tree, so individual
+# paths under /data/share don't need their own export entries.
+nfs_exports:
+  - "/data/share              *(rw,sync)"
+  - "/data/share/data_stage   *(rw,sync)"

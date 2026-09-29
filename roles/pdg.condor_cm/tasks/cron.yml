@@ -1,0 +1,22 @@
+---
+- name: Copy update-host script
+  become: yes
+  template:
+    src: update-hosts.sh.j2
+    dest: /usr/bin/update-hosts
+    mode: 0744
+
+- name: Creates a cron file under /etc/cron.d
+  become: yes
+  cron:
+    name: update hosts
+    special_time: hourly
+    user: root
+    job: "/usr/bin/update-hosts"
+    cron_file: ansible_update_hosts
+
+- name: Condor auto approve
+  ansible.builtin.cron:
+    name: condor_auto_approve
+    minute: 0
+    job: "/usr/bin/condor_token_request_auto_approve -netblock {{ condor_ip_range }} -lifetime 3660"

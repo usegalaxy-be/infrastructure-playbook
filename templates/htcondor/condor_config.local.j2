@@ -1,0 +1,91 @@
+# =============================================================================
+# HTCondor local configuration — managed by Ansible
+# Replaces the hand-maintained /etc/condor/condor_config.local.
+# Loaded after all files in /etc/condor/config.d/; overrides role defaults.
+# Variables: inventories/group_vars/galaxyservers/condor.yml
+# =============================================================================
+
+# --- Pool identity -----------------------------------------------------------
+# CONDOR_HOST is the central manager (collector + negotiator).
+# Prod and test both point to the same host (usegalaxy.be internal address).
+CONDOR_HOST      = {{ htcondor_server }}
+COLLECTOR_HOST   = $(CONDOR_HOST)
+{% if condor_tcp_forwarding_host | default('') %}
+
+# Workers in other OpenStack projects (e.g. VIB in VSC_2024_002) cannot reach
+# the VM-network address directly. TCP_FORWARDING_HOST causes all daemons on
+# this host to advertise {{ condor_tcp_forwarding_host }} as an additional address
+# so CCB reverse connections from those workers succeed.
+TCP_FORWARDING_HOST = {{ condor_tcp_forwarding_host }}
+{% endif %}
+
+# All nodes in the pool share the same filesystem and UID namespace via NFS.
+FILESYSTEM_DOMAIN = {{ condor_filesystem_domain }}
+UID_DOMAIN        = $(FILESYSTEM_DOMAIN)
+TRUST_UID_DOMAIN  = True
+SOFT_UID_DOMAIN   = True
+
+# --- Daemon list -------------------------------------------------------------
+{% if htcondor_role_manager | default(false) %}
+# Central manager + schedd: runs collector, negotiator, and job submission.
+DAEMON_LIST = COLLECTOR, MASTER, NEGOTIATOR, SCHEDD
+{% else %}
+# Submit-only node: runs schedd only; collector and negotiator are on the CM.
+DAEMON_LIST = MASTER, SCHEDD
+{% endif %}
+
+# --- Security ----------------------------------------------------------------
+# Pool is isolated to the private OpenStack network. ALLOW_WRITE covers all
+# daemons that need to write to the pool (startds, schedds, negotiator).
+ALLOW_WRITE         = {{ condor_allow_write }}
+ALLOW_READ          = $(ALLOW_WRITE)
+ALLOW_NEGOTIATOR    = $(ALLOW_WRITE)
+ALLOW_ADMINISTRATOR = condor@* condor@password root@*
+
+# Token-based auth (IDTOKENS) is the primary method; FS as fallback for local.
+# password-based match auth kept for compatibility with VGCN worker images.
+SEC_ENABLE_MATCH_PASSWORD_AUTHENTICATION = True
+
+{% if htcondor_role_manager | default(false) %}
+# --- Scheduling --------------------------------------------------------------
+# How often the negotiator runs a full matchmaking cycle.
+NEGOTIATOR_INTERVAL = {{ condor_negotiator_interval }}
+
+# Rate-limit job starts to avoid hammering the startd on wave submissions.
+JOB_START_COUNT = {{ condor_job_start_count }}
+JOB_START_DELAY = {{ condor_job_start_delay }}
+
+# How long a startd holds a claim for the same schedd between jobs.
+# 1200 s keeps slots warm for the next Galaxy job without indefinite hold.
+CLAIM_WORKLIFE = {{ condor_claim_worklife }}
+
+# --- Slot ranking ------------------------------------------------------------
+# HTCondor's default NEGOTIATOR_PRE_JOB_RANK bin-packs by fewest available
+# CPUs, which unconditionally prefers the smaller GPU node over larger non-GPU
+# workers regardless of the job's own rank expression. This routes non-GPU jobs
+# onto the GPU node first, wasting GPU capacity and triggering rank-based
+# preemption storms (see Preemption section below).
+#
+# The penalty term (-5M for GPU slots when the job requests no GPUs) dominates
+# the CPU-size bias (at most ~100k * 32 = 3.2M for the largest worker) while
+# still allowing the GPU node as a fallback when all non-GPU slots are full.
+NEGOTIATOR_PRE_JOB_RANK = (10000000 * My.Rank) \
+  + (1000000 * (RemoteOwner =?= UNDEFINED)) \
+  - (100000 * Cpus) - Memory \
+  - (5000000 * (MY.TotalGPUs > 0) * (TARGET.RequestGPUs =?= 0))
+
+# --- Preemption --------------------------------------------------------------
+# Disable all negotiator-driven preemption.
+#
+# galaxy_master@vgcn is the single HTCondor submitter for all Galaxy jobs.
+# During a training burst on 2026-04-20, non-GPU jobs landed on the GPU worker
+# (see NEGOTIATOR_PRE_JOB_RANK above) and got CurrentRank=-1000. Any queued
+# job evaluated to rank 0, so 0 > -1000 triggered rank-based preemption every
+# 60 s negotiation cycle (4-17 evictions per job). Galaxy's monitor_thread
+# drops jobs from its watch list on eviction, leaving them stuck as "running".
+#
+# NEGOTIATOR_CONSIDER_PREEMPTION = False stops all preemption before rank
+# evaluation happens — defensive fix complementing the slot ranking above.
+NEGOTIATOR_CONSIDER_PREEMPTION       = False
+NEGOTIATOR_CONSIDER_EARLY_PREEMPTION = False
+{% endif %}

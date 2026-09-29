@@ -1,0 +1,94 @@
+---
+# Deploy the pdg.galaxy-tools tool installation and testing service to galaxyservers.
+#
+# Default run: (re)applies the weekly `shed-tools install` cron and the tool-test units.
+#   ansible-playbook playbooks/daily/daily-galaxy-tools.yml --limit prodgalaxyservers --diff
+#
+# ---------------------------------------------------------------------------
+# Test-selection modes -- galaxy_tools_test_mode, set per host below in
+# galaxy_tools_test_modes. These pick *which* tools get tested, not how.
+#
+#   since_date   Tools added to the local sqlite install DB since the previous
+#                run, tracked in .last_test_since_date. Hosts that install their
+#                own tools (prod). Default.
+#
+#   synced_diff  Tool GUIDs that appeared in the synced shed_tool_conf.xml since
+#                the previous run. Hosts whose catalog arrives by rsync rather
+#                than local installs (test) -- since_date's DB query sees
+#                nothing there. Resolves to tools_file before the tests run.
+#
+#   tools_file   Exactly the tools in galaxy_tools_installed_tool_list: toolshed
+#                URLs one per line, or an ephemeris YAML. Versions in the list
+#                are ignored, only the tool name is used.
+#
+#   ephemeris    Every installed tool, from a get-tool-list dump. Driven by
+#                playbooks/one-off/galaxy-tool-tests-all.yml, not from here.
+#
+# A tool with an existing result JSON in tests/ is skipped, except in the full
+# sweep, which re-tests everything (galaxy_tools_full_sweep_force).
+# ---------------------------------------------------------------------------
+#
+# Test one specific tool list instead of the host's usual mode:
+#   ansible-playbook playbooks/daily/daily-galaxy-tools.yml --limit test.usegalaxy.be \
+#     -e install_tools=false \
+#     -e galaxy_tools_test_mode=tools_file \
+#     -e galaxy_tools_installed_tool_list=/abs/path/on/controller/my-tools.txt \
+#     -e parallel_tests=4 --diff
+#
+# Rerun since_date from a fixed date instead of the checkpoint (does not advance it):
+#   ansible-playbook playbooks/daily/daily-galaxy-tools.yml --limit prodgalaxyservers \
+#     -e install_tools=false -e test_tools_since_date=2026-09-01 --diff
+#
+# Avoid --check: the `systemctl is-active` shell task is skipped in check mode, leaving
+# service_status.stdout undefined for the task that reads it.
+#
+# Reference: https://docs.galaxyproject.org/en/latest/admin/tools/index.html
+# ============================================================================
+
+- hosts: galaxyservers
+  become: true
+  become_user: root
+  vars:
+    # Test-selection mode per host, see the table at the top of this file.
+    galaxy_tools_test_mode_default: since_date
+    galaxy_tools_test_modes:
+      test.usegalaxy.be: synced_diff
+
+  pre_tasks:
+    - name: Print galaxy_virtualenv_command
+      debug:
+        msg: "galaxy_virtualenv_command: {{ galaxy_virtualenv_command }}"
+
+  roles:
+
+      # Install and/or test tools
+      - role: pdg.galaxy-tools
+        vars:
+          install_ephemeris: yes
+          install_galaxy_tool_util: yes
+
+          # install_tools: yes deploys the weekly `shed-tools install` cron
+          # (galaxy_tools_install_schedule) that installs new/updated tools.
+          # It also deploys galaxy-tool-install.service (tool_install.py), a
+          # separate, unproven per-revision installer -- keep that from
+          # auto-starting here, this run is only meant to (re)apply the cron.
+          install_tools: yes
+          galaxy_tools_install_service_autostart: no
+
+          # test_tools: yes deploys the test scripts and starts
+          # galaxy-tool-tests.service (only if it is not already running).
+          test_tools: yes
+
+          galaxy_tools_test_mode: >-
+            {{ galaxy_tools_test_modes[inventory_hostname]
+               | default(galaxy_tools_test_mode_default) }}
+
+          # Tool list used by tools_file mode. Controller-side path; copied to the
+          # host with force: no, so a file of the same basename there is never
+          # overwritten -- use a new name or remove the remote copy first.
+          galaxy_tools_installed_tool_list: "{{ inventory_dir }}/../files/galaxy/tools-to-test.txt"
+
+          # Empty: tool_tests.py uses its own checkpoint file instead of a fixed date.
+          test_tools_since_date: ""
+
+          parallel_tests: 1

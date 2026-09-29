@@ -1,0 +1,167 @@
+#!/usr/bin/env python3
+"""
+Backfill historical data into the internal_metrics InfluxDB database.
+
+Runs the same queries as galaxy-metrics-internal but over a historical date range,
+writing each day's data with the timestamp Telegraf would have used (next day 00:00:01 UTC).
+
+Must run on the Galaxy VM (usegalaxy.be) — needs psycopg2 and DB access via the
+same env vars Telegraf uses: PGHOST, PGDATABASE, PGUSER, PGPASSWORD.
+
+Usage (from usegalaxy.be):
+    PGHOST=db.usegalaxy.be PGDATABASE=galaxy PGUSER=telegraf PGPASSWORD=<pass> \
+    GALAXY_METRICS_QUERIES_FILE=/usr/local/share/galaxy-metrics/queries_daily.sql \
+    python3 backfill_internal_metrics.py \
+        --start 2023-01-01 \
+        --end 2026-05-11 \
+        --influxdb-user grafana_user \
+        --influxdb-password <pass>
+
+    # Dry-run first to inspect output:
+    ... --dry-run 2>&1 | head -40
+
+--end is exclusive: the last day backfilled is end - 1 day.
+Set --end to the date of the first timestamp already in InfluxDB to avoid duplicates.
+"""
+
+import os
+import sys
+import argparse
+import base64
+import ssl
+import urllib.request
+import urllib.error
+import psycopg2
+from decimal import Decimal
+from datetime import date, datetime, timedelta, timezone
+
+QUERIES_FILE = os.environ.get(
+    'GALAXY_METRICS_QUERIES_FILE',
+    '/usr/local/share/galaxy-metrics/queries_daily.sql',
+)
+
+
+def load_queries(path):
+    queries = {}
+    current_category = current_description = None
+    current_query = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('-- CATEGORY: '):
+                if current_category and current_query:
+                    queries[current_category] = (current_description, '\n'.join(current_query))
+                current_category = line[len('-- CATEGORY: '):]
+                current_description = None
+                current_query = []
+            elif line.startswith('-- DESCRIPTION: '):
+                current_description = line[len('-- DESCRIPTION: '):]
+            elif line:
+                current_query.append(line)
+    if current_category and current_query:
+        queries[current_category] = (current_description, '\n'.join(current_query))
+    return queries
+
+
+def parameterize_query(query, data_date):
+    """Replace current_date references with a fixed date for backfill."""
+    next_date = data_date + timedelta(days=1)
+    return query.replace(
+        "date_trunc('day', current_date - interval '1 day')",
+        f"'{data_date}'::date",
+    ).replace(
+        "date_trunc('day', current_date)",
+        f"'{next_date}'::date",
+    )
+
+
+def escape_tag(value):
+    return str(value).replace('\\', '\\\\').replace(' ', '\\ ').replace(',', '\\,').replace('=', '\\=')
+
+
+def day_to_timestamp(d):
+    """Unix seconds for 00:00:01 UTC on the given date — matches Telegraf exec timing."""
+    return int(datetime(d.year, d.month, d.day, 0, 0, 1, tzinfo=timezone.utc).timestamp())
+
+
+def write_to_influxdb(lines, url, db, user, password):
+    payload = '\n'.join(lines).encode()
+    endpoint = f'{url}/write?db={db}&precision=s'
+    creds = base64.b64encode(f'{user}:{password}'.encode()).decode()
+    req = urllib.request.Request(endpoint, data=payload, method='POST')
+    req.add_header('Authorization', f'Basic {creds}')
+    req.add_header('Content-Type', 'application/octet-stream')
+    ctx = ssl.create_default_context()
+    with urllib.request.urlopen(req, context=ctx) as resp:
+        return resp.status
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Backfill internal_metrics InfluxDB database')
+    parser.add_argument('--start', required=True, help='First data day YYYY-MM-DD (inclusive)')
+    parser.add_argument('--end', required=True,
+                        help='Last data day YYYY-MM-DD (exclusive — set to earliest date already in InfluxDB)')
+    parser.add_argument('--influxdb-url', default='http://monitoring.usegalaxy.be:8086')
+    parser.add_argument('--influxdb-db', default='internal_metrics')
+    parser.add_argument('--influxdb-user', default=os.environ.get('INFLUXDB_USER', ''))
+    parser.add_argument('--influxdb-password', default=os.environ.get('INFLUXDB_PASSWORD', ''))
+    parser.add_argument('--dry-run', action='store_true',
+                        help='Print line protocol to stdout instead of writing to InfluxDB')
+    args = parser.parse_args()
+
+    if not args.dry_run and not (args.influxdb_user and args.influxdb_password):
+        print('ERROR: --influxdb-user and --influxdb-password required (or set INFLUXDB_USER/INFLUXDB_PASSWORD)',
+              file=sys.stderr)
+        sys.exit(1)
+
+    start = date.fromisoformat(args.start)
+    end = date.fromisoformat(args.end)
+
+    conn = psycopg2.connect('')
+    try:
+        queries = load_queries(QUERIES_FILE)
+        d = start
+        while d < end:
+            # Timestamp written to InfluxDB: the day Telegraf *would* have run (next day at 00:00:01 UTC)
+            timestamp = day_to_timestamp(d + timedelta(days=1))
+            lines = []
+            with conn.cursor() as cur:
+                for category, (_, query) in queries.items():
+                    measurement = category.replace(' ', '_').lower()
+                    cur.execute(parameterize_query(query, d))
+                    col_names = [desc[0] for desc in cur.description]
+                    for row in cur.fetchall():
+                        tags, fields = [], []
+                        for col, val in zip(col_names, row):
+                            if isinstance(val, (int, float, Decimal)):
+                                fields.append(f'{col}={float(val)}')
+                            elif val is not None:
+                                tags.append(f'{col}={escape_tag(val)}')
+                        if fields:
+                            tag_str = (',' + ','.join(tags)) if tags else ''
+                            lines.append(f'{measurement}{tag_str} {",".join(fields)} {timestamp}')
+
+            if args.dry_run:
+                for line in lines:
+                    print(line)
+            elif lines:
+                try:
+                    write_to_influxdb(lines, args.influxdb_url, args.influxdb_db,
+                                      args.influxdb_user, args.influxdb_password)
+                    print(f'{d}: {len(lines)} points written', file=sys.stderr)
+                except urllib.error.HTTPError as e:
+                    print(f'{d}: HTTP {e.code} — {e.read().decode()}', file=sys.stderr)
+                    sys.exit(1)
+                except Exception as e:
+                    print(f'{d}: ERROR — {e}', file=sys.stderr)
+                    sys.exit(1)
+            else:
+                print(f'{d}: no data (skipped)', file=sys.stderr)
+
+            d += timedelta(days=1)
+    finally:
+        conn.close()
+
+
+if __name__ == '__main__':
+    main()

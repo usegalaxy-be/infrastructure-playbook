@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+{{ ansible_managed | comment }}
+# Load the env file (secrets), then run the probe. One summary line per run to the log.
+set -euo pipefail
+cd "{{ galaxy_healthcheck_dir }}"
+set -a
+# shellcheck disable=SC1091
+source "{{ galaxy_healthcheck_dir }}/healthcheck.env"
+set +a
+exec "{{ galaxy_healthcheck_venv }}/bin/python" \
+  "{{ galaxy_healthcheck_dir }}/galaxy_job_healthcheck.py" \
+  >> "{{ galaxy_healthcheck_log }}" 2>&1

@@ -1,0 +1,4 @@
+# NetBox connection — set NETBOX_URL and NETBOX_TOKEN before running playbooks.
+# Requires: NETBOX_URL, NETBOX_TOKEN environment variables.
+netbox_url: "{{ lookup('env', 'NETBOX_URL') }}"
+netbox_token: "{{ lookup('env', 'NETBOX_TOKEN') }}"

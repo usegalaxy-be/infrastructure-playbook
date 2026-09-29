@@ -1,0 +1,182 @@
+"""This script is a producer that publishes condor status details to the queue"""
+
+import argparse
+from datetime import datetime
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import yaml
+import logging
+
+
+# Keep track of the status of each tool test
+def test_passed(output_path, tool_name):
+    """Parse the JSON output to determine if the tool passed."""
+    if not os.path.exists(output_path):
+        return False
+    try:
+        with open(output_path) as f:
+            results = json.load(f)
+        for result in results["tests"]:
+            if tool_name in result.get("id", "") and result.get("status") == "success":
+                return True
+    except Exception as e:
+        print(f"Error parsing test result for {tool_name}: {e}")
+    return False
+
+# Append current test result to tool_test_output_all.json
+def append_tests_to_master(current_output_path, master_output_path):
+    if not os.path.exists(current_output_path):
+        return
+
+    try:
+        # Load the current output JSON
+        with open(current_output_path) as f:
+            current_data = json.load(f)
+        
+        new_entries = current_data.get("tests", [])
+        timestamp = datetime.now().isoformat()
+        
+        # Add timestamp to each test entry
+        for test in new_entries:
+            test["appended_at"] = timestamp
+
+        # Load or initialize the master log
+        if os.path.exists(master_output_path):
+            with open(master_output_path) as f:
+                master_data = json.load(f)
+        else:
+            master_data = []
+
+        # Append all new entries
+        master_data.extend(new_entries)
+
+        # Save updated master log
+        with open(master_output_path, "w") as f:
+            json.dump(master_data, f, indent=2)
+
+    except Exception as e:
+        print(f"Error while appending to master log: {e}")
+
+
+def main(tool_lists: str, parallel: int) -> None:
+    for tools in tool_lists:
+        """Load the tools from the YAML file, install them and run the tests."""
+        with open(tools, "r") as f:
+            tools_dict = yaml.safe_load(f)
+
+        # Load or initialize the master log
+        master_output_path = "{{ galaxy_master_tool_install_test_file }}" #"tool_install_test_output_all.json"
+        if os.path.exists(master_output_path):
+            with open(master_output_path) as f:
+                master_data = json.load(f)
+        else:
+            master_data = []
+
+        # Collect all tool IDs from the master log
+        executed_tests = []
+        for tool_test in master_data:
+            for test in tool_test["tests"]:
+                if "tool_id" in test["data"]:
+                    executed_tests.append(test["data"]["tool_id"])
+                else:
+                    print(f"Tool ID not found in test data: {test}")
+
+        # Install tool and run tests
+        for tool in tools_dict["tools"]:
+
+            # Example tool entry:
+            # - name: ena_upload
+            #     owner: iuc
+            #     revisions:
+            #       - ea5e944f447d
+            #     tool_panel_section_id: send
+            #     tool_panel_section_label: Send Data
+            #     tool_shed_url: toolshed.g2.bx.psu.edu
+
+            tool_name = tool["name"]
+            test_output = "/tmp/tool_test_output_" + tool_name + ".json" #{{ galaxy_tool_install_test_file }}
+
+            if any(tool_name in test_tool_id for test_tool_id in executed_tests):
+                print(f"Skipping already executed tests for: {tool_name}")
+                continue
+            
+            print(f"Installing and running test for: {tool_name}")
+            for revision in tool["revisions"]:
+                cmd_args = ["{{ ephemeris_venv_dir }}/bin/shed-tools", "install",
+                                "--name", tool_name, "--owner", tool["owner"],
+                                "--revisions", revision,
+                                #"--section", tool["tool_panel_section_id"],
+                                "--section-label", tool['tool_panel_section_label'],
+                                "-a", "{{ galaxy_singularity_user_api_key }}",
+                                "-g", "{{ galaxy_tools_galaxy_instance_url }}",
+                                "-v",
+                                "--test",
+                                "--skip-install-resolver-dependencies",
+                                #"--test-history-name", tool_name,
+                                "--test-json", test_output, #"{{ galaxy_tool_install_test_file }}",
+                                "--log-file", "{{ galaxy_tools_install_log_file }}"
+                            ]
+
+                
+                logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)                       
+                log = logging.getLogger(__name__)
+                cmd_str = " ".join(cmd_args)
+                log.info("Executing cmd '%s'", cmd_str)
+                result = subprocess.run(cmd_args, check=True, capture_output = True, text = True)
+                print("Command stdout and stderr:")
+                print(result.stdout)
+                print(result.stderr)
+
+                # Load the current output JSON
+                #current_output_path = "{{ galaxy_tool_install_test_file }}"
+
+                if os.path.exists(test_output):
+                    with open(test_output) as f:
+                        current_data = json.load(f)
+
+                    if len(current_data["tests"]) > 0:
+                        current_data["tool_id"] = current_data["tests"][0]["data"]["tool_id"] + "/" + current_data["tests"][0]["data"]["tool_version"]
+                        for entry in current_data["tests"]:
+                            if "job" in entry.get("data", {}):
+                                entry["data"]["job"]["job_metrics"] = {}
+                            else:
+                                # Optional: log or handle missing 'job' case
+                                entry.setdefault("data", {})["job"] = {"job_metrics": {}}
+                            
+                    
+                    # Add timestamp to each test entry
+                    current_data["appended_at"] = datetime.now().isoformat()
+
+                    # Append all new entries
+                    master_data.append(current_data)
+
+                    # Save updated master log
+                    with open(master_output_path, "w") as f:
+                        json.dump(master_data, f, indent=4)
+
+                    print("All tests attempted or resumed.")
+                    
+                else:
+                    print(f"[SKIPPED] {tool_name} already installed, test not executed.")
+
+
+        # tpv_singularity_tools = {}
+        # for tool in tool_list:
+        #     if tool_test["data"]["status"] == "failure":
+        #         tpv_singularity_tools[tool_test["id"]] = {"inherits": "_legacy"}
+                    
+        # with open('tpv_config_output', 'w', encoding='utf8') as outfile:
+        #     yaml.dump(tpv_singularity_tools, outfile, default_flow_style=False, allow_unicode=True)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Ephemeris Tool Testing.")
+    parser.add_argument("tools", nargs='+', type=str, help="Path to list of tools to test (YAML).")
+    parser.add_argument("--parallel", "-p", type=int, default=1, help="Number of tests to run in parrallel.")
+    args = parser.parse_args()
+
+    main(args.tools, args.parallel)

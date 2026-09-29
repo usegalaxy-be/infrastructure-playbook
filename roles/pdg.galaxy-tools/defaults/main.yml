@@ -1,0 +1,136 @@
+---
+# Which tasks to run
+install_ephemeris: yes
+install_galaxy_tool_util: yes
+install_tools: yes
+test_tools: yes
+install_workflows: no
+
+galaxy_tools_repo: https://github.com/usegalaxy-be/usegalaxy-be-tools.git
+tool_install_dir: "{{ galaxy_local_root }}/galaxy-tools"
+tool_test_dir: "{{ tool_install_dir }}/tests"
+tool_test_data: "{{ tool_install_dir }}/galaxy-test-data"
+tools_repo_dir: "{{ tool_install_dir }}/usegalaxy-be-tools"
+clone_diff_mode_verbose: "{{ ansible_diff_mode }}"
+
+## Below variable names are used in several other roles that compose Galaxy's
+## playbooks and are hence scoped differently
+# User name for the system galaxy user
+# galaxy_user_name: galaxy
+tools_user: "{{ galaxy_user_name }}"
+tools_group: "{{ galaxy_user_name }}"
+
+parallel_installation_tests: 1
+parallel_tests: 1
+
+# A URL or an IP address for the Galaxy instance where the tools are to be
+# installed
+galaxy_tools_galaxy_instance_url: 127.0.0.1:8080
+
+# Galaxy venv where ephemeris should be installed
+ephemeris_venv_dir: "{{ tool_install_dir }}/ephemeris_venv"
+
+# Galaxy venv where galaxy-tool-util should be installed
+galaxy_tool_util_venv_dir: "{{ tool_install_dir }}/galaxy_tool_util_venv"
+
+# API key for Conda-only user (for resubmitting failed tests)
+galaxy_singularity_user_api_key: ''
+
+# API key for Conda-only user (for resubmitting failed tests)
+galaxy_conda_user_api_key: ''
+
+# SQLite DB path for installed tools
+sqlite_db_path: "{{ galaxy_install_database_connection}}"
+
+# >-
+#  {{ galaxy_install_database_connection
+#   | regex_replace('^sqlite:(//)+', '/') 
+#   | regex_replace('\\?isolation_level=IMMEDIATE$', '')
+#   }}
+
+# Date filter for since_date mode. Empty lets tool_tests.py use its own checkpoint
+# file instead (recommended); set here only to force a one-off run.
+test_tools_since_date: ""
+
+## Tool installation vars
+
+# A list of yml files that list the tools to be installed. See `files/tool_list.yaml.sample`
+# file for more about the format requirements of this file. The file names must be unique.
+# galaxy_tools_tool_list_files: [ "tools_iuc.yaml", "belgium-custom.yaml", "GTN_tutorials_tools.yaml" ]
+galaxy_tools_tool_list_files: 
+  - "{{ tools_repo_dir }}/tools_iuc.yaml.lock"
+  - "{{ tools_repo_dir }}/belgium-custom.yaml.lock"
+  - "{{ tools_repo_dir }}/GTN_tutorials_tools.yaml.lock"
+
+# Record tool test output to specified file. This file can be turned into reports with planemo test_reports <output.json>.
+galaxy_tool_install_test_file: "{{ tool_install_dir }}/tool_install_test_output.json"
+galaxy_master_tool_install_test_file: "{{ tool_install_dir }}/tool_install_test_output_all.json"
+
+# Tool install log file
+galaxy_tools_install_log_file: "{{ tool_install_dir }}/tool_install.log"
+
+## Tool test vars
+
+# A yml file with the list of currently installed tools, or a text file with toolshed URLs (one per line).
+galaxy_tools_installed_tool_list: "{{ tool_install_dir }}/installed_tools.yaml"
+
+# Mode for selecting tools to test: 'since_date' | 'tools_file' | 'ephemeris'
+# - 'since_date' : query the sqlite DB using `test_tools_since_date` and `sqlite_db_path`
+# - 'tools_file' : load tools from `galaxy_tools_installed_tool_list` (plain text or YAML)
+# - 'ephemeris'  : generate/load ephemeris YAML using get-tool-list
+galaxy_tools_test_mode: "ephemeris"
+
+# Ephemeris YAML path, written by get-tool-list for ephemeris mode and for the
+# full-sweep service. Kept separate from galaxy_tools_installed_tool_list so it
+# can't overwrite the curated allowlist.
+galaxy_tools_full_sweep_tool_list: "{{ tool_install_dir }}/installed_tools_full.yaml"
+
+# Unit deployed by test_tool_list.yml and triggered by run_full_sweep.yml.
+galaxy_tools_full_sweep_unit: galaxy-tool-tests-full.service
+
+# The full sweep re-tests every tool, including ones with a result from an
+# earlier run. The other modes keep skipping already-tested tools.
+galaxy_tools_full_sweep_force: true
+
+# (deprecated) Set this to true if using a custom toolshed URL list instead of ephemeris YAML format
+galaxy_tools_custom_toolshed_list: false
+
+# Record tool test output to specified file. This file can be turned into reports with planemo test_reports <output.json>.
+# galaxy_tool_test_file: "{{ tool_install_dir }}/tool_test_output.json"
+galaxy_master_tool_test_file: "{{ tool_install_dir }}/tool_test_output_all.json"
+galaxy_master_tool_test_file_formatted: "{{ tool_install_dir }}/tool_test_output_all_formatted.json"
+
+# Tool test log file
+# galaxy_tools_test_log_file: "{{ tool_install_dir }}/tool_test.log"
+
+
+## Workflow installation/test vars
+
+# List of workflow files to be installed. List the path to the workflows, e.g.:
+# galaxy_tools_workflows:
+#   - sample-workflow.ga
+
+galaxy_tools_workflows: []
+
+# Tool install schedule
+galaxy_tool_install_minute: "0"
+# galaxy_tool_install_day: "*"
+# galaxy_tool_install_month: "*"
+galaxy_tool_install_weekday: "6"
+
+# One weekly shed-tools install timer per file, staggered. Uses the .lock
+# files (every revision listed, not just latest).
+galaxy_tools_install_schedule:
+  - name: tools_iuc
+    hour: "1"
+  - name: belgium-custom
+    hour: "3"
+  - name: GTN_tutorials_tools
+    hour: "5"
+
+# galaxy-tool-install.service is a separate, unproven installer -- don't autostart it.
+galaxy_tools_install_service_autostart: true
+
+
+
+

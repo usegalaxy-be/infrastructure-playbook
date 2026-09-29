@@ -1,0 +1,251 @@
+{
+  "title": "TPV Job Tests",
+  "uid": "be-tpv-job-tests",
+  "description": "End-to-end job execution health per TPV destination on test.usegalaxy.be. Jobs run every 2h via cron and after every TPV config deploy.",
+  "tags": [
+    "galaxy",
+    "tpv",
+    "testing"
+  ],
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "refresh": "5m",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "weekStart": "",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Last Run Status per Destination",
+      "description": "Most recent result for each TPV test destination. Green = job completed ok, red = failed/errored.",
+      "gridPos": {
+        "h": 5,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "alias": "$tag_tool",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"ok\") FROM \"tpv_job_test\" WHERE host = '$host' AND $timeFilter GROUP BY \"tool\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "color": "dark-red",
+                  "text": "FAIL",
+                  "index": 0
+                },
+                "1": {
+                  "color": "green",
+                  "text": "OK",
+                  "index": 1
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "dark-red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short",
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Job Test History",
+      "description": "ok=1 (success) or ok=0 (failure) per destination over time. Each point is one playbook run.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "alias": "$tag_tool",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT \"ok\" FROM \"tpv_job_test\" WHERE host = '$host' AND $timeFilter GROUP BY \"tool\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "points",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "pointSize": 8,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "always",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "max": 1.2,
+          "min": -0.2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "usegalaxy.be",
+          "value": "usegalaxy.be"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "host",
+        "options": [
+          {
+            "selected": true,
+            "text": "usegalaxy.be",
+            "value": "usegalaxy.be"
+          },
+          {
+            "selected": false,
+            "text": "test.usegalaxy.be",
+            "value": "test.usegalaxy.be"
+          }
+        ],
+        "query": "usegalaxy.be,test.usegalaxy.be",
+        "type": "custom",
+        "label": "Host"
+      }
+    ]
+  }
+}

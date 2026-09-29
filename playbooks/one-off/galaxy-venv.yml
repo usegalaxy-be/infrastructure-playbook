@@ -1,0 +1,34 @@
+---
+# One-off: reinstall Galaxy Python venv dependencies (galaxy_fetch_dependencies) + static setup.
+# Equivalent to daily-galaxy-install-deps.yml; kept here as a record of the specific run.
+
+- name: Galaxy venv update
+  hosts: galaxyservers
+  become_user: galaxy_master
+  pre_tasks:
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/assert-tmpfs-venv.yml"
+  roles:
+    # set up local galaxy clone and local config
+    - role: galaxyproject.galaxy
+      galaxy_separate_privileges: no
+      galaxy_manage_clone: no
+      galaxy_manage_static_setup: yes
+      galaxy_manage_mutable_setup: no
+      galaxy_manage_subdomain_static: no
+      # galaxy_manage_themes: "{{ __galaxy_manage_themes | default(true) }}"
+      galaxy_manage_database: no
+      galaxy_fetch_dependencies: yes
+      galaxy_manage_errordocs: no
+      galaxy_build_client: no
+      galaxy_manage_systemd: no
+      galaxy_manage_gravity: no
+
+    # Adds a TPV (Total Perspective Vortex) lint script that automatically lints all TPV YAML files
+    # some custom changes to allow a different user than root to install scripts and copy tpv related files
+
+  post_tasks:
+    # venv changed (galaxy_fetch_dependencies) -> refresh this env's worker tmpfs.
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/refresh-worker-tmpfs.yml"
+
+  handlers:
+  #TODO: Include a handler to reload toolbox

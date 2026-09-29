@@ -1,0 +1,31 @@
+---
+# ============================================================================
+# Fetch /etc/hosts from all managed servers
+# ============================================================================
+#
+# Purpose: Retrieve the current /etc/hosts from every managed host and store
+#          it locally under inventories/host_files/<hostname>/etc_hosts so
+#          that the actual state of each machine is tracked in version control.
+#
+# Usage:
+#   ansible-playbook playbooks/one-off/fetch-hosts-files.yml
+#
+# Output:
+#   inventories/host_files/<hostname>/etc_hosts
+#
+# Run this after any playbook that modifies /etc/hosts (e.g. 04-galaxy.yml,
+# 00-proxy.yml) to keep the tracked copies up to date.
+# ============================================================================
+
+- name: Fetch /etc/hosts from all managed servers
+  hosts: all
+  become: true
+  become_user: root
+  gather_facts: false
+
+  tasks:
+    - name: Fetch /etc/hosts
+      ansible.builtin.fetch:
+        src: /etc/hosts
+        dest: "{{ playbook_dir }}/../../inventories/host_files/{{ inventory_hostname }}/etc_hosts"
+        flat: true

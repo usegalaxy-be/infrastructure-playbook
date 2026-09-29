@@ -1,0 +1,57 @@
+---
+# Common repo fixes applied as pre_tasks across infrastructure playbooks.
+#
+# Problems addressed:
+#   1. skip_if_unavailable: repos that are configured but unreachable (e.g. htcondor-stable,
+#      pgdg13 on machines that don't need them) block all yum/dnf operations.
+#      Setting skip_if_unavailable=True makes dnf silently skip unreachable repos.
+#
+#   2. pgdg GPG key rotation: the pgdg project rotated their RPM signing key; the old
+#      key file at /etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG causes "Bad GPG signature" errors.
+#      We refresh it from the canonical upstream URL before any package operations.
+
+- name: Set skip_if_unavailable=True in dnf.conf (silences unreachable repo errors)
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/dnf.conf
+    regexp: '^skip_if_unavailable='
+    insertafter: '^\[main\]'
+    line: 'skip_if_unavailable=True'
+
+# openssl 3.5.5-5.el9_8 breaks ansible get_url with SSL [ASN1: NOT_ENOUGH_DATA]
+# (ansible/ansible#87251). Any node that ends up on it fails the get_url below, so downgrade
+# to the last good build first. Downgrade every installed openssl* package together (openssl-devel
+# on build/GPU nodes pins openssl-libs, so a libs-only downgrade would depsolve-conflict).
+- name: List installed openssl packages and version
+  ansible.builtin.command: rpm -qa --qf '%{NAME} %{VERSION}-%{RELEASE}\n' openssl openssl-libs openssl-devel
+  register: fix_repos_openssl
+  changed_when: false
+  when: ansible_os_family == "RedHat"
+
+- name: Downgrade the get_url-breaking openssl to the last good build
+  ansible.builtin.dnf:
+    name: "{{ fix_repos_openssl.stdout_lines | map('regex_replace', '^(\\S+)\\s.*$', '\\1-' ~ (openssl_safe_version | default('3.5.5-4.el9_8'))) | list }}"
+    state: present
+    allow_downgrade: true
+    disable_excludes: main
+  when:
+    - ansible_os_family == "RedHat"
+    - (openssl_broken_version | default('3.5.5-5.el9_8')) in (fix_repos_openssl.stdout | default(''))
+
+- name: Fetch current pgdg RPM GPG key (rotated; refreshes stale local copy)
+  ansible.builtin.get_url:
+    url: https://download.postgresql.org/pub/repos/yum/keys/PGDG-RPM-GPG-KEY-RHEL
+    dest: /etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG
+    force: true
+    mode: '0644'
+  when: ansible_os_family == "RedHat"
+
+- name: Import pgdg RPM GPG key into rpm keyring
+  ansible.builtin.rpm_key:
+    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-PGDG
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Clean all dnf cache (ensures fresh metadata after key update)
+  ansible.builtin.command: dnf clean all
+  changed_when: false
+  when: ansible_os_family == "RedHat"

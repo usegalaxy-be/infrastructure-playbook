@@ -1,0 +1,206 @@
+---
+- name: Ensure vim is installed
+  ansible.builtin.package:
+    name: vim
+    state: present
+  when: workenv_vim_install
+
+- name: Ensure tmux is installed
+  ansible.builtin.package:
+    name: tmux
+    state: present
+  when: workenv_tmux_install
+
+# Old hosts (EL7) lack the tmux-256color terminfo entry — vim fails with E437
+- name: Check for tmux-256color terminfo
+  ansible.builtin.command: infocmp tmux-256color
+  register: workenv_terminfo
+  changed_when: false
+  failed_when: false
+
+- name: Copy tmux-256color terminfo source
+  ansible.builtin.copy:
+    src: tmux-256color.terminfo
+    dest: /tmp/tmux-256color.terminfo
+    mode: '0644'
+  when: workenv_terminfo.rc != 0
+
+- name: Compile tmux-256color terminfo entry
+  ansible.builtin.command: tic -x /tmp/tmux-256color.terminfo
+  when: workenv_terminfo.rc != 0
+
+- name: Add lazygit COPR repository
+  ansible.builtin.get_url:
+    url: https://copr.fedorainfracloud.org/coprs/atim/lazygit/repo/epel-9/atim-lazygit-epel-9.repo
+    dest: /etc/yum.repos.d/atim-lazygit.repo
+    mode: '0644'
+  when: workenv_tools_install
+
+- name: Ensure CLI tools are installed
+  ansible.builtin.package:
+    name:
+      - ripgrep
+      - fzf
+      - fd-find
+      - bat
+      - zoxide
+      - lazygit
+      # Persistent ssh-agent front-end: unlock the (passphrase-protected) loginnode
+      # fleet key (id_infra) once per boot and share it across shells/tmux/ansible,
+      # instead of depending on a forwarded agent. See README (SSH agent).
+      - keychain
+    state: present
+  when: workenv_tools_install
+
+- name: Deploy fzf shell configuration
+  ansible.builtin.copy:
+    src: workenv-fzf.sh
+    dest: /etc/profile.d/workenv-fzf.sh
+    owner: root
+    group: root
+    mode: '0644'
+  when: workenv_tools_install
+
+- name: Deploy .vimrc
+  ansible.builtin.copy:
+    src: vimrc
+    dest: "{{ item.uhome }}/.vimrc"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0644'
+    backup: true
+  loop: "{{ workenv_users }}"
+
+- name: Deploy .tmux.conf
+  ansible.builtin.copy:
+    src: tmux.conf
+    dest: "{{ item.uhome }}/.tmux.conf"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0644'
+    backup: true
+  loop: "{{ workenv_users }}"
+  when: workenv_tmux_install
+
+- name: Deploy system-wide vimrc
+  ansible.builtin.copy:
+    src: vimrc
+    dest: /etc/vimrc
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+
+- name: Deploy system-wide aliases
+  ansible.builtin.copy:
+    src: bash_aliases
+    dest: /etc/profile.d/workenv-aliases.sh
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+
+# --- Login node only ----------------------------------------------------
+
+- name: Deploy galaxy-session.sh
+  ansible.builtin.copy:
+    src: galaxy-session.sh
+    dest: "{{ item.uhome }}/galaxy-session.sh"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0755'
+    backup: true
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
+- name: Deploy tmux-logs logrotate config
+  ansible.builtin.copy:
+    src: tmux-logs-logrotate
+    dest: /etc/logrotate.d/tmux-logs
+    owner: root
+    group: root
+    mode: '0644'
+  when: workenv_deploy_session_script
+
+- name: Ensure ~/bin exists
+  ansible.builtin.file:
+    path: "{{ item.uhome }}/bin"
+    state: directory
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0755'
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
+- name: Deploy vault-grep script
+  ansible.builtin.copy:
+    src: vault-grep
+    dest: "{{ item.uhome }}/bin/vault-grep"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0755'
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
+- name: Configure .zshrc on login node (aliases + SSH agent fix)
+  ansible.builtin.blockinfile:
+    path: "{{ item.uhome }}/.zshrc"
+    marker: "# {mark} ANSIBLE MANAGED — pdg.workenv"
+    block: |
+      # Ensure system paths are always present — guards against venv activation clobbering PATH
+      typeset -U path
+      path=(/usr/local/bin /usr/bin /usr/local/sbin /usr/sbin $path)
+
+      # Aliases and fzf/zoxide/navigation tools
+      [ -f /etc/profile.d/workenv-aliases.sh ] && source /etc/profile.d/workenv-aliases.sh
+      [ -f /etc/profile.d/workenv-fzf.sh ] && source /etc/profile.d/workenv-fzf.sh
+
+      # Persistent ssh-agent via keychain: unlocks the passphrase-protected fleet key
+      # (id_infra) once per boot, then shares that agent across every shell/tmux/ansible
+      # run. Replaces the fragile forwarded agent (died with the SSH session ~10min).
+      # Stable socket path: keychain's own socket path changes whenever it restarts
+      # the agent, which breaks SSH_AUTH_SOCK in shells/panes already running at that
+      # point. Symlinking to a fixed path means only NEW shells need to run this line
+      # to refresh the symlink target, already-open panes keep working unchanged.
+      eval "$(keychain --eval --quiet --agents ssh id_infra)"
+      ln -sf "$SSH_AUTH_SOCK" ~/.ssh/agent.sock
+      export SSH_AUTH_SOCK=~/.ssh/agent.sock
+
+      # Auto-activate openstack venv — guard prevents double-activation on re-source
+      [[ -z "$VIRTUAL_ENV" ]] && source /home/galaxy_master/usegalaxy-be-admin/.openstack/bin/activate
+    backup: true
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
+- name: Deploy vault password script
+  ansible.builtin.copy:
+    src: vault-pass.sh
+    dest: "{{ item.uhome }}/.vault-pass.sh"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0700'
+    backup: true
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
+# --- Galaxy / HTCondor head node only -----------------------------------
+
+- name: Deploy condor_q.sh helper script
+  ansible.builtin.copy:
+    src: condor_q.sh
+    dest: "{{ item.uhome }}/condor_q.sh"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0755'
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_condor_scripts
+
+- name: Deploy condor_history.sh helper script
+  ansible.builtin.copy:
+    src: condor_history.sh
+    dest: "{{ item.uhome }}/condor_history.sh"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0755'
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_condor_scripts

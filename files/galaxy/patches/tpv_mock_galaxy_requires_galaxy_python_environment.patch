@@ -1,0 +1,8 @@
+--- a/tpv/commands/test/mock_galaxy.py
++++ b/tpv/commands/test/mock_galaxy.py
+@@ -125,4 +125,5 @@
+         self.installed_tool_dependencies: list[Any] = []
+         self.resource_requirements = resource_requirements or []
+         self.dynamic_tool = dynamic_tool
+         self.tool_type = tool_type
++        self.requires_galaxy_python_environment = False

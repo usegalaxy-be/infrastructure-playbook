@@ -1,0 +1,33 @@
+---
+# Keypairs to generate on this host.
+#
+# ssh_keypairs:
+#   - path: /home/user/.ssh/id_ed25519   # private key path (pub key gets .pub suffix)
+#     type: ed25519                       # optional, default: ed25519
+#     comment: "user@host description"   # optional
+#     owner: user
+#     group: user                        # optional, defaults to owner
+#     mode: '0600'                       # optional, default: 0600
+ssh_keypairs: []
+
+# Hosts to add to a known_hosts file on this host.
+# ssh-keyscan is run to fetch the current host key — no pre-shared fingerprint needed.
+#
+# ssh_known_hosts:
+#   - name: "<nfs-ip>"              # key name used in known_hosts (hostname or IP)
+#     host: "<nfs-ip>"              # host to scan; defaults to name
+#     key_types: [ed25519]              # optional, default: [ed25519]
+#     known_hosts_file: /var/lib/pgsql/.ssh/known_hosts
+#     owner: postgres
+#     group: postgres                   # optional, defaults to owner
+#     mode: '0600'                      # optional, default: 0600
+ssh_known_hosts: []
+
+# authorized_keys entries to manage on this host.
+#
+# ssh_authorized_keys:
+#   - user: pgbackup
+#     key: "ssh-ed25519 AAAA..."        # literal public key string
+#     key_options: "restrict"           # optional SSH authorized_keys options
+#     state: present                    # optional, default: present
+ssh_authorized_keys: []

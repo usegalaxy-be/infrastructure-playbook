@@ -1,0 +1,8 @@
+Universe = vanilla
+Executable = /bin/echo
+Arguments = "Hello, this is a test job."
+Log = test.$(process).log
+Output = test.$(process).out
+Error = test.$(process).err
+request_cpus = 1
+Queue 10

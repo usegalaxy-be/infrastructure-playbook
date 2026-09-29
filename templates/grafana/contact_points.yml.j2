@@ -1,0 +1,59 @@
+{{ ansible_managed | comment }}
+# Grafana Unified Alerting — Contact Points
+# Deployed to: /etc/grafana/provisioning/alerting/contact_points.yml
+# Changes here take effect after grafana-server restart.
+#
+# Prerequisites:
+#   vault_grafana_teams_webhook_url      — MS Teams incoming webhook URL (prod channel)
+#   vault_grafana_teams_webhook_url_test — MS Teams incoming webhook URL (test-alerts channel)
+#   Add both to group_vars/monitoring/vault.yml via: ansible-vault edit ...
+#
+# To create a Teams webhook:
+#   Teams channel → ··· → Connectors → Incoming Webhook → Configure → copy URL
+
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: galaxy-be-teams
+    receivers:
+      - uid: be-teams-receiver
+        type: teams
+        settings:
+          url: "{{ vault_grafana_teams_webhook_url }}"
+        disableResolveMessage: false
+
+# Routed to by env=test alerts (see notification_policies.yml.j2), so test
+# instance noise doesn't dilute the prod channel above.
+  - orgId: 1
+    name: galaxy-be-teams-test
+    receivers:
+      - uid: be-teams-test-receiver
+        type: teams
+        settings:
+          url: "{{ vault_grafana_teams_webhook_url_test }}"
+        disableResolveMessage: false
+
+# Keep email as a fallback contact point.
+# Requires grafana_smtp to be configured (already done in monitoring.yml).
+  - orgId: 1
+    name: galaxy-be-email
+    receivers:
+      - uid: be-email-receiver
+        type: email
+        settings:
+          addresses: "{{ vault_alert_email }}"
+          singleEmail: false
+        disableResolveMessage: false
+
+# Uncomment to enable Slack as well.
+# Requires vault_grafana_slack_webhook_url in group_vars/monitoring/vault.yml.
+#
+#  - orgId: 1
+#    name: galaxy-be-slack
+#    receivers:
+#      - uid: be-slack-receiver
+#        type: slack
+#        settings:
+#          url: ""
+#        disableResolveMessage: false

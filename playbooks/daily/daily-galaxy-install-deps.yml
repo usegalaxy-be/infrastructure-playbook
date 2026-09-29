@@ -1,0 +1,30 @@
+---
+# Reinstall Galaxy Python dependencies into the venv (galaxy_fetch_dependencies) + static setup.
+# Use after a Galaxy version change, requirements.txt update, or venv corruption.
+# Does not update Galaxy code or run DB migrations.
+# TODO: add a task to restart Galaxy after fetching deps (chain daily-galaxy-handlers.yml).
+
+- name: Galaxy dependency update
+  hosts: galaxyservers
+  become_user: galaxy_master
+  pre_tasks:
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/assert-tmpfs-venv.yml"
+  roles:
+    - role: galaxyproject.galaxy
+      galaxy_separate_privileges: no
+      galaxy_manage_clone: no
+      galaxy_manage_static_setup: yes
+      galaxy_manage_mutable_setup: no
+      galaxy_manage_subdomain_static: no
+      galaxy_manage_database: no
+      galaxy_fetch_dependencies: yes
+      galaxy_manage_errordocs: no
+      galaxy_build_client: no
+      galaxy_manage_systemd: no
+      galaxy_manage_gravity: no
+
+    - role: usegalaxy_eu.tpv_auto_lint
+
+  post_tasks:
+    # venv changed (galaxy_fetch_dependencies) -> refresh this env's worker tmpfs.
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/refresh-worker-tmpfs.yml"

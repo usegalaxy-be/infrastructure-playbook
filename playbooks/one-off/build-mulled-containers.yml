@@ -1,0 +1,20 @@
+---
+# Build local mulled singularity containers for custom tools whose requirement
+# set has no prebuilt BioContainer, and install them into the
+# cached_mulled_singularity cache. See roles/pdg.mulled_container/README.md.
+#
+#   ansible-playbook playbooks/one-off/build-mulled-containers.yml --limit test.usegalaxy.be
+- name: Build local mulled singularity containers
+  hosts: "{{ mulled_build_host | default('testgalaxyservers') }}"
+  gather_facts: true
+  vars:
+    mulled_container_specs:
+      # v1.1.0+galaxy2 (kaleido). v1.1.0 has identical requirements, so this one
+      # image resolves for both versions; only v1.0.2 needs a separate build.
+      - name: protein_calculator_galaxy2
+        tool_xml: /srv/galaxy_test/shared/local_tools/protein_calculator/v1.1.0+galaxy2/protein_calculator.xml
+      # v1.0.2 differs (no `requests` requirement) -> its own SIF.
+      - name: protein_calculator_v1_0_2
+        tool_xml: /srv/galaxy_test/shared/local_tools/protein_calculator/v1.0.2/protein_calculator.xml
+  roles:
+    - pdg.mulled_container

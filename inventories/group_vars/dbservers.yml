@@ -1,0 +1,189 @@
+---
+
+# galaxyproject.postgresql_objects
+
+# variables used by galaxyproject/postgresql_objects
+# and hxr.postgres-connection
+
+# Users to ensure exist.
+# TODO: other users need a different password
+postgresql_objects_users:
+  - name: "{{ vault_prod_postgres_user }}"
+    password: "{{ vault_prod_postgres_pass }}"
+  - name: "{{ vault_test_postgres_user }}"
+    password: "{{ vault_test_postgres_pass }}"
+  - name: "{{ galaxy_user_name }}"
+    password: "{{ vault_prod_postgres_pass }}"
+  - name: telegraf
+    password: "{{ vault_prod_postgres_pass }}"
+  - name: tiaas
+    password: "{{ vault_tiaas_tiaas_db_pass }}"
+# Databases to ensure exist.
+postgresql_objects_databases:
+  - name: "{{ vault_prod_db_name }}"
+    owner: "{{ galaxy_user_name }}"
+  - name: "{{ vault_test_db_name }}"
+    owner: "{{ galaxy_user_name }}"
+  - name: "{{ tiaas_tiaas_db_name }}"
+    owner: "{{ tiaas_tiaas_db_user }}"
+  - name: "{{ vault_prod_backup_db_name }}"
+    owner: "{{ galaxy_user_name }}"
+  - name: "{{ vault_test_backup_db_name }}"
+    owner: "{{ galaxy_user_name }}"
+  - name: "{{ gxit_db_name }}"
+    owner: "{{ galaxy_user_name }}"
+# TODO: check if we need this
+postgresql_objects_privileges:
+  - database: "{{ gxit_db_name }}"
+    roles: "{{ vault_test_postgres_user }}"
+    privs: ALL
+    type: database
+  - database: "{{ gxit_db_name }}"
+    roles: "{{ vault_prod_postgres_user }}"
+    privs: ALL
+    type: database
+  - database: "{{ gxit_db_name }}"
+    roles: "{{ vault_test_postgres_user }}"
+    privs: ALL
+    objs: gxitproxy
+    type: table
+  - database: "{{ gxit_db_name }}"
+    roles: "{{ vault_prod_postgres_user }}"
+    privs: ALL
+    objs: gxitproxy
+    type: table
+  - database: "{{ vault_prod_db_name }}"
+    roles: telegraf
+    privs: SELECT
+    objs: ALL_IN_SCHEMA
+  - database: "{{ vault_test_db_name }}"
+    roles: telegraf
+    privs: SELECT
+    objs: ALL_IN_SCHEMA
+  - database: "{{ vault_prod_db_name }}"
+    roles: tiaas
+    objs: galaxy_user,galaxy_session,job,history,workflow,workflow_invocation
+    type: table
+    privs: SELECT
+  - database: "{{ vault_test_db_name }}"
+    roles: tiaas
+    objs: galaxy_user,galaxy_session,job,history,workflow,workflow_invocation
+    type: table
+    privs: SELECT
+  - database: "{{ vault_prod_db_name }}"
+    roles: tiaas
+    objs: user_group_association,galaxy_group,role,group_role_association
+    type: table
+    privs: SELECT,INSERT
+  - database: "{{ vault_test_db_name }}"
+    roles: tiaas
+    objs: user_group_association,galaxy_group,role,group_role_association
+    type: table
+    privs: SELECT,INSERT
+  - database: "{{ vault_prod_db_name }}"
+    roles: tiaas
+    objs: group_role_association
+    type: table
+    privs: DELETE
+  - database: "{{ vault_test_db_name }}"
+    roles: tiaas
+    objs: group_role_association
+    type: table
+    privs: DELETE
+  - database: "{{ vault_prod_db_name }}"
+    roles: tiaas
+    objs: role_id_seq,galaxy_group_id_seq,group_role_association_id_seq,user_group_association_id_seq
+    type: sequence
+    privs: USAGE,SELECT
+  - database: "{{ vault_test_db_name }}"
+    roles: tiaas
+    objs: role_id_seq,galaxy_group_id_seq,group_role_association_id_seq,user_group_association_id_seq
+    type: sequence
+    privs: USAGE,SELECT
+
+
+# usegalaxy-eu.ansible-postgresql
+
+postgresql_conf:
+  # most important setting for connecting over network
+  - listen_addresses: "'*'"
+  - max_connections: 250
+  - idle_in_transaction_session_timeout: "'10min'"
+  - idle_session_timeout: "'1d'"
+  - tcp_keepalives_idle: 300
+  - log_min_duration_statement: 1000
+  - log_checkpoints: "on"
+  - shared_buffers: "4GB"
+  # - temp_buffers: "64MB"
+  # - max_prepared_transactions: 100
+  # - work_mem: "64MB"
+  # - maintenance_work_mem: "64MB"
+  # the following line throws an error in v13
+  # - shared_preload_libraries: "'pg_stat_statements'"
+  # - checkpoint_completion_target: 0.9
+  # - random_page_cost: 1.0
+  - effective_cache_size: "16GB"
+  # - log_line_prefix: "'%t:%r:%u@%d:[%p]<%m>: '"
+  # - log_checkpoints: "on"
+  # - log_min_duration_statement: 100
+
+# Helper variables — IPs sourced from OpenStack, stored in Vault as an interim
+# measure until scoped NetBox access is available (see usegalaxy-be/network/device_ips).
+_vault_device_ips: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips') }}"
+_galaxy_prod_ip: "{{ _vault_device_ips.usegalaxy_be_ip }}"
+_galaxy_test_ip: "{{ _vault_device_ips.test_usegalaxy_be_ip }}"
+_nfs_ip: "{{ _vault_device_ips.nfs_usegalaxy_be_ip }}"
+
+# Host based authentication (hba) entries to be added to the pg_hba.conf.
+# TODO: repeat for prod database
+# TODO: figure out how to put all database setup for test and prod in the same ansible host/group
+postgresql_pg_hba_conf:
+  - "host    {{ vault_prod_db_name }}       postgres                           {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_db_name }}       postgres                           {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ vault_prod_db_name }}       {{ vault_prod_postgres_user }}     {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_db_name }}       {{ vault_test_postgres_user }}     {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ vault_prod_db_name }}       {{ galaxy_user_name }}             {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_db_name }}       {{ galaxy_user_name }}             {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ vault_prod_backup_db_name }}       postgres                           {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_backup_db_name }}       postgres                           {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ vault_prod_backup_db_name }}       {{ vault_prod_postgres_user }}     {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_backup_db_name }}       {{ vault_test_postgres_user }}     {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ vault_prod_backup_db_name }}       {{ galaxy_user_name }}             {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_backup_db_name }}       {{ galaxy_user_name }}             {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ vault_prod_db_name }}       tiaas                              {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_db_name }}       tiaas                              {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ tiaas_tiaas_db_name }}      tiaas                              {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ tiaas_tiaas_db_name }}      tiaas                              {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ vault_prod_db_name }}       telegraf                           {{ _galaxy_prod_ip }}/32      md5"
+  - "host    {{ vault_test_db_name }}       telegraf                           {{ _galaxy_test_ip }}/32      md5"
+  - "host    {{ gxit_db_name }}             {{ vault_test_postgres_user }}     {{ _galaxy_test_ip }}/32       md5"
+  - "host    {{ gxit_db_name }}             {{ vault_prod_postgres_user }}     {{ _galaxy_prod_ip }}/32      md5"
+
+
+# previously
+# ****ORDER IS IMPORTANT, STRICTER RULES SHOULD GO FIRST 
+# postgresql_pg_hba_conf:
+# - local all postgres  peer
+# - local all '{{ galaxy_user_name }}'  md5
+# - local all all  peer
+# #this is a bit insecure as it won't ask for passwd at all but user telegraf should only have SELECT access in the databases
+# - host '{{ vault_db_name }}' telegraf 0.0.0.0/0 trust
+# - host '{{ vault_db_name }}' tiaas 0.0.0.0/0 trust
+# # - host, database: '{{ prod_db_name }}', user: telegraf, address: '0.0.0.0/0', auth_method: trust}
+# - host all all 127.0.0.1/32 md5
+# - host all all ::1/128 md5
+# - host all all 0.0.0.0/0 md5
+
+# PostgreSQL PITR Backups
+# Base backups and WAL archive are pushed via rsync over SSH to the NFS server.
+# The NFS server's IP (_nfs_ip, below) is used for data transfers.
+# postgresql_backup_dir_is_remote evaluates to true for non-'/' paths, which
+# enables the remote rsync branch in archive_wal.sh and skips --clean-archive in backup.py.
+postgresql_backup_dir: "pgbackup@{{ _nfs_ip }}:/data/share/pg_backups"
+postgresql_backup_rsync_connect_opts: >-
+  -e 'ssh -i /var/lib/pgsql/.ssh/id_ed25519
+  -o StrictHostKeyChecking=yes
+  -o BatchMode=yes'
+# Scripts (archive_wal.sh, backup.py) are installed here, local to the DB server.
+# Note: "'~postgres' | expanduser" was not being processed as /var/lib/pgsql for some reason
+postgresql_backup_local_dir: /var/lib/pgsql/backups

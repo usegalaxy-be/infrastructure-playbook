@@ -1,0 +1,13 @@
+---
+# Manage scheduled tasks on the loginnode (ansible_connection=local):
+#   - /etc/hosts via pdg.update_hosts
+# The old ansible-playbook TPV job test cron was replaced by the on-host Galaxy job
+# healthcheck (pdg.galaxy_healthcheck, deployed to galaxyservers by 09-galaxy-healthcheck.yml).
+
+- name: Configure scheduled tasks on Ansible controller
+  hosts: loginnode
+  become: true
+
+  roles:
+    # Set /etc/hosts for internal forwarding
+    - role: pdg.update_hosts

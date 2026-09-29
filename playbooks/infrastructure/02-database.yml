@@ -1,0 +1,217 @@
+---
+# Set up the dedicated PostgreSQL database server (dbservers): install PostgreSQL, create Galaxy
+# and TIAAS databases/users, configure pg_hba.conf, and sync NTP.
+# Run before 03/04-galaxy.yml — Galaxy app servers depend on this DB being ready.
+
+- hosts: dbservers
+  become: true
+  become_user: root
+  pre_tasks:
+    # - name: Install Dependencies
+    #   package:
+    #     name: ['python3', 'rsync', 'perl', 'glibc-langpack-en', 'acl']
+    #   become: true
+    # - name: Set default version of Python
+    #   alternatives:
+    #     name: python
+    #     path: /usr/bin/python3
+    - name: Disable firewalld service
+      ansible.builtin.service:
+        name: firewalld
+        enabled: false
+        state: stopped
+
+    - name: Apply common repo fixes (skip unavailable repos, refresh pgdg GPG key)
+      ansible.builtin.include_tasks: tasks/fix_repos.yml
+
+  roles:
+    # TODO: Needed to install postgresql correctly?
+    - geerlingguy.repo-epel
+    # TODO: 'sudo dnf module disable postgresql' is required to install postgres, move to terraform?
+    # - usegalaxy-eu.ansible-postgresql
+    # Installs our database, PostgreSQL
+    - galaxyproject.postgresql
+    # Creates users and databases within PostgreSQL
+    - role: galaxyproject.postgresql_objects
+      become: true
+      become_user: postgres
+    - role: influxdata.chrony
+
+  post_tasks:
+    - name: Create gxitproxy session map table
+      community.postgresql.postgresql_query:
+        db: "{{ gxit_db_name }}"
+        query: |
+          CREATE TABLE IF NOT EXISTS gxitproxy (
+            key      TEXT,
+            key_type TEXT,
+            token    TEXT,
+            host     TEXT,
+            port     INTEGER,
+            info     TEXT,
+            PRIMARY KEY (key, key_type)
+          );
+      become: true
+      become_user: postgres
+
+    - name: Create gxitproxy notify function (async notifications for gx-it-proxy)
+      community.postgresql.postgresql_query:
+        db: "{{ gxit_db_name }}"
+        query: |
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_proc WHERE proname = 'notify_gxitproxy'
+            ) THEN
+              CREATE FUNCTION notify_gxitproxy()
+              RETURNS trigger AS $func$
+              BEGIN
+                PERFORM pg_notify('gxitproxy', 'Table "gxitproxy" changed');
+                RETURN NEW;
+              END;
+              $func$ LANGUAGE plpgsql;
+            END IF;
+          END;
+          $$;
+      become: true
+      become_user: postgres
+
+    - name: Create gxitproxy notify trigger
+      community.postgresql.postgresql_query:
+        db: "{{ gxit_db_name }}"
+        query: |
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_trigger WHERE tgname = 'gxitproxy_notify'
+            ) THEN
+              CREATE TRIGGER gxitproxy_notify
+              AFTER INSERT OR UPDATE OR DELETE ON gxitproxy
+              FOR EACH ROW EXECUTE FUNCTION notify_gxitproxy();
+            END IF;
+          END;
+          $$;
+      become: true
+      become_user: postgres
+
+    # gx-it-proxy holds a persistent LISTEN connection to the gxitproxy database.
+    # The global idle_session_timeout = 1d kills this connection every 24h, crashing
+    # the proxy. Override at the database level so the global setting is unaffected.
+    - name: Disable idle_session_timeout for gxitproxy database (gx-it-proxy persistent LISTEN connection)
+      community.postgresql.postgresql_query:
+        db: "{{ gxit_db_name }}"
+        query: "ALTER DATABASE {{ gxit_db_name }} SET idle_session_timeout = 0"
+      become: true
+      become_user: postgres
+
+    # -------------------------------------------------------------------------
+    # SSH keypair + known_hosts for PITR rsync to NFS
+    # -------------------------------------------------------------------------
+    - name: Manage SSH keys for postgres PITR rsync
+      ansible.builtin.include_role:
+        name: pdg.ssh-keys
+      vars:
+        ssh_keypairs:
+          - path: /var/lib/pgsql/.ssh/id_ed25519
+            comment: "postgres@db.usegalaxy.be PITR rsync"
+            owner: postgres
+        ssh_known_hosts:
+          - name: "{{ _nfs_ip }}"
+            known_hosts_file: /var/lib/pgsql/.ssh/known_hosts
+            owner: postgres
+
+
+# =============================================================================
+# NFS Server — PITR backup target
+# Sets up the pgbackup user and deploys the postgres SSH public key so the DB
+# server can rsync WAL segments and base backups over SSH.
+# Security: pgbackup has no login shell; the key has 'restrict' options
+# (no pty, no agent/port/X11 forwarding). Filesystem access is limited to
+# /data/share/pg_backups via directory ownership.
+# =============================================================================
+- hosts: nfsservers
+  become: true
+
+  vars:
+    pgbackup_user: pgbackup
+    pgbackup_home: /var/lib/pgbackup
+    pg_backup_dir: /data/share/pg_backups
+
+  tasks:
+    - name: Ensure rsync is installed on NFS server
+      ansible.builtin.package:
+        name: rsync
+        state: present
+
+    - name: Create pgbackup group
+      ansible.builtin.group:
+        name: "{{ pgbackup_user }}"
+        state: present
+        system: true
+
+    - name: Create pgbackup user
+      ansible.builtin.user:
+        name: "{{ pgbackup_user }}"
+        group: "{{ pgbackup_user }}"
+        home: "{{ pgbackup_home }}"
+        shell: /bin/bash
+        system: true
+        state: present
+
+    - name: Ensure pg_backups directory exists on NFS
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ pgbackup_user }}"
+        group: "{{ pgbackup_user }}"
+        mode: '0750'
+      loop:
+        - "{{ pg_backup_dir }}"
+        - "{{ pg_backup_dir }}/wal_archive"
+
+    - name: Read postgres backup public key from DB server
+      ansible.builtin.slurp:
+        src: /var/lib/pgsql/.ssh/id_ed25519.pub
+      delegate_to: db.usegalaxy.be
+      register: _postgres_backup_pubkey
+
+    - name: Deploy postgres SSH public key to pgbackup authorized_keys
+      ansible.builtin.include_role:
+        name: pdg.ssh-keys
+      vars:
+        ssh_authorized_keys:
+          - user: "{{ pgbackup_user }}"
+            key: "{{ _postgres_backup_pubkey['content'] | b64decode | trim }}"
+            key_options: "restrict"
+
+    # -------------------------------------------------------------------------
+    # WAL archive cleanup
+    # backup.py skips --clean-archive for remote dirs, so WAL segments
+    # accumulate indefinitely without this cron job.
+    # Run after the nightly base backup (default backup hour: 01:00).
+    # -------------------------------------------------------------------------
+    - name: Ensure pgbackup bin directory exists
+      ansible.builtin.file:
+        path: "{{ pgbackup_home }}/bin"
+        state: directory
+        owner: "{{ pgbackup_user }}"
+        group: "{{ pgbackup_user }}"
+        mode: '0750'
+
+    - name: Deploy WAL archive cleanup script
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../../templates/pg_wal_archive_cleanup.sh.j2"
+        dest: "{{ pgbackup_home }}/bin/cleanup_wal_archive.sh"
+        owner: "{{ pgbackup_user }}"
+        group: "{{ pgbackup_user }}"
+        mode: '0750'
+
+    - name: Schedule WAL archive cleanup cron job
+      ansible.builtin.cron:
+        name: "PostgreSQL WAL archive cleanup"
+        cron_file: pgbackup_wal_cleanup
+        user: "{{ pgbackup_user }}"
+        hour: "3"
+        minute: "0"
+        job: "{{ pgbackup_home }}/bin/cleanup_wal_archive.sh >> {{ pgbackup_home }}/cleanup_wal_archive.log 2>&1"
+

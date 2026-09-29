@@ -1,0 +1,47 @@
+#!/bin/bash
+# Populate the node-local tmpfs with the deployed Galaxy code + venv, so the
+# in-job metadata step imports from RAM instead of cold from NFS.
+# Managed by Ansible (roles/pdg.galaxy_code_tmpfs). Do not edit.
+set -uo pipefail
+
+MOUNT="{{ galaxy_code_tmpfs_mount }}"
+SRC_LIB="{{ galaxy_code_tmpfs_src_lib }}"
+SRC_VENV="{{ galaxy_code_tmpfs_src_venv }}"
+
+if ! mountpoint -q "$MOUNT"; then
+    echo "ERROR: $MOUNT is not a mounted tmpfs" >&2
+    exit 1
+fi
+
+# Guard against an unmounted/racing NFS source: rsync --delete against an
+# inaccessible source dir sees zero source files and happily wipes a
+# previously-good tmpfs copy. Fail before touching $MOUNT instead.
+for src in "$SRC_LIB" "$SRC_VENV"; do
+    if ! ls "$src" >/dev/null 2>&1; then
+        echo "ERROR: source not accessible, refusing to sync: $src" >&2
+        exit 1
+    fi
+done
+
+echo "Syncing galaxy lib  -> $MOUNT/lib"
+rsync -a --delete --ignore-errors "$SRC_LIB/"  "$MOUNT/lib/"  || true
+echo "Syncing galaxy venv -> $MOUNT/venv"
+rsync -a --delete --ignore-errors "$SRC_VENV/" "$MOUNT/venv/" || true
+
+# The copied venv hardcodes the NFS path in activate / console-script shebangs;
+# rewrite to the tmpfs path so `. venv/bin/activate` resolves correctly.
+echo "Rewriting venv paths ($SRC_VENV -> $MOUNT/venv)"
+grep -rlI "$SRC_VENV" "$MOUNT/venv/bin" 2>/dev/null | xargs -r sed -i "s#${SRC_VENV}#${MOUNT}/venv#g" || true
+
+echo "Precompiling .pyc"
+"$MOUNT/venv/bin/python" -m compileall -qj0 "$MOUNT/lib" "$MOUNT/venv/lib" >/dev/null 2>&1 || true
+
+chmod -R a+rX "$MOUNT"
+
+# sanity: the metadata framework must import from the tmpfs copy
+if PYTHONPATH="$MOUNT/lib" "$MOUNT/venv/bin/python" -c "from galaxy.metadata import set_metadata" 2>/dev/null; then
+    echo "OK: galaxy imports from $MOUNT  ($(du -sh "$MOUNT/lib" "$MOUNT/venv" 2>/dev/null | tr '\n' ' '))"
+else
+    echo "ERROR: galaxy failed to import from $MOUNT" >&2
+    exit 1
+fi

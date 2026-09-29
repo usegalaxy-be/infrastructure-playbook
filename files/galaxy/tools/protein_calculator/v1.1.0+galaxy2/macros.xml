@@ -1,0 +1,28 @@
+<macros>
+    <token name="@TOOL_VERSION@">1.1.0</token>
+    <token name="@VERSION_SUFFIX@">2</token>
+    <token name="@PROFILE@">25.0</token>
+    <xml name="requirements">
+        <requirements>
+            <requirement type="package" version="3.13.3">python</requirement>
+            <requirement type="package" version="2.2.3">pandas</requirement>
+            <requirement type="package" version="6.0.1">plotly</requirement>
+            <requirement type="package" version="1.85">biopython</requirement>
+            <requirement type="package" version="3.1.6">jinja2</requirement>
+            <requirement type="package" version="0.2.1">python-kaleido</requirement>
+            <requirement type="package" version="2.32.3">requests</requirement>
+        </requirements>
+    </xml>
+    <xml name="citations">
+        <citations>
+            <citation type="bibtex">@misc{githubProtein_Calculator,
+    author = {Balcaen, Kevin and Fonteyn, Robbe},
+    year = {2025},
+    title = {Protein_Calculator},
+    publisher = {GitHub},
+    journal = {GitHub repository},
+    url = {https://github.com/KBalcaen/Protein_Calculator}
+}</citation>
+        </citations>
+    </xml>
+</macros>

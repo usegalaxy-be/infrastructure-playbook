@@ -1,0 +1,50 @@
+---
+- name: Deploy Gunicorn units
+  template:
+    owner: root
+    group: root
+    mode: 0644
+    src: galaxy-gunicorn@.service.j2
+    dest: /etc/systemd/system/galaxy-gunicorn@.service
+  notify: daemon reload
+
+- name: Deploy handler units
+  template:
+    owner: root
+    group: root
+    mode: 0644
+    src: galaxy-handler@.service.j2
+    dest: /etc/systemd/system/galaxy-handler@.service
+  notify: daemon reload
+
+- name: Deploy workflow units
+  template:
+    owner: root
+    group: root
+    mode: 0644
+    src: galaxy-workflow-scheduler@.service.j2
+    dest: /etc/systemd/system/galaxy-workflow-scheduler@.service
+  when: galaxy_systemd_workflow_schedulers > 0
+  notify: daemon reload
+
+- name: Enable Gunicorn
+  systemd:
+    name: "galaxy-gunicorn@{{ item }}.service"
+    enabled: true
+    state: started
+  loop: "{{ range(0, galaxy_systemd_gunicorns) | list }}"
+
+- name: Enable relevant handlers
+  systemd:
+    name: "galaxy-handler@{{ item }}.service"
+    enabled: true
+    state: started
+  loop: "{{ range(0, galaxy_systemd_handlers) | list }}"
+
+- name: Enable relevant workflows
+  systemd:
+    name: "galaxy-workflow-scheduler@{{ item }}.service"
+    enabled: true
+    state: started
+  loop: "{{ range(0, galaxy_systemd_workflow_schedulers) | list }}"
+  when: galaxy_systemd_workflow_schedulers > 0

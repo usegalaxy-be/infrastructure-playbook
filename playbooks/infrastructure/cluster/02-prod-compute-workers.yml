@@ -1,0 +1,197 @@
+---
+# Set up production HTCondor worker nodes (prodcomputeservers) that execute Galaxy tool jobs.
+# Workers join the Galaxy HTCondor pool managed by the head node on usegalaxy.be.
+# Run after 06-galaxy-postrequisites.yml. Use --limit <host> to target a single worker.
+
+- hosts: prodcomputeservers
+  become: true
+  become_user: root
+  vars:
+    uninstall_condor: false
+  vars_files:
+      # - vsc_openstack/secret_group_vars/oidc_vars.yml
+  # collections:
+  #   - galaxyproject.galaxy
+  pre_tasks:
+    - name: Install Dependencies
+      ansible.builtin.dnf:
+        name:
+          - acl
+          - python3.11       # required: Galaxy 26.0 metadata runner uses Galaxy lib (TypeAlias, Python ≥ 3.10)
+          - python3.11-devel  # required for any C-extension builds against python3.11
+          # openssl-libs is a required dep of python3.11-libs (needs OPENSSL_3.3.0+ symbols).
+          # openssh must be updated in the same transaction to stay in sync — updating
+          # openssl-libs without openssh previously broke SSH on these nodes.
+          - openssl
+          - openssl-libs
+          - openssh
+          - openssh-clients
+          - openssh-server
+        disable_excludes: main
+      become: true
+      become_user: root
+      tags: [packages]
+    - name: Exclude openssh packages from dnf updates
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/dnf.conf
+        regexp: '^exclude='
+        insertafter: '^\[main\]'
+        line: 'exclude=openssh openssh-server openssh-clients openssl openssl-libs'
+    - name: Apply common repo fixes (skip unavailable repos, refresh pgdg GPG key)
+      ansible.builtin.include_tasks: ../tasks/fix_repos.yml
+    - name: Print htcondor_server
+      debug:
+        msg: "htcondor_server: {{ htcondor_server }}"
+    - name: Print htcondor roles
+      debug:
+        msg: "htcondor_role_execute: {{ htcondor_role_execute }}"
+    - name: Print vault_condor_pass
+      debug:
+        msg: "vault_condor_pass: {{ vault_condor_pass }}"
+    - name: Set docker_users (Docker role)
+      set_fact:
+        docker_users: "{{ galaxy_user_name }}"
+    - name: Add groups to Galaxy user
+      ansible.builtin.user:
+        name: "{{ galaxy_user_name }}"
+        groups: condor,docker
+        append: true
+    - name: Remove previous installation
+      package:
+        name: condor
+        state: absent
+      when: uninstall_condor
+  roles:
+      # Manage /etc/hosts (head, monitoring, iRODS) as part of standard node init, so a
+      # newly provisioned worker gets it without a separate daily-update-hosts run.
+      - role: pdg.update_hosts
+        tags: hosts
+
+      # # Set NTP
+      # - role: influxdata.chrony
+
+      # # Remap galaxy and condor users
+
+      # - role: pdg.remap-user
+
+      # Install and configure CernVM-FS (CVMFS) client.
+      # Ensures /etc/cvmfs/default.local and autofs are always in the correct state.
+      - role: galaxyproject.cvmfs
+
+      # HTCondor Cluster setup
+
+      - role: grycap.htcondor
+
+      # # Autofs setup
+
+      # - role: pdg.autofs
+
+      # # Installs and configures docker; sets up SSL certificates
+
+      # - role: geerlingguy.docker
+
+      # # Installs and configures telegraf for monitoring and sending stats to InfluxDB
+
+      # - dj-wasabi.telegraf
+
+  post_tasks:
+    # - name: Upgrade condor to latest in configured channel
+    #   ansible.builtin.dnf:
+    #     name: condor
+    #     state: latest
+    #   register: condor_upgrade
+    #   tags: upgrade
+    # - name: Restart condor after upgrade
+    #   ansible.builtin.systemd:
+    #     name: condor
+    #     state: restarted
+    #   when: condor_upgrade.changed
+    #   tags: upgrade
+    - name: Write GalaxyGroup config for prod workers
+      ansible.builtin.copy:
+        dest: /etc/condor/config.d/10-galaxy-group.conf
+        content: |
+          # Advertise GalaxyGroup so TPV rank expressions can prefer/avoid this slot type.
+          # condor_vib_tpv jobs rank "vib" slots higher; condor_tpv jobs rank "compute" slots higher.
+          GalaxyGroup = "compute"
+          STARTD_ATTRS = $(STARTD_ATTRS) GalaxyGroup
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart condor
+      tags: condor
+
+    - name: Disable pulsar
+      systemd:
+        name: pulsar
+        state: stopped
+      tags: condor
+    - name: Start condor
+      systemd:
+        name: condor
+        state: started
+      tags: condor
+    - name: Set temporary cron for cleaning docker images
+      ansible.builtin.cron:
+        name: "Temporary docker cleanup for involucro container building"
+        minute: "0"
+        hour: "*/3"
+        job: "/bin/docker system prune --all -f > /dev/null"
+    - name: Ensure chrony service is enabled and running
+      systemd:
+        name: chronyd
+        state: started
+        enabled: true
+
+    - name: Check if system clock is synchronized
+      command: timedatectl show -p NTPSynchronized --value
+      register: ntp_sync
+      changed_when: false
+
+    - name: Force time sync if not synchronized
+      command: chronyc makestep
+      when: ntp_sync.stdout != "yes"
+
+    - name: Verify final sync status
+      command: timedatectl
+      register: final_time
+      changed_when: false
+
+    - name: Show final time sync
+      debug:
+        var: final_time.stdout_lines
+  
+    - name: Restart Docker service, in all cases
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+    # Galaxy Interactive Tools: gx-it-proxy on the Galaxy server connects directly to
+    # Docker-mapped ports on compute workers. Docker maps container entry-point ports
+    # to the Linux ephemeral range (32768-60999). Open that range from Galaxy server IPs.
+    # TODO: when we implement security better we can enable firewalld and restrict this to just the Galaxy server IPs
+
+    - name: Disable firewalld service
+      ansible.builtin.service:
+        name: firewalld
+        enabled: false
+        state: stopped
+
+    # - name: Ensure firewalld is running
+    #   ansible.builtin.systemd:
+    #     name: firewalld
+    #     state: started
+    #     enabled: true
+
+    # - name: Allow Docker ephemeral port range from Galaxy servers (Interactive Tools)
+    #   ansible.posix.firewalld:
+    #     rich_rule: 'rule family="ipv4" source address="{{ item }}/32" port port="32768-60999" protocol="tcp" accept'
+    #     state: enabled
+    #     permanent: true
+    #     immediate: true
+    #   loop: "{{ galaxy_server_ips }}"
+  handlers:
+    - name: Restart condor
+      ansible.builtin.systemd:
+        name: condor
+        state: restarted

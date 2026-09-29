@@ -1,0 +1,9 @@
+---
+- copy:
+    content: |
+      #!/bin/bash
+      {{ custom_telegraf_env }} {{ gxadmin_bin_dir }}/gxadmin iquery destination-queue-run-time --seconds --older-than=90 | awk -F, '$2 != "destination_id=" { print }'
+    dest: /usr/bin/monitor-galaxy-tool-times
+    owner: root
+    group: root
+    mode: 0755

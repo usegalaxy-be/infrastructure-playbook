@@ -1,0 +1,72 @@
+<tool id="interactive_tool_napari" tool_type="interactive" name="Run Napari" version="@VERSION@+galaxy0" profile="24.1">
+    <icon src="napari.png"/>
+    <description>interactive tool</description>
+    <macros>
+        <token name="@VERSION@">0.7.0</token>
+    </macros>
+    <requirements>
+        <container type="docker">quay.io/galaxy/napari:v@VERSION@</container>
+    </requirements>
+    <entry_points>
+        <entry_point name="Napari" label="napari" requires_domain="False" requires_path_in_url="True">
+            <port>5800</port>
+        </entry_point>
+    </entry_points>
+    <environment_variables>
+        <environment_variable name="EP_PATH" inject="entry_point_path_for_label">napari</environment_variable>
+    </environment_variables>
+    <command detect_errors="exit_code"><![CDATA[
+        ## NFS root_squash: root in container → nobody on NFS, can't write to galaxy-owned workdir.
+        groupadd -g 1001 gxgroup 2>/dev/null || true &&
+        useradd -M -u 1001 -g 1001 gxuser 2>/dev/null || true &&
+        export HOME=\$PWD/home &&
+        runuser -u gxuser -- bash -c "mkdir -p ./home/input ./home/output ./home/omero" &&
+        #if $infile:
+            #for $filename in $infile:
+                #if $filename.ext == 'spatialdata.zip':
+                    runuser -u gxuser -- bash -c "unzip -q '$filename' -d ./home/input/" &&
+                #else
+                    runuser -u gxuser -- bash -c "ln -s '$filename' './home/input/${filename.element_identifier}.${filename.ext}'" &&
+                #end if
+            #end for
+        #end if
+        echo "Installed napari version:" &&
+        #if str($plugin) == 'spdata':
+            echo "Installing napari-spatialdata and squidpy..." &&
+            /opt/conda/bin/conda run -n napari pip install napari-spatialdata squidpy &&
+        #end if
+        ## /init calls mktemp; Galaxy sets TMPDIR=$CWD/tmp/ which root_squash blocks. Reset to /tmp.
+        export TMPDIR=/tmp &&
+        ## Reconfigure container nginx for path-based proxy:
+        EP_PATH_CLEAN="\${EP_PATH%/}" &&
+        sed -i "s|location ~ /websockify|location \${EP_PATH_CLEAN}/websockify {\n        websockify_pass unix:/tmp/vnc.sock;\n        websockify_read_timeout 5d;\n        websockify_send_timeout 5d;\n    }\n\n    location \${EP_PATH_CLEAN} {\n        alias /opt/noVNC/;\n        index index.html;\n        add_header Cache-Control no-cache;\n    }\n\n    location ~ /websockify|" /opt/base/etc/nginx/default_site.conf &&
+        /init
+    ]]></command>
+    <inputs>
+        <param name="infile" type="data" multiple="true" optional="true" format="jpg,png,tiff,bmp,gif,pcx,ppm,psd,pbm,pgm,eps,spatialdata.zip" label="Images and Spatial Data"/>
+        <param name="plugin" type="select" label="Napari plugin">
+            <option value="base">Base</option>
+            <option value="spdata">napari-spatialdata</option>
+        </param>
+    </inputs>
+    <outputs>
+        <collection name="np_output" type="list" label="Napari Output">
+            <discover_datasets pattern="__name_and_ext__" directory="./home/output"/>
+        </collection>
+        <data name="version" format="txt" label="${tool.name} on ${on_string}: version.txt" from_work_dir="version.txt"/>
+    </outputs>
+    <tests>
+    </tests>
+    <help><![CDATA[
+        Napari is a Python library for n-dimensional image visualisation, annotation, and analysis. With napari you can:
+
+            - view and explore 2D, 3D, and higher-dimensional arrays on a canvas;
+
+            - overlay derived data such as points, polygons, segmentations, and more;
+
+            - annotate and edit derived datasets, using standard data structures such as NumPy or Zarr arrays, allowing you to seamlessly weave exploration, computation, and annotation together in imaging data analysis.
+
+        **Note:** SpatialData should be provided as a zipped file with the spatialdata.zip format.
+]]>
+    </help>
+</tool>

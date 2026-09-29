@@ -1,0 +1,12 @@
+---
+# Set up shared ssl certs 
+
+  
+- name: Apply changes to allow connection using ssl settings
+  include_tasks:
+    file: changes.yml
+
+# - name: Include custom cert management tasks
+#   include_tasks:
+#     file: copy.yml
+

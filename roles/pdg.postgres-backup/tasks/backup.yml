@@ -1,0 +1,175 @@
+# ## setup cron jobs 
+
+# - name: "Create dir"
+#   file:
+#     path: "/usr/local/galaxy/galaxy-cron/"
+#     owner: "{{ galaxy_user }}"
+#     group: "{{ galaxy_group }}"
+#     mode: 0755
+#     state: directory
+#   become: yes
+ 
+
+ 
+# - name: "Send backup_db from template"
+#   template:
+#     src: "templates/scripts/cron/backup_db.sh.j2"
+#     dest: "/usr/local/galaxy/galaxy-cron/backup_db.sh"
+#     owner: "{{ galaxy_user }}"
+#     group: "{{ galaxy_group }}"
+#     mode: 0740
+   
+
+
+# Cron jobs
+
+#***** db backup
+
+# backup_path existed already (mode 0740, group has no execute bit), so
+# galaxy-backup-freshness (runs as telegraf, a galaxy_master group member)
+# could not traverse into it to read the marker file or dump files, even
+# though the files themselves are already group/world-readable. This task
+# was never uncommented, so nothing had ever set the directory's mode.
+#
+# Must run as galaxy_master, not the play's default root: this path lives on
+# an NFS export with root_squash, so root chmod'ing a directory it doesn't
+# own fails with EPERM. galaxy_master already owns it, so this works as a
+# normal, non-root permission change.
+- name: "Create DB backup dir"
+  file:
+    path: "{{ backup_path }}"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_group.name }}"
+    mode: 0750
+    state: directory
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+
+# # make sure the backup_path/scripts exists
+# - name: "Create backup scripts "
+#   file:
+#     path: "{{ backup_path }}/scripts"
+#     owner: "{{ galaxy_user }}"
+#     group: "{{ galaxy_group }}"
+#     mode: 0755
+#     state: directory
+
+# # make sure the backup_path/config exists (used to backup different config files)
+# - name: "Create config backup dir "
+#   file:
+#     path: "{{ backup_path }}/config"
+#     owner: "{{ galaxy_user }}"
+#     group: "{{ galaxy_group }}"
+#     mode: 0755
+#     state: directory
+
+- name: "Send files"
+  copy:
+    src: "scripts/"
+    dest: "{{ backup_path }}/scripts/"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_group.name }}"
+    mode: 0740
+    directory_mode: true
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+
+# copy doesn't prune files removed from files/scripts/, so this needs an
+# explicit removal: send_remote_backup.sh (the dead PSB scp script) was
+# already copied to both heads by earlier runs and would otherwise stay
+# there forever.
+- name: "Remove superseded send_remote_backup.sh"
+  ansible.builtin.file:
+    path: "{{ backup_path }}/scripts/send_remote_backup.sh"
+    state: absent
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+
+- name: "Send backup_db from template"
+  template:
+    src: "backup_db.sh.j2"
+    dest: "{{ backup_path }}/scripts/backup_db.sh"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_group.name }}"
+    mode: 0740
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+
+
+# First get the dump backup:  
+- name: "Backup DB cron job"
+  ansible.builtin.cron:
+    name: postgres_db_dump
+    user: "{{ galaxy_user_name }}"
+    hour: 0
+    minute: 0
+    job: "{{ backup_path }}/scripts/backup_db.sh >> {{ galaxy_user_home }}/cron.log 2>&1"
+
+
+# Then run the script to keep only the X latest...:  /usr/local/galaxy/galaxy-cron/handle_db_backups.sh --recent 5 /srv/galaxy/backup_db/ 
+- name: "Backup DB cron job"
+  ansible.builtin.cron:
+   name: postgres_db_rm
+   user: "{{ galaxy_user_name }}"
+   hour: "1"
+   minute: "0" 
+   job: "{{ backup_path }}/scripts/handle_db_backups.sh --daily-months {{ keep_daily_months_backups }}--recent {{ keep_recent_db_backups }} --oldest {{keep_oldest_db_backups}} {{ backup_path }}"
+
+
+
+# Backup mutable config files. These gets modified when installing tools or DM from the tool shed. 
+# TODO: move to a more appropriate role?
+- name: "Backup DB cron job"
+  ansible.builtin.cron:
+   name: config_backup
+   user: "{{ galaxy_user_name }}"
+   minute: "0"
+   hour: "0"
+   job: "{{ backup_path }}/scripts/backup_configs.sh {{ galaxy_mutable_config_dir }} {{ backup_path }}/config"
+
+
+# Superseded by the MinIO upload in backup_db.sh. The PSB destination
+# (midas.psb.ugent.be) stopped resolving in Feb 2024 and the cron failed nightly
+# from then on. Removed rather than deleted so existing crontabs get cleaned up.
+- name: "Remove superseded PSB offsite backup cron job"
+  ansible.builtin.cron:
+   name: duplicate_backup
+   user: "{{ galaxy_user_name }}"
+   state: absent
+
+
+
+
+## These cron jobs were obtained from https://github.com/usegalaxy-eu/galaxy-playbook-temporary/tree/master/roles/monitoring
+
+#- cron:
+#    name: "Execute monitor-60s.sh"
+#    job: "cd /usr/local/galaxy/galaxy-monit/ && bash /usr/local/galaxy/galaxy-monit/monitor-60s.sh 2>/dev/null"
+#    minute: "*"
+
+
+# Unrelated but needed anyway, docker cleanup.
+#- cron:
+#    name: "Docker cleanup"
+#    job: "bash /usr/local/galaxy/galaxy-monit/cleanup_docker.sh"
+#    minute: "30"
+#    hour: "0"
+
+#- cron:
+#    name: "Galaxy dataset cleanup"
+#    job: "/usr/local/galaxy/galaxy_cleanup_cron.sh"
+#    minute: "30"
+#    hour: "2"
+#    weekday: "5"
+#
+## Main ansible playbook execution.
+#- cron:
+#    name: "Execute ansible playbook"
+#    job: "cd /usr/local/galaxy/galaxy-config && /usr/local/galaxy/galaxy-config/playbook.sh"
+#    minute: "0"
+#
+#- cron:
+#    name: "Kill jobs held for more than 1 hour."
+#    job: "condor_q -hold -autoformat ClusterId EnteredCurrentStatus CurrentTime | awk '(($3-$2) > (60*60)){print $1}' | xargs --no-run-if-empty condor_rm"
+#    minute: "0"
+

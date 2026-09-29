@@ -1,0 +1,11 @@
+---
+# Deploy the non-gating Galaxy job healthcheck to each Galaxy host. Each host probes its
+# own instance with its own admin API key (host_vars/<host>/vault) and writes per-tool
+# result metrics to InfluxDB (tpv_job_test schema). Config: group_vars/galaxyservers/healthcheck.yml.
+# To run it once on demand: playbooks/daily/daily-galaxy-healthcheck.yml.
+
+- name: Galaxy job healthcheck
+  hosts: galaxyservers
+  become: true
+  roles:
+    - role: pdg.galaxy_healthcheck

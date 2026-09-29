@@ -1,0 +1,15 @@
+- id: workflowhub
+  api_url: https://workflowhub.eu
+  link_url: https://workflowhub.eu
+  label: workflowhub.eu
+  doc: |
+    WorkflowHub is a registry of scientific workflows.
+
+# By default only dockstore is configured.
+- id: dockstore
+  api_url: https://dockstore.org/api
+  link_url: https://dockstore.org
+  label: Dockstore
+  doc: |
+    Dockstore is an open platform used by the GA4GH for sharing Docker-based tools and workflows.
+

@@ -1,0 +1,24 @@
+---
+- name: Install Epel-release
+  ansible.builtin.dnf:
+    name:
+      - epel-release
+    state: present
+  become: true
+
+- name: Enable CRB (PowerTools) repository
+  ansible.builtin.command:
+    cmd: dnf config-manager --set-enabled crb
+  become: true
+
+- name: Install Nginx
+  ansible.builtin.dnf:
+    name:
+      - nginx
+    state: present
+  notify:
+    - Enable and start Nginx service
+  become: true
+
+- name: Build and install upload module
+  import_tasks: build_module.yml

@@ -1,0 +1,19 @@
+---
+- name: Ensure the certs directory exists
+  file:
+    path: "{{ source_certs_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure the certs directory exists
+  file:
+    path: "{{ shared_certs_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Ensure the certs directory exists
+  file:
+    path: "{{ destination_certs_dir }}"
+    state: directory
+    mode: '0755'
+

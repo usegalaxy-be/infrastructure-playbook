@@ -1,0 +1,47 @@
+---
+# ============================================================================
+# Telegraf Configuration — Infrastructure Agent Hosts
+# ============================================================================
+#
+# Applies to: proxyservers, dbservers, computeservers
+#
+# These hosts ship basic system metrics to the central InfluxDB on
+# monitoring.usegalaxy.be:8086 (HTTP, internal <vsc-vm-network> network).
+# Galaxy servers are NOT here — they use the [monitoring] group
+# (07-monitoring.yml Play 2) which adds Galaxy-specific plugins.
+#
+# Credentials: vault_influxdb_users is defined in group_vars/all/vault/influx_vault.yml
+# and accessible to all hosts. Index [1] is the telegraf write user.
+# ============================================================================
+
+# dj-wasabi.telegraf
+
+telegraf_agent_hostname: "{{ inventory_hostname }}"
+telegraf_agent_package_state: latest
+telegraf_agent_metric_buffer_limit: 20000
+telegraf_agent_version: 1.17.2
+telegraf_agent_debug: false
+
+telegraf_agent_output:
+  - type: influxdb
+    config:
+      - urls = ["http://monitoring.usegalaxy.be:8086"]
+      - database = "galaxy"
+      - username = "{{ vault_influxdb_users.regular[1].username }}"
+      - password = "{{ vault_influxdb_users.regular[1].password }}"
+      - timeout = "10s"
+
+telegraf_plugins_default:
+  - plugin: cpu
+    config:
+      - percpu = true
+      - totalcpu = true
+      - collect_cpu_time = false
+  - plugin: disk
+  - plugin: kernel
+  - plugin: processes
+  - plugin: diskio
+  - plugin: mem
+  - plugin: system
+  - plugin: swap
+  - plugin: netstat

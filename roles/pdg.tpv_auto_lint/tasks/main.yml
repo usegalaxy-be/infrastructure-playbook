@@ -1,0 +1,30 @@
+---
+- name: Create TPV virtualenv for linting
+  pip:
+    name: 
+      - pip 
+      - total-perspective-vortex[cli]
+    virtualenv: "{{ tpv_venv_dir }}"
+    extra_args: "{{ pip_extra_args | default(omit) }}"
+    virtualenv_command: "{{ galaxy_virtualenv_command | default(pip_virtualenv_command | default(omit)) }}"
+    virtualenv_python: "{{ galaxy_virtualenv_python | default(omit) }}"
+  environment:
+    VIRTUAL_ENV: "{{ tpv_venv_dir }}"
+
+- name: Create TPV mutable dir
+  ansible.builtin.file:
+    state: directory
+    path: "{{ tpv_mutable_dir }}"
+    mode: 0755
+
+- name: Copy TPV lint-and-copy-script
+  ansible.builtin.template:
+    src: tpv-lint-and-copy.sh.j2
+    dest: "{{ tpv_mutable_dir }}/tpv-lint-and-copy.sh"
+    owner: "{{ galaxy_user_name }}"
+    group: "{{ galaxy_user_name }}"
+    mode: 0750
+
+- name: Execute TPV lint-and-copy-script
+  ansible.builtin.command:
+    cmd: "{{ tpv_mutable_dir }}/tpv-lint-and-copy.sh"

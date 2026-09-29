@@ -1,0 +1,14 @@
+---
+- name: Create ephemeris virtualenv
+  pip:
+    name: 
+      - pip 
+      - ephemeris
+    virtualenv: "{{ ephemeris_venv_dir }}"
+    extra_args: "{{ pip_extra_args | default(omit) }}"
+    virtualenv_command: "{{ galaxy_virtualenv_command | default(pip_virtualenv_command | default(omit)) }}"
+    virtualenv_python: "{{ galaxy_virtualenv_python | default(omit) }}"
+  environment:
+    VIRTUAL_ENV: "{{ ephemeris_venv_dir }}"
+
+

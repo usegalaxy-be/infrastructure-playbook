@@ -1,0 +1,18 @@
+---
+# Users to deploy the working environment for.
+# Each entry needs uname (login name) and uhome (home directory).
+workenv_users:
+  - uname: galaxy_master
+    uhome: /home/galaxy_master
+
+workenv_vim_install: true
+workenv_tmux_install: true
+workenv_tools_install: true
+
+# Deploy the galaxy-session.sh tmux session init script and its logrotate config.
+# Only meaningful on the login/proxy node — enable via group_vars/proxyservers/.
+workenv_deploy_session_script: false
+
+# Deploy condor_q.sh and condor_history.sh helper scripts.
+# Only meaningful on Galaxy servers (HTCondor head nodes).
+workenv_deploy_condor_scripts: false

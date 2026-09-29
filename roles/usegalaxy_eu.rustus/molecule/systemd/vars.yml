@@ -1,0 +1,19 @@
+---
+rustus_version: 0.7.2
+
+rustus_owner: rustus
+rustus_group: rustus
+
+rustus_instances:
+  - name: uploads
+    user: "{{ rustus_owner }}"
+    group: "{{ rustus_group }}"
+    working_directory: "{{ uploads_dir }}"
+    args:
+      - --host "127.0.0.1"
+      - --port 10081
+      - --url "/uploads"
+      - --log-level "INFO"
+      - "--data-dir {{ uploads_dir }}"
+
+uploads_dir: /uploads

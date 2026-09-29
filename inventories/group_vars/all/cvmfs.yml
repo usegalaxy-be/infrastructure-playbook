@@ -1,0 +1,28 @@
+---
+# galaxyproject.cvmfs
+#
+# Install and configure CernVM-FS (CVMFS) client for Galaxy servers.
+# CVMFS is pre-installed in the VGCN images, but the role must still run to:
+#   1. Write /etc/cvmfs/default.local (CVMFS_REPOSITORIES, proxy, quota, cache)
+#   2. Run `cvmfs_config setup` if the autofs map is missing, then reload autofs
+#   3. Ensure autofs is enabled and running
+#
+# NOTE: Use galaxy_cvmfs_repos_enabled: true (not config-repo) to statically write
+# all Galaxy repos to CVMFS_REPOSITORIES, matching the VGCN image defaults.
+# config-repo leaves CVMFS_REPOSITORIES empty and relies on CVMFS_CONFIG_REPOSITORY
+# for dynamic discovery, which would break the current autofs-based setup.
+
+cvmfs_role: client
+
+galaxy_cvmfs_repos_enabled: true
+
+# Size of CVMFS client cache in MB, applied per repository (not total).
+# With 7 Galaxy repos this is the per-repo limit; total potential usage = 7 * limit.
+# NOTE: CVMFS cache is always per-node local storage at /var/lib/cvmfs (default).
+#       It CANNOT be shared via NFS between workers (SQLite + file locks = corruption).
+#       To reduce redundant downloads across workers, set up a Squid proxy and configure
+#       CVMFS_HTTP_PROXY — workers keep their own local caches but share the HTTP layer.
+# Galaxy head nodes don't run jobs so they need minimal cache.
+# Worker nodes pull singularity images and need a larger quota.
+# Override this in group_vars for worker node groups.
+cvmfs_quota_limit: 2000

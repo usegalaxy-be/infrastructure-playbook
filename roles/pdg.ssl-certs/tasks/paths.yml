@@ -1,0 +1,16 @@
+---
+
+- name: Manage Paths
+  block:
+
+    - name: Create certificate directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+      loop: "{{ galaxy_local_ssl_dirs }}"
+      when: item | default(False)
+
+  become: true
+  become_user: root

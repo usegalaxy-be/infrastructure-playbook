@@ -1,0 +1,14 @@
+#!/bin/bash
+# Wrapper around gxadmin iquery queue --by destination.
+#
+# Problem: gxadmin uses COUNT(destination_id) which returns 0 for NULL values,
+# and NULL destination_id produces an empty tag value in InfluxDB line protocol
+# (destination_id=,state=...) which is invalid and causes a parse error.
+# Jobs with NULL destination_id are typically waiting to be assigned (e.g. condor
+# jobs not yet claimed), so replacing NULL with 'none' preserves their visibility.
+#
+# Telegraf exec (1.28+) does not invoke a shell, so pipes cannot be used directly
+# in the commands config — hence this wrapper script.
+
+/usr/bin/gxadmin iquery queue --by destination \
+    | sed 's/destination_id=,/destination_id=none,/g'

@@ -1,0 +1,24 @@
+---
+galaxy_info:
+  role_name: galaxy_subdomains
+  namespace: usegalaxy_eu
+  author: Galaxy Europe
+  description: Configure subdomain CSS themes for Galaxy
+  company: Galaxy Europe
+  license: GPL-3.0
+  min_ansible_version: "2.7"
+  platforms:
+    - name: EL
+      versions:
+        - all
+    - name: Fedora
+      versions:
+        - all
+    - name: Ubuntu
+      versions:
+        - all
+    - name: Debian
+      versions:
+        - all
+  galaxy_tags: []
+dependencies: []

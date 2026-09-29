@@ -1,0 +1,29 @@
+---
+# Run the full tool-test sweep on demand: every tool currently installed on the host.
+#
+#   ansible-playbook playbooks/one-off/galaxy-tool-tests-all.yml --limit test.usegalaxy.be
+#
+# Triggers galaxy-tool-tests-full.service, which regenerates the tool list with
+# get-tool-list and runs tool-tests.sh in ephemeris mode. Unlike the other modes,
+# the sweep re-tests tools that already have a result (galaxy_tools_full_sweep_force),
+# so results reflect this run rather than whenever the tool was last seen. Same unit the yearly
+# galaxy-tool-tests-full.timer fires. The unit is deployed by
+# playbooks/daily/daily-galaxy-tools.yml, which also documents the other test modes.
+#
+# The sweep runs for hours and is started detached, so this playbook returns at once.
+# Parallelism is baked into the unit at deploy time, so raise it there first:
+#   ansible-playbook playbooks/daily/daily-galaxy-tools.yml --limit <host> \
+#     -e install_tools=false -e parallel_tests=4 --diff
+# ============================================================================
+
+- name: Full Galaxy tool-test sweep
+  hosts: galaxyservers
+  become: true
+  become_user: root
+  gather_facts: false
+
+  tasks:
+    - name: Trigger the full tool-test sweep
+      ansible.builtin.include_role:
+        name: pdg.galaxy-tools
+        tasks_from: run_full_sweep

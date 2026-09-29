@@ -1,0 +1,35 @@
+---
+# Deploy admin working environment (pdg.workenv) to all managed hosts.
+# All hosts: vim, tmux, SSH keys, console password (galaxy_master user only, not the galaxy app user).
+# Loginnode extras: galaxy-session.sh, tmux log rotation.
+# Galaxyservers extras: condor_q.sh, condor_history.sh.
+
+- name: Deploy standard admin working environment
+  hosts: all
+  become: true
+
+  roles:
+    # pdg.workenv's CLI tools (ripgrep, fzf, fd-find, bat, zoxide, keychain) are EPEL-only.
+    # EPEL is enabled in 00-init.yml, which imports this playbook — a standalone run
+    # against a host that skipped 00-init.yml (e.g. a plain-image host) will fail here.
+    - role: pdg.workenv
+
+  tasks:
+    - name: Manage authorized SSH keys
+      ansible.builtin.include_role:
+        name: pdg.ssh-keys
+        apply:
+          tags: ssh
+      vars:
+        ssh_authorized_keys: "{{ workenv_ssh_authorized_keys }}"
+      when: workenv_ssh_authorized_keys | default([]) | length > 0
+      tags: ssh
+
+    - name: Ensure admin users have a password set for console access
+      ansible.builtin.user:
+        name: "{{ item.uname }}"
+        password: "{{ item.password | password_hash('sha512') }}"
+        update_password: always
+      loop: "{{ workenv_users }}"
+      no_log: true
+      when: item.password is defined

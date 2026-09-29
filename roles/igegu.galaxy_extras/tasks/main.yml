@@ -1,0 +1,58 @@
+
+# Build spinningfifo shared library: see README for method
+
+- name: Create extra directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ galaxy_user }}"
+  with_items:
+    - "{{ galaxy_log_dir }}"
+    - "{{ galaxy_sockets_dir }}"
+  become: yes
+
+- name: Create additional directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: galaxy_master #"{{ __galaxy_user_name }}"
+    group: galaxy_master #"{{ __galaxy_user_group }}"
+    #mode: "{{ __galaxy_dir_perms }}"
+  with_items: "{{ nfs_dirs }}"
+
+# these packages are required to install some of the dependencies in conditional_dependencies
+# they should be included in ghe VGCN soon or I can also add them to the terraform deployment, but for the moment keep them here
+- name: Install extra packages
+  yum:
+    name: 
+      - python-devel
+      - postgresql-devel
+      - python3-virtualenv  #requirement to create the venv
+    state: present
+  become: yes
+
+#- name: Install the conditional dependencies
+     # activate venv and then run:
+     #  cat /srv/galaxy/src/conditional_requirements.txt | pip install -r /dev/stdin --index-url https://wheels.galaxyproject.org/simple --extra-index-url https://pypi.python.org/simple
+
+
+## sorry about this
+# TODO: move to terraform?
+- name: Set SE Linux conf as permissive
+  lineinfile:
+    path: /etc/selinux/config
+    regexp: '^SELINUX='
+    line: 'SELINUX=permissive'
+  become: yes
+
+
+- include: cron_config.yml
+
+#  when: galaxy_cron_config
+#  tags:
+#    - cron
+#
+- name: Install reference data
+  include_tasks: reference_data.yml
+  when: install_reference_data
+

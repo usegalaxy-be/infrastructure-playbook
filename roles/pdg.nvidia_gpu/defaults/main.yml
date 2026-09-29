@@ -1,0 +1,29 @@
+---
+# NVIDIA GPU enablement for HTCondor workers (Rocky/RHEL 9).
+
+# CUDA repo providing the NVIDIA driver packages (VSC EL recipe, ported to el9).
+nvidia_gpu_cuda_repo_url: "https://developer.download.nvidia.com/compute/cuda/repos/rhel9/x86_64/cuda-rhel9.repo"
+
+# el9 ships the driver as a DNF module stream; the default profile pulls in the
+# driver, CUDA libs and NVML. Use a *-dkms stream so it rebuilds on kernel updates.
+nvidia_gpu_driver_stream: "latest-dkms"
+
+# Reboot after a driver (re)install so the kernel module loads.
+nvidia_gpu_reboot: true
+# Generous: the first boot after a kernel/openssl upgrade on VSC nodes can be slow.
+nvidia_gpu_reboot_timeout: 1200
+
+# Update the kernel + headers to the latest matching pair before building the driver.
+# Needed on nodes running a kernel older than the repos carry, where kernel-devel for the
+# running kernel is no longer available. Set false to pin to the running kernel instead.
+nvidia_gpu_update_kernel: true
+
+# openssl 3.5.5-5.el9_8 breaks ansible get_url (ansible/ansible#87251); the kernel-devel
+# update drags it in, so re-pin to the good build before this role's get_url tasks.
+# Sourced from the shared openssl_safe_version (group_vars/all/prerequisites.yml).
+nvidia_gpu_openssl_safe_version: "{{ openssl_safe_version | default('3.5.5-4.el9_8') }}"
+
+# Docker path: install the container toolkit and wire the nvidia runtime into Docker.
+# Apptainer/Singularity uses --nv and needs none of this, so it only covers docker tools.
+nvidia_gpu_enable_docker_runtime: true
+nvidia_gpu_container_toolkit_repo_url: "https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo"

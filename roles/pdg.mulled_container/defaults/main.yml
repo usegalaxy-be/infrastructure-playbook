@@ -1,0 +1,25 @@
+---
+# Directory the Galaxy cached_mulled_singularity resolver reads.
+# See templates/galaxy/config/container_resolvers_conf.yml.j2.
+# When building on a Galaxy server this resolves per-env; when building on a
+# worker, override it with the target env's path.
+mulled_container_cache_dir: "{{ galaxy_mutable_data_dir }}/container_cache/singularity/mulled"
+mulled_container_cache_owner: "{{ galaxy_user_name }}"
+mulled_container_cache_group: "{{ galaxy_user_name }}"
+
+# Build tooling. galaxy-tool-util provides mulled-build-tool, the tool-XML
+# parser, and the image-naming util.
+mulled_container_build_user: "{{ galaxy_user_name }}"
+mulled_container_build_venv: "/home/{{ mulled_container_build_user }}/.mulled-build-venv"
+mulled_container_tool_util_version: ""  # empty = latest; pin for reproducible builds
+mulled_container_workdir: "/tmp/mulled-build"  # local disk on the build host, not NFS
+
+mulled_container_channels: [conda-forge, bioconda]
+mulled_container_force: false  # rebuild even if the image is already cached
+
+# Containers to build. Each item just points at a deployed tool XML; the
+# requirements (macro-expanded, including python) are read from it, so there is
+# no per-tool package list to maintain.
+#   name:     human label
+#   tool_xml: absolute path to the deployed tool XML on the build host
+mulled_container_specs: []

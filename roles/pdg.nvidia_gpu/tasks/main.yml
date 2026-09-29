@@ -1,0 +1,9 @@
+---
+- name: Install NVIDIA driver
+  ansible.builtin.import_tasks: driver.yml
+  tags: [gpu, gpu_driver]
+
+- name: Enable NVIDIA container runtime for Docker
+  ansible.builtin.import_tasks: container_toolkit.yml
+  when: nvidia_gpu_enable_docker_runtime | bool
+  tags: [gpu, gpu_docker]

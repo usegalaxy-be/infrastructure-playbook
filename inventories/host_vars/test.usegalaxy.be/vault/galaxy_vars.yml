@@ -1,0 +1,14 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+_vault_galaxy_test: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/galaxy/test') }}"
+vault_id_secret: "{{ _vault_galaxy_test.vault_id_secret }}"
+vault_galaxy_admin_users: "{{ _vault_galaxy_test.vault_galaxy_admin_users }}"
+vault_tool_admin: "{{ _vault_galaxy_test.vault_tool_admin }}"
+vault_tool_admin_pass: "{{ _vault_galaxy_test.vault_tool_admin_pass }}"
+vault_tool_admin_api_key: "{{ _vault_galaxy_test.vault_tool_admin_api_key }}"
+vault_conda_user: "{{ _vault_galaxy_test.vault_conda_user }}"
+vault_conda_user_pass: "{{ _vault_galaxy_test.vault_conda_user_pass }}"
+vault_conda_user_api_key: "{{ _vault_galaxy_test.vault_conda_user_api_key }}"
+vault_tailscale_auth_key: "{{ _vault_galaxy_test.vault_tailscale_auth_key }}"
+vault_rabbitmq_password_pulsar_esg: "{{ _vault_galaxy_test.vault_rabbitmq_password_pulsar_esg }}"
+vault_grafana_security_secret_key: "{{ _vault_galaxy_test.vault_grafana_security_secret_key }}"

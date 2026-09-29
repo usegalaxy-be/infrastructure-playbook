@@ -1,0 +1,428 @@
+---
+
+# InfluxDB write credentials, used by the job healthcheck and any other playbook
+# that writes metrics from the Galaxy server context.
+# vault_influxdb_users is in group_vars/all/vault/influx_vault.yml.
+influx_username: "{{ vault_influxdb_users.regular[1].username }}"
+influx_password: "{{ vault_influxdb_users.regular[1].password }}"
+
+#########################
+# galaxyproject.galaxy
+########################
+
+# False by default, as e.g. you might have a 'galaxy' user provided by LDAP or AD. We have galaxy_master pre-created
+galaxy_create_user: false 
+# Best practices for security, configuration is owned by 'root' (or a different user) than the processes
+# TODO: undo privilege separation
+# NOTE: privilege separation is possible but comes with many side effects in path ownership on NFS 
+# and other roles that are not setup for privilege separation. 
+# For now the initial setup for privilege separation with paths lives on a separate branch 
+galaxy_separate_privileges: false
+# User that owns Galaxy code, configs, and virutalenv, and that runs `pip install` for dependencies. root by default
+galaxy_privsep_user: galaxy_master
+# TODO: check if this is necessary to set
+# NOTE: we dont need to set this, causes user escalation to not work correctly
+# galaxy_become_users: {root}
+# install dependencies in venv
+galaxy_fetch_dependencies: true
+# NOTE: When upgrading to a newer galaxy version this needs to be set to false
+# TODO: set to true once we move tool install db
+galaxy_manage_database: false
+# False by default as your administrator might e.g. have root_squash enabled on NFS. 
+# Here we can create the directories so it's fine.
+galaxy_manage_paths: false
+# nfs_manage_paths: true
+galaxy_manage_cleanup: true
+galaxy_tmpclean_cron_file: null
+galaxy_tmpclean_log: ~/tmpclean.log
+
+# Build caches under the admin home, pruned weekly by the "Prune admin home
+# caches" cron in 06-galaxy-postrequisites.yml. These sit on the 30GB root disk
+# and only save time on Galaxy client/venv rebuilds.
+galaxy_admin_cache_dirs:
+  - "{{ galaxy_user_home }}/.cache/yarn"
+  - "{{ galaxy_user_home }}/.cache/pip"
+  - "{{ galaxy_user_home }}/.cache/node-gyp"
+  - "{{ galaxy_user_home }}/.cache/pnpm"
+  - "{{ galaxy_user_home }}/.npm/_cacache"
+  - "{{ galaxy_user_home }}/.apptainer/cache"
+galaxy_admin_cache_max_age_days: 90
+# NOTE: we could enable these for additional cleanup
+# galaxy_tmpclean_dirs:
+#   - "{{ galaxy_new_file_path }}"
+#   - "{{ galaxy_mutable_data_dir }}/tmp/apptainer_tmp"
+# The name of the system user under which Galaxy runs
+# TODO: we should probably have a galaxy user that runs the code
+galaxy_user:
+  name: "{{ galaxy_user_name }}"
+  create_home: true
+  home: "/home/{{ galaxy_user_name }}"
+  uid: 1001 # 999 for priv sep
+  shell: /bin/bash
+galaxy_group:
+  name: "{{ galaxy_user_name }}"
+  gid: 1001
+galaxy_user_uid: 1001 #999 # "{{ __galaxy_user_id }}"
+galaxy_user_gid: 1001 #999 # "{{ __galaxy_user_gid }}"
+
+# Clone Galaxy from the source repository and maintain it at a specified version (commit), 
+# as well as set up a virtualenv from which it can be run.
+galaxy_manage_clone: true
+# Take over a Galaxy directory that already exists, as well as set up a [virtualenv][virtualenv] from which it can be run. 
+#`galaxy_server_dir` must point to the path which already contains the source code of Galaxy.
+galaxy_manage_existing: false
+# (default: false): If true, any modified files in the Galaxy repository will be discarded.
+galaxy_force_checkout: true
+# Only rebuilt during upgrades: pass -e galaxy_build_client=true. RFC00234.
+galaxy_build_client: false
+galaxy_client_use_prebuilt: false
+galaxy_manage_systemd: false
+galaxy_systemd_mode: "gravity"
+# Control whether the systemd service unit is installed/controlled as root or the Galaxy user
+galaxy_systemd_root: true
+
+galaxy_instance_url: "https://{{ galaxy_instance_hostname }}"
+
+# `root-dir`: Everything is laid out in subdirectories underneath a single root directory.
+galaxy_layout: root-dir
+
+# We have two separate layouts for prod and test defined: /srv/galaxy or /srv/galaxy_***
+# TODO: check if we can unify layout between test and prod?
+# local config
+galaxy_local_root: "{{ galaxy_root }}/local"
+# shared config
+galaxy_shared_root: "{{ galaxy_root }}/shared"
+
+# Galaxy config files (e.g. datatypes_config_file).
+# Defaults to the directory in which galaxy.yml is located.
+galaxy_config_dir: "{{ galaxy_local_root }}/config"
+
+# This is the galaxyproject.galaxy default but some other roles use this variable too.
+galaxy_config_file: "{{ galaxy_config_dir }}/galaxy.yml"
+
+# Galaxy config files controlled by Galaxy (such as
+# shed_tool_config_file, etc.). Must be writable by the user running Galaxy
+galaxy_mutable_config_dir: "{{ galaxy_local_root }}/mutable-config"
+# Directory that will be used for "mutable" data and caches, must be writable by the user running Galaxy.
+# contains files,data_stage
+galaxy_mutable_data_dir: "{{ galaxy_shared_root }}/database" 
+
+galaxy_object_store_cache_path: "{{ galaxy_mutable_data_dir }}/object_store_cache"
+
+# NOTE: should probably be moved to mutable data and shared between prod and test
+galaxy_tool_data_path: "{{ galaxy_mutable_config_dir }}/tool_data"
+
+# Where to write Galaxy logs to (same as default)
+# NOTE: needs to be referenced in gxconfig.yml to work
+galaxy_log_dir: "{{ galaxy_mutable_data_dir }}/log"
+
+# NOTE: should probably be moved to mutable data and shared between prod and test
+galaxy_library_dir: "{{ galaxy_mutable_data_dir }}/libraries"
+ 
+# needed for usegalaxy-eu.bashrc and evaluated in gxconfig.yml before galaxy role loads
+galaxy_shed_tool_conf_file: "{{ galaxy_mutable_config_dir }}/shed_tool_conf.xml"
+
+# TODO: check if this works as intended with read/write permissions for the galaxy user and with the current setup of nfs_manage_paths
+# Additional directories to create as the Galaxy user, so you don't have to copy the default galaxy_dirs
+galaxy_extra_dirs:
+  # - /data
+  - "{{ tpv_config_dir }}"
+  - "{{ galaxy_data_manager_data_path }}"
+  - "{{ galaxy_shed_tool_data_path }}"
+  - "{{ galaxy_shed_database_path }}"
+  - "{{ galaxy_local_tools_dir }}/interactive"
+  - "{{ galaxy_library_dir }}/admin"
+  - "{{ galaxy_library_dir }}/user"
+  - "{{ galaxy_job_working_directory }}/_interactive"
+  - "{{ galaxy_mutable_data_dir }}/tmp/apptainer_tmp"
+  - "{{ galaxy_mutable_data_dir }}/tmp/apptainer_cache"
+
+galaxy_manage_subdomain_static: false
+galaxy_manage_themes: false
+galaxy_manage_host_filters: true # test when themes work
+galaxy_auto_brand: no # automatically sets the subdomain name as brand
+
+galaxy_job_metrics_plugins:
+  - type: core
+  - type: cpuinfo
+    verbose: true
+    fields: model name,bugs
+    unique: true # one value per field when identical across all processors, instead of one key per core
+  - type: meminfo
+  - type: uname
+  - type: env
+    variables: BATCH_SYSTEM,SLURM_JOB_ID
+  - type: cgroup
+  - type: hostname
+
+galaxy_config_style: yaml
+
+# Local (relative to playbook) path to local tools
+galaxy_local_tools_src_dir: "{{ inventory_dir }}/../files/galaxy/tools"
+
+# Local (relative to playbook) path to dynamic job rules
+galaxy_dynamic_job_rules_src_dir: "{{ inventory_dir }}/../files/galaxy/dynamic_job_rules"
+
+galaxy_local_tools:
+- api_test.xml
+- testing.xml
+- plink.xml
+- protein_calculator/v1.0.2/protein_calculator.xml
+- protein_calculator/v1.1.0/protein_calculator.xml
+- {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
+- {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
+- {file: tpv_test/test-condor-conda.xml,       section_name: "TPV test Tools", section_id: tpv_test}
+- {file: tpv_test/test-condor-gpu.xml,         section_name: "TPV test Tools", section_id: tpv_test}
+- {file: tpv_test/test-condor-gpu-v3.xml,      section_name: "TPV test Tools", section_id: tpv_test}
+- interactive/interactivetool_ilastik.xml
+- interactive/interactivetool_pavian.xml
+- interactive/interactivetool_phinch.xml
+- interactive/interactivetool_cellpose.xml
+- interactive/interactivetool_scop3p_toolkit.xml
+# dependency of cellpose
+- interactive/pytorch_convert_safetensors.py
+- interactive/interactivetool_cellprofiler.xml
+- interactive/interactivetool_napari.xml
+- interactive/pavian.png
+- interactive/phinch.png
+- interactive/ilastik.png
+- interactive/cellpose.png
+- interactive/cellprofiler.png
+- interactive/napari.png
+- interactive/scop3p_toolkit.png
+
+# Static files (copied from defaults/templates in local ansible repo)
+# TODO: check all files/templates and unify as much as possible for test/prod
+
+# When galaxy_manage_static_setup is set to Yes, these files are copied from the ansible(local) dir 
+# to their corresponding locations during static_setup task. 
+# If (and only) there is a change in file contents this task will OVERWRITE 
+# the previous file in server saving a backup version in the same location (named '.backup + the date')! 
+galaxy_config_file_src_dir: "{{ inventory_dir }}/../files/galaxy/config"
+galaxy_config_files:
+  # Deploy error_reports.yml to enable email error reporting for users
+  - src: "{{ galaxy_config_file_src_dir }}/error_reports.yml"
+    dest: "{{ galaxy_config_dir }}/error_reports.yml"
+  - src: "{{ galaxy_config_file_src_dir }}/sanitize_whitelist.txt"
+    dest: "{{ galaxy_config_dir }}/sanitize_whitelist.txt"
+  - src: "{{ galaxy_config_file_src_dir }}/test_filters.py"
+    dest: "{{ galaxy_server_dir }}/lib/galaxy/tool_util/toolbox/filters/test_filters.py" # previously lib/galaxy/tools/toolbox/filters/
+  - src: "{{ galaxy_config_file_src_dir }}/trs_servers_conf.yml"
+    dest: "{{ galaxy_config_dir }}/trs_servers_conf.yml"
+  - src: "{{ galaxy_config_file_src_dir }}/{{ inventory_hostname }}/user_preferences_extra_conf.yml"
+    dest: "{{ galaxy_config_dir }}/user_preferences_extra_conf.yml"
+  - src: "{{ galaxy_config_file_src_dir }}/themes_conf.yml"
+    dest: "{{ galaxy_config_dir }}/themes_conf.yml"
+  - src: "{{ galaxy_config_file_src_dir }}/{{ inventory_hostname }}/object_store_locations.yml"
+    dest: "{{ galaxy_config_dir }}/tpv_config/object_store_locations.yml"
+  - src: "{{ galaxy_config_file_src_dir }}/{{ inventory_hostname }}/production_s3fs_writable.yml"
+    dest: "{{ galaxy_config_dir }}/production_s3fs_writable.yml"
+  # tool_conf_interactive.xml is now a Jinja2 template (see galaxy_config_templates below)
+# NOTE: moved, to static location
+  - src: "{{ galaxy_config_file_src_dir }}/tool_sheds_conf.xml"
+    dest: "{{ galaxy_config_dir }}/tool_sheds_conf.xml"
+  - src: "{{ galaxy_config_file_src_dir }}/oidc_config.xml.sample"
+    dest: "{{ galaxy_config_dir }}/oidc_config.xml" #"{{ galaxy_config_merged[galaxy_app_config_section].oidc_config_file }}"
+  - src: "{{ galaxy_config_file_src_dir }}/data_manager_conf.xml.sample"
+    dest: "{{ galaxy_config_dir }}/data_manager_conf.xml" #"{{ galaxy_config_merged[galaxy_app_config_section].data_manager_config_file }}"
+# NOTE: this should be handled by the galaxyproject.galaxy role
+  # - src: "{{ galaxy_local_tools_src_dir }}/"
+  #   dest: "{{ galaxy_local_tools_dir }}"
+
+# Anything that is based on a template obtained from the ansible dir should go here
+# the galaxy config galaxy.ini/galaxy.yml is treated separatedly 
+galaxy_config_template_src_dir: "{{ inventory_dir }}/../templates/galaxy/config"
+irods_config_template_src_dir: "{{ inventory_dir }}/../templates/irods"
+galaxy_config_templates:
+  - src: "{{ galaxy_config_template_src_dir }}/tool_conf_interactive.xml.j2"
+    dest: "{{ galaxy_config_dir }}/tool_conf_interactive.xml"
+  - src: "{{ galaxy_config_template_src_dir }}/elixir_oidc_backend.xml.j2"
+    dest: "{{ galaxy_config_dir }}/oidc_backends_config.xml" #"{{ galaxy_config_merged[galaxy_app_config_section].oidc_backends_config_file }}" #
+  - src: "{{ galaxy_config_template_src_dir }}/{{ inventory_hostname }}/tool_conf.xml.j2"
+    dest: "{{ galaxy_config_dir }}/tool_conf.xml" #"{{ galaxy_tool_conf_file }}"
+  - src: "{{ galaxy_config_template_src_dir }}/{{ inventory_hostname }}/object_store_conf.xml.j2"
+    dest: "{{ galaxy_config_dir }}/object_store_conf.xml" #"{{ galaxy_config_merged[galaxy_app_config_section].object_store_config_file }}"
+  - src: "{{ galaxy_config_template_src_dir }}/container_resolvers_conf.yml.j2"
+    dest: "{{ galaxy_config.galaxy.container_resolvers_config_file }}"
+  - src: "{{ galaxy_config_template_src_dir }}/dependency_resolvers_conf.xml"
+    dest: "{{ galaxy_config.galaxy.dependency_resolvers_config_file }}"
+  - src: "{{ galaxy_config_template_src_dir }}/job_resource_params_conf.xml.j2"
+    dest: "{{ galaxy_config.galaxy.job_resource_params_file }}"
+  - src: "{{ galaxy_config_template_src_dir }}/reports.yml"
+    dest: "{{ galaxy_config.gravity.reports.config_file }}"
+  - src: "{{ galaxy_config_template_src_dir }}/tpv/tool_defaults.yml.j2"
+    dest: "{{ tpv_mutable_dir }}/tool_defaults.yml"
+  # - src: "{{ galaxy_config_template_src_dir }}/tpv/destinations_shared.yml.j2"
+  #   dest: "{{ tpv_mutable_dir }}/destinations_shared.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/tpv/destinations.yml.j2"
+    dest: "{{ tpv_mutable_dir }}/destinations.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/tpv/tools.yml.j2"
+    dest: "{{ tpv_mutable_dir }}/tools.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/tpv/roles.yml.j2"
+    dest: "{{ tpv_mutable_dir }}/roles.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/tpv/users.yml.j2"
+    dest: "{{ tpv_mutable_dir }}/users.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/tpv/interactive_tools.yml.j2"
+    dest: "{{ tpv_mutable_dir }}/interactive_tools.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/pulsar_app.yml.j2"
+    dest: "{{ galaxy_config_dir }}/pulsar_app.yml"
+  - src: "{{ irods_config_template_src_dir }}/environment.json.j2"
+    dest: "{{ galaxy_config_dir }}/environment.json"
+  - src: "{{ galaxy_config_template_src_dir }}/vault_conf.yml.j2"
+    dest: "{{ galaxy_config_dir }}/vault_conf.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/object_store_templates.yml.j2"
+    dest: "{{ galaxy_config_dir }}/object_store_templates.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/{{ inventory_hostname }}/file_source_templates.yml.j2"
+    dest: "{{ galaxy_config_dir }}/file_source_templates.yml"
+  - src: "{{ galaxy_config_template_src_dir }}/file_sources_conf.yml.j2"
+    dest: "{{ galaxy_config_dir }}/file_sources_conf.yml"
+#TODO: change in gxconfig
+  - src: "{{ galaxy_config_template_src_dir }}/tool_data_table_conf.xml.j2"
+    dest: "{{ galaxy_config_dir }}/tool_data_table_conf.xml"
+
+
+# Galaxy Subdomains
+galaxy_themes_ansible_file_path: "{{ inventory_dir }}/../files/galaxy/static"
+galaxy_themes_conf_path: "{{ inventory_dir }}/../files/galaxy/config/themes_conf.yml"
+galaxy_themes_default_welcome: https://usegalaxy-be.github.io/ #https://galaxyproject.org/bare/eu/usegalaxy/main/
+galaxy_themes_welcome_url_prefix: https://usegalaxy-be.github.io/index-
+galaxy_themes_subdomains:
+  - name: biodiversity
+    tool_sections:
+    - "phylogenetics"
+    - "join__subtract_and_group"
+    - "operate_on_genomic_intervals"
+    - "statistics"
+    - "graph_display_data"
+    - "machine_learning"
+    - "ncbi_blast"
+    - "fasta_fastq"
+    - "fastq_quality_control"
+    - "assembly"
+    - "dna_metabarcoding"
+    - "metagenomic_analysis"
+    - "mothur"
+    - "qiime"
+    - "rad_seq"
+    - "animal_detection_on_acoustic_recordings"
+    - "species_abundance"
+    - "biodiversity_data_exploration"
+    - "gis_data_handling"
+    - "climate_analysis"
+    - "interactivetools"
+  - name: covid19
+
+
+# galaxy_themes_static_keys:
+#   static_dir: ""
+#   static_images_dir: "images/"
+#   static_scripts_dir: "scripts/"
+#   static_welcome_html: "welcome.html/"
+#   static_favicon_dir: "favicon.ico"
+#   static_robots_txt: "robots.txt"
+
+galaxy_themes_static_path: "{{ galaxy_server_dir }}"
+galaxy_themes_static_dir: "{{ galaxy_server_dir }}/static"
+galaxy_themes_instance_domain: "{{ inventory_hostname }}"
+galaxy_themes_global_host_filters_path: "{{ galaxy_server_dir }}/lib/galaxy/tool_util/toolbox/filters/global_host_filters.py"
+
+
+# hxr.install-to-venv
+# role can be replaced by relevant task in galaxyproject.galaxy role
+
+pip_venv_path: "{{ galaxy_venv_dir }}"
+pip_install_dependencies:
+    # Needed for tool watching
+    # - galaxy-app
+    # - galaxy-util
+    # - galaxy-schema
+    # - watchdog
+    # ephemeris comes with a different version of pydantic and therefore needs to be installed in a seperate env
+    # - ephemeris
+    # dependency for v24.1 for BYOS
+    # - boto3==1.34.106
+
+# usegalaxy_eu.tpv_auto_lint
+
+tpv_config_dir: "{{ galaxy_config_dir }}/{{ tpv_config_dir_name }}"
+tpv_config_dir_name: tpv_config
+tpv_configs:
+  - '{{ galaxy_config_template_src_dir }}/tpv/tool_defaults.yml.j2'
+  # - '{{ galaxy_config_template_src_dir }}/tpv/destinations_shared.yml.j2'
+  - '{{ galaxy_config_template_src_dir }}/tpv/destinations.yml.j2' #'{{ galaxy_config_template_src_dir }}/{{ inventory_hostname }}/tpv/destinations.yml.j2'
+  - '{{ galaxy_config_template_src_dir }}/tpv/tools.yml.j2'
+  - '{{ galaxy_config_template_src_dir }}/tpv/users.yml.j2'
+  - '{{ galaxy_config_template_src_dir }}/tpv/roles.yml.j2'
+  - '{{ galaxy_config_template_src_dir }}/tpv/interactive_tools.yml.j2'
+
+# TODO: needs to be created on nfs
+galaxy_extra_privsep_dirs:
+  - "{{ tpv_config_dir }}"
+tpv_privsep: false
+galaxy_job_config_file: "{{ galaxy_config_dir }}/galaxy.yml"
+
+# Workaround for the sra_tools wrapper's ms/s http timeout bug — see the sra_tools
+# rule in tpv/tools.yml.j2 and usegalaxy-be/infrastructure-playbook#172.
+sra_tools_ncbi_override_path: "{{ galaxy_mutable_data_dir }}/tmp/sra_tools_ncbi_override.kfg"
+
+legacy_data_manager_data_path: "/galaxy_base/scratch_prod/dm-data/"
+
+# TODO: We need a consistent way of having the same data available on all nodes, 
+# including pulsar nodes, for singularity and docker containers. Currently we rsync custom reference data to pulsar.
+galaxy_container_volumes:
+  local:
+    - "$_CONDOR_SCRATCH_DIR:rw"
+    - "$galaxy_root:ro"
+    - "{{ galaxy_dependency_dir }}:ro"
+    - "{{ galaxy_venv_dir }}:ro"
+    - "{{ galaxy_tus_upload_store }}:rw"
+    - "$tool_directory:ro"
+    - "$working_directory:rw"
+    - "$job_directory:rw"
+    - "$job_directory/outputs:rw"
+    - "$job_directory/tmp:rw"
+    - "{{ galaxy_object_store_cache_path }}:ro"
+    - "{{ galaxy_file_path }}:ro"
+    - "{{ old_galaxy_file_path }}:ro"
+    - "{{ galaxy_data_manager_data_path }}:ro"
+    #- "{{ legacy_data_manager_data_path }}:ro"
+    - "/srv/galaxy/shared/database/reference_data:ro"
+    - "/cvmfs/data.galaxyproject.org:ro"
+  # Same as 'local' but without $_CONDOR_SCRATCH_DIR, which HTCondor sets and
+  # local_runner jobs never have. Scratch space is already covered by
+  # $working_directory/$job_directory below. Also drops
+  # /srv/galaxy/shared/database/reference_data: that's condor-worker-only NFS,
+  # not mounted on the Galaxy handler itself.
+  headnode:
+    - "$galaxy_root:ro"
+    - "{{ galaxy_dependency_dir }}:ro"
+    - "{{ galaxy_venv_dir }}:ro"
+    - "{{ galaxy_tus_upload_store }}:rw"
+    - "$tool_directory:ro"
+    - "$working_directory:rw"
+    - "$job_directory:rw"
+    - "$job_directory/outputs:rw"
+    - "$job_directory/tmp:rw"
+    - "{{ galaxy_object_store_cache_path }}:ro"
+    - "{{ galaxy_file_path }}:ro"
+    - "{{ old_galaxy_file_path }}:ro"
+    - "{{ galaxy_data_manager_data_path }}:ro"
+    - "/cvmfs/data.galaxyproject.org:ro"
+  vib:
+    - "$_CONDOR_SCRATCH_DIR:rw"
+    - "$galaxy_root:ro"
+    - "{{ galaxy_dependency_dir }}:ro"
+    - "{{ galaxy_venv_dir }}:ro"
+    - "{{ galaxy_tus_upload_store }}:rw"
+    - "$tool_directory:ro"
+    - "$working_directory:rw"
+    - "$job_directory:rw"
+    - "$job_directory/outputs:rw"
+    - "$job_directory/tmp:rw"
+    - "{{ galaxy_object_store_cache_path }}:ro"
+    - "{{ galaxy_file_path }}:ro"
+    - "{{ old_galaxy_file_path }}:ro"
+    - "{{ galaxy_data_manager_data_path }}:ro"
+    # - "{{ legacy_data_manager_data_path }}:ro"
+    - "/srv/galaxy/shared/database/reference_data:ro"
+    - "/cvmfs/data.galaxyproject.org:ro"

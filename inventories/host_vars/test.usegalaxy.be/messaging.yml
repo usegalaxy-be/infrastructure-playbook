@@ -1,0 +1,77 @@
+---
+# pdg.rabbitmqserver
+
+rabbitmq_vhosts:
+  - /pulsar/pulsar_au
+  - /pulsar/pulsar_be
+  - /pulsar/pulsar_de01
+  - galaxy_internal
+  - /pulsar/galaxy_vib
+  - /pulsar/pulsar_de02
+  - /pulsar/pulsar_cz01 
+  - /pulsar/pulsar_it01
+  - /pulsar/pulsar_sp01
+  - /pulsar/pulsar_uk01
+  - /pulsar/pulsar_tr01
+  - /pulsar/pulsar_no01
+  - /pulsar/pulsar_pl01
+  - /pulsar/pulsar_ch01
+  - /pulsar/pulsar_sl01
+
+rabbitmq_users:
+  - user: admin
+    password: "{{ vault_rabbitmq_admin_password }}"
+    tags: administrator
+    vhost: /
+  - user: pulsar_be
+    password: "{{ vault_rabbitmq_password_vhost }}"
+    vhost: /pulsar/pulsar_be
+  - user: pulsar_de01
+    password: "{{ vault_rabbitmq_password_germany }}"
+    vhost: /pulsar/pulsar_de01
+  # TODO: different password for au
+  - user: pulsar_au
+    password: "{{ vault_rabbitmq_password_vhost }}"
+    vhost: /pulsar/pulsar_au
+  - user: galaxy
+    password: "{{ vault_rabbitmq_password_galaxy }}"
+    vhost: galaxy_internal
+  - user: flower
+    password: "{{ vault_rabbitmq_password_flower }}"
+    tags: administrator
+    vhost: galaxy_internal
+  - user: galaxy_vib
+    password: "{{ vault_rabbitmq_password_vib }}"
+    vhost: /pulsar/galaxy_vib
+  # esg test queues
+  - user: pulsar_de02
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_de02
+  - user: pulsar_cz01 
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_cz01 
+  - user: pulsar_it01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_it01
+  - user: pulsar_sp01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_sp01
+  - user: pulsar_uk01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_uk01
+  - user: pulsar_tr01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_tr01
+  - user: pulsar_no01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_no01
+  - user: pulsar_pl01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_pl01
+  - user: pulsar_ch01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_ch01
+  - user: pulsar_sl01
+    password: "{{ vault_rabbitmq_password_pulsar_esg }}"
+    vhost: /pulsar/pulsar_sl01
+    

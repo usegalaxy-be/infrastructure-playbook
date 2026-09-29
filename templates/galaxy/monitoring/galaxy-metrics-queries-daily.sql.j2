@@ -1,0 +1,576 @@
+-- Daily window queries for Telegraf exec plugin.
+-- Each category is collected once per day; Grafana aggregates over time ranges.
+-- Window: yesterday midnight -> today midnight (complete previous day).
+-- Intended to be loaded by psql_query_metrics_telegraf.py.
+--
+-- VIB Data Core = the internal/admin/team accounts tagged is_vib_data_core
+-- (not excluded from any count) so the dashboard keeps showing their usage,
+-- while reports can filter is_vib_data_core != 'true' to get the official,
+-- externally-reported numbers.
+--
+-- This file is a Jinja2 TEMPLATE, not deployed as-is: it's rendered by
+-- playbooks/infrastructure/07-monitoring.yml (template module, not copy), which
+-- fills in vault_vib_data_core_emails from inventories/group_vars/monitoring/vault.yml.
+-- No plaintext email addresses live in this repo — only the rendered file on the
+-- target host (/usr/local/share/galaxy-metrics/queries_daily.sql) contains them.
+
+-- CATEGORY: New users - Flemish institutions
+-- DESCRIPTION: Users who created an account yesterday, per Flemish institution.
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(DISTINCT gu.id) AS new_users_count
+FROM galaxy_user gu
+WHERE gu.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND gu.create_time < date_trunc('day', current_date)
+GROUP BY institution, is_vib_data_core
+ORDER BY new_users_count DESC;
+
+-- CATEGORY: New users - VIB Centers
+-- DESCRIPTION: Users who created an account yesterday, per VIB center.
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(DISTINCT gu.id) AS new_users_count
+FROM galaxy_user gu
+WHERE gu.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND gu.create_time < date_trunc('day', current_date)
+GROUP BY vib_domain, is_vib_data_core
+ORDER BY new_users_count DESC;
+
+-- CATEGORY: Active users - Flemish institutions
+-- DESCRIPTION: Users who submitted at least one job yesterday, per Flemish institution.
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(DISTINCT gu.id) AS active_users_count
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+    AND gu.active IS TRUE
+GROUP BY institution, is_vib_data_core
+ORDER BY active_users_count DESC;
+
+-- CATEGORY: Active users - VIB Centers
+-- DESCRIPTION: Users who submitted at least one job yesterday, per VIB center.
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(DISTINCT gu.id) AS active_users_count
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+    AND gu.active IS TRUE
+GROUP BY vib_domain, is_vib_data_core
+ORDER BY active_users_count DESC;
+
+-- CATEGORY: Jobs submitted - Flemish institutions
+-- DESCRIPTION: Jobs submitted yesterday per Flemish institution.
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(job.id) AS total_jobs_submitted
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY institution, is_vib_data_core
+ORDER BY total_jobs_submitted DESC;
+
+-- CATEGORY: Jobs submitted - VIB centers
+-- DESCRIPTION: Jobs submitted yesterday per VIB center.
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(job.id) AS total_jobs_submitted
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY vib_domain, is_vib_data_core
+ORDER BY total_jobs_submitted DESC;
+
+-- CATEGORY: Jobs by state - Flemish institutions
+-- DESCRIPTION: Jobs submitted yesterday per Flemish institution, broken down by state
+-- (new/queued/running/ok/error/failed/paused/deleted/stop/stopped/skipped/etc).
+-- Uses job_state_history rather than the live job.state column: job.state drifts
+-- after collection (a job paused in 2023 may be deleted by its owner in 2026), so
+-- reading it directly would give different answers depending on when this query
+-- happens to run. job_state_history is append-only, so "the most recent state
+-- recorded as of the day after the job was created" is a fixed historical fact,
+-- identical whether this runs as tomorrow's daily collection or as a backfill for
+-- a date years in the past.
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    latest.state AS state,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(job.id) AS job_count
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+JOIN LATERAL (
+    SELECT jsh.state
+    FROM job_state_history jsh
+    WHERE jsh.job_id = job.id
+        AND jsh.create_time < date_trunc('day', current_date)
+    ORDER BY jsh.create_time DESC
+    LIMIT 1
+) latest ON true
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY institution, latest.state, is_vib_data_core
+ORDER BY job_count DESC;
+
+-- CATEGORY: Jobs by state - VIB Centers
+-- DESCRIPTION: Jobs submitted yesterday per VIB center, broken down by state.
+-- Same job_state_history-based approach as the Flemish-institutions version above.
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    latest.state AS state,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(job.id) AS job_count
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+JOIN LATERAL (
+    SELECT jsh.state
+    FROM job_state_history jsh
+    WHERE jsh.job_id = job.id
+        AND jsh.create_time < date_trunc('day', current_date)
+    ORDER BY jsh.create_time DESC
+    LIMIT 1
+) latest ON true
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY vib_domain, latest.state, is_vib_data_core
+ORDER BY job_count DESC;
+
+-- CATEGORY: Jobs executed - Flemish institutions
+-- DESCRIPTION: Jobs submitted yesterday per Flemish institution: how many ever reached the running state vs never executed.
+-- "Executed" = job_state_history ever recorded a 'running' row, not job.state = 'paused'.
+-- job.state is a live/mutable field: a job stuck in 'paused' today can be
+-- deleted/cancelled by its owner later, which would silently move it out of a
+-- state-based never-executed count. job_state_history is append-only, so this
+-- stays accurate regardless of later cleanup.
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(job.id) AS jobs_submitted,
+    COUNT(job.id) FILTER (
+        WHERE EXISTS (
+            SELECT 1 FROM job_state_history jsh
+            WHERE jsh.job_id = job.id AND jsh.state = 'running'
+        )
+    ) AS jobs_executed,
+    COUNT(job.id) FILTER (
+        WHERE NOT EXISTS (
+            SELECT 1 FROM job_state_history jsh
+            WHERE jsh.job_id = job.id AND jsh.state = 'running'
+        )
+    ) AS jobs_never_executed
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY institution, is_vib_data_core
+ORDER BY jobs_submitted DESC;
+
+-- CATEGORY: Jobs executed - VIB Centers
+-- DESCRIPTION: Jobs submitted yesterday per VIB center: how many ever reached the running state vs never executed.
+-- "Executed" = job_state_history ever recorded a 'running' row, not job.state = 'paused'.
+-- job.state is a live/mutable field: a job stuck in 'paused' today can be
+-- deleted/cancelled by its owner later, which would silently move it out of a
+-- state-based never-executed count. job_state_history is append-only, so this
+-- stays accurate regardless of later cleanup.
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(job.id) AS jobs_submitted,
+    COUNT(job.id) FILTER (
+        WHERE EXISTS (
+            SELECT 1 FROM job_state_history jsh
+            WHERE jsh.job_id = job.id AND jsh.state = 'running'
+        )
+    ) AS jobs_executed,
+    COUNT(job.id) FILTER (
+        WHERE NOT EXISTS (
+            SELECT 1 FROM job_state_history jsh
+            WHERE jsh.job_id = job.id AND jsh.state = 'running'
+        )
+    ) AS jobs_never_executed
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY vib_domain, is_vib_data_core
+ORDER BY jobs_submitted DESC;
+
+-- CATEGORY: CPU hours - Flemish institutions
+-- DESCRIPTION: CPU-hours allocated to jobs submitted yesterday, per Flemish institution.
+-- Matches gxadmin's monthly-cpu-stats / user-cpu-years formula:
+-- SUM(runtime_seconds * galaxy_slots) / 3600 from job_metric_numeric.
+-- This is allocated CPU time (slots * runtime), not actual cgroup consumption.
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    ROUND(COALESCE(SUM((a.metric_value * b.metric_value) / 3600), 0)::numeric, 3) AS cpu_hours
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+JOIN job_metric_numeric a ON a.job_id = job.id AND a.metric_name = 'runtime_seconds'
+JOIN job_metric_numeric b ON b.job_id = job.id AND b.metric_name = 'galaxy_slots'
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY institution, is_vib_data_core
+ORDER BY cpu_hours DESC;
+
+-- CATEGORY: CPU hours - VIB Centers
+-- DESCRIPTION: CPU-hours allocated to jobs submitted yesterday, per VIB center.
+-- Matches gxadmin's monthly-cpu-stats / user-cpu-years formula:
+-- SUM(runtime_seconds * galaxy_slots) / 3600 from job_metric_numeric.
+-- This is allocated CPU time (slots * runtime), not actual cgroup consumption.
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    ROUND(COALESCE(SUM((a.metric_value * b.metric_value) / 3600), 0)::numeric, 3) AS cpu_hours
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+JOIN job_metric_numeric a ON a.job_id = job.id AND a.metric_name = 'runtime_seconds'
+JOIN job_metric_numeric b ON b.job_id = job.id AND b.metric_name = 'galaxy_slots'
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+GROUP BY vib_domain, is_vib_data_core
+ORDER BY cpu_hours DESC;
+
+-- CATEGORY: Total data uploaded - Flemish institutions
+-- DESCRIPTION: Volume in GB of data uploaded yesterday per Flemish institution (including deleted/purged).
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    ROUND(COALESCE(SUM(ds.total_size), 0) / (1024 * 1024 * 1024), 3) AS total_data_uploaded_gb
+FROM dataset ds
+LEFT JOIN history_dataset_association hda ON ds.id = hda.dataset_id
+LEFT JOIN history h ON hda.history_id = h.id
+LEFT JOIN galaxy_user gu ON h.user_id = gu.id
+WHERE ds.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND ds.create_time < date_trunc('day', current_date)
+    AND ds.object_store_id = 'tier1_data'
+GROUP BY institution, is_vib_data_core
+ORDER BY total_data_uploaded_gb DESC;
+
+-- CATEGORY: Total data uploaded - VIB Centers
+-- DESCRIPTION: Volume in GB of data uploaded yesterday per VIB center (including deleted/purged).
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    ROUND(COALESCE(SUM(ds.total_size), 0) / (1024 * 1024 * 1024), 3) AS total_data_uploaded_gb
+FROM dataset ds
+LEFT JOIN history_dataset_association hda ON ds.id = hda.dataset_id
+LEFT JOIN history h ON hda.history_id = h.id
+LEFT JOIN galaxy_user gu ON h.user_id = gu.id
+WHERE ds.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND ds.create_time < date_trunc('day', current_date)
+    AND ds.object_store_id = 'tier1_data'
+GROUP BY vib_domain, is_vib_data_core
+ORDER BY total_data_uploaded_gb DESC;
+

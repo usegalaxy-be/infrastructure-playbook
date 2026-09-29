@@ -1,0 +1,40 @@
+---
+# - set_fact:
+#     cron_args: "{{ _sync_cron_freq|combine(sync_cron_freq) }}"
+#     rsync_cmd: "rsync {{ sync_cron_rsync_flags }} {{ sync_cron_src_path }} {{ sync_cron_dest_url }}"
+
+# - set_fact:
+#     rsync_cmd: "{{ rsync_cmd }}"
+#   when: "not sync_cron_additional_commands"
+
+# - set_fact:
+#     rsync_cmd: "bash -c '{{ rsync_cmd }}{% for c in sync_cron_additional_commands%} && {{ c }}{% endfor %}'"
+#   when: "sync_cron_additional_commands"
+
+# - block:
+#     - name: Perform rsync to copy changes
+#       ansible.builtin.command:
+#         cmd: "{{ rsync_cmd }}"
+#         chdir: "{{ sync_cron_chdir_path }}"
+#   when: manual_rsync | default(false)
+
+# - block:
+#     - name: Set up a cron job for rsync
+#       ansible.builtin.cron:
+#         name: "{{ cron_args.name }}"
+#         job: "{{ rsync_cmd }}"
+#         user: "{{ sync_cron_username }}"
+#         minute: "{{ cron_args.minute }}"
+#         hour: "{{ cron_args.hour }}"
+#         day: "{{ cron_args.day }}"
+#         weekday: "{{ cron_args.weekday }}"
+#         month: "{{ cron_args.month }}"
+#         disabled: "{{ cron_args.disabled }}"
+#   when: cron_rsync | default(false)
+
+
+- name: Loop over sync_cron_tasks
+  include_tasks: sync_task.yml
+  loop: "{{ sync_cron_tasks }}"
+  loop_control:
+    loop_var: sync_task

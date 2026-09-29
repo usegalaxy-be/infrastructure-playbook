@@ -1,0 +1,88 @@
+---
+
+## This playbook was extracted from https://github.com/usegalaxy-eu/galaxy-playbook-temporary/tree/master/roles/monitoring
+
+- name: "Create dir"
+  file:
+    path: "/usr/local/galaxy/galaxy-monit/"
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0755
+    state: directory
+
+- name: "Send files"
+  copy:
+    src: "scripts/"
+    dest: "/usr/local/galaxy/galaxy-monit/"  
+    mode: a+x
+    owner: galaxy_master
+    group: galaxy_master
+    #mode: 0640
+    directory_mode: true
+
+
+- name: "Send monitoring scripts from template"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: galaxy_master
+    group: galaxy_master
+    mode: 0755
+    #mode: 0640
+  with_items:
+    '{{ telegraf_monitor_templates }}'
+
+
+#- name: "Send DB credentials"
+#  template:
+#    src: "secret.yml.j2"
+#    dest: "/usr/local/galaxy/galaxy-monit/secret.yml"
+#    owner: galaxy_master
+#    group: galaxy_master
+#    mode: 0640
+
+
+- name: "Install bc package (required by some scripts)"
+  package:
+    name: "bc"
+    state: "present"
+
+
+
+
+#
+#- name: "Other templates"
+#  template:
+#    src: "{{ item.src }}"
+#    dest: "{{ item.dst }}"
+#    owner: galaxy_master
+#    group: galaxy_master
+#    mode: 0640
+#  with_items:
+#    - src: wetter.sh
+#      dst: /usr/local/galaxy/galaxy-monit/wetter.sh
+#
+
+
+
+
+# Cron jobs
+
+
+#- cron:
+#    name: "Execute monitor-24h.sh"
+#    job: "cd /usr/local/galaxy/galaxy-monit/ && bash /usr/local/galaxy/galaxy-monit/monitor-24h.sh"
+#    minute: "0"
+#    hour: "3"
+
+
+## Main ansible playbook execution.
+#- cron:
+#    name: "Execute ansible playbook"
+#    job: "cd /usr/local/galaxy/galaxy-config && /usr/local/galaxy/galaxy-config/playbook.sh"
+#    minute: "0"
+#
+#- cron:
+#    name: "Kill jobs held for more than 1 hour."
+#    job: "condor_q -hold -autoformat ClusterId EnteredCurrentStatus CurrentTime | awk '(($3-$2) > (60*60)){print $1}' | xargs --no-run-if-empty condor_rm"
+#    minute: "0"

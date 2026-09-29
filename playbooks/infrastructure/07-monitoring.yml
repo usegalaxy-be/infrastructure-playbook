@@ -1,0 +1,537 @@
+---
+# Three plays:
+#   1. monitoringservers: InfluxDB (Docker, port 8086) + Grafana (systemd, port 3000)
+#   2. galaxyservers: Telegraf with Galaxy/gxadmin/HTCondor exec plugins → monitoring:8086
+#   3. telegrafservers (proxy, db, compute): basic system Telegraf → monitoring:8086
+# Use --limit or --tags (grafana, telegraf) to target a single play.
+
+
+# ── Play 1: Central Monitoring VM ────────────────────────────────────────────
+
+- name: Deploy Central Monitoring Stack (InfluxDB + Grafana)
+  hosts: monitoringservers
+  become: true
+  become_user: root
+  collections:
+    - grafana.grafana
+
+  pre_tasks:
+
+    - name: Install dependencies
+      package:
+        name:
+          - firewalld
+          - python3-firewall
+        state: present
+      tags: always
+
+    - name: Ensure firewalld is running
+      service:
+        name: firewalld
+        state: started
+        enabled: true
+      tags: always
+
+    - name: Install docker pip package
+      ansible.builtin.pip:
+        name: docker
+      tags: always
+      
+    - name: Set docker_users (Docker role)
+      set_fact:
+        docker_users: "{{ ansible_user }}"
+      tags: always
+
+    - name: Add groups to user
+      ansible.builtin.user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: true
+      tags: always
+
+    - name: Set the command as a variable
+      ansible.builtin.set_fact:
+        command_to_execute: >
+          influx -execute "CREATE USER "{{ item.username | quote }}" WITH PASSWORD '{{ item.password }}' WITH ALL PRIVILEGES"
+      loop: "{{ influxdb_users.admin }}"
+
+    - name: Debug the command
+      ansible.builtin.debug:
+        var: command_to_execute
+
+  roles:
+
+    # Docker runtime — required by usegalaxy_eu.influxdbserver
+    - role: geerlingguy.docker
+      tags: docker
+
+    # InfluxDB v1 time-series database (Docker container, HTTP)
+    - role: usegalaxy_eu.influxdbserver
+      tags: influxdb
+
+    # Grafana dashboards and unified alerting
+    - role: grafana.grafana.grafana
+      tags: grafana
+
+  post_tasks:
+
+    # ── Firewall ─────────────────────────────────────────────────────────────
+
+    - name: Open InfluxDB port (8086) for Telegraf agents on internal network
+      ansible.posix.firewalld:
+        port: 8086/tcp
+        permanent: true
+        immediate: true
+        state: enabled
+      tags: [influxdb, firewall]
+
+    - name: Open Grafana port (3000) for dashboard access
+      ansible.posix.firewalld:
+        port: 3000/tcp
+        permanent: true
+        immediate: true
+        state: enabled
+      tags: [grafana, firewall]
+
+    # ── InfluxDB container log rotation ──────────────────────────────────────
+
+    - name: Enforce log rotation on InfluxDB container
+      become: true
+      community.docker.docker_container:
+        name: "{{ influxdb_container.name }}"
+        image: "{{ influxdb_container.image }}"
+        state: started
+        restart_policy: always
+        log_driver: json-file
+        log_options:
+          max-size: "50m"
+          max-file: "3"
+        volumes: "{{ influxdb_container_standalone_setup_details.volumes }}"
+        ports: "{{ influxdb_container_standalone_setup_details.ports }}"
+        env: "{{ influxdb_container_standalone_setup_details.env }}"
+      tags: influxdb
+
+    # ── Grafana organization setup ────────────────────────────────────────────
+    # Rename "Main Org." (orgId=1) to inventory_hostname so anonymous auth
+    # resolves correctly and file-provisioned datasources/alert rules (orgId: 1)
+    # are in the right org. Idempotent: Grafana returns 200 if already correct.
+
+    - name: Rename default Grafana org to inventory_hostname
+      uri:
+        url: "http://localhost:3000/api/orgs/1"
+        method: PUT
+        user: "{{ grafana_security.admin_user }}"
+        password: "{{ grafana_security.admin_password }}"
+        force_basic_auth: true
+        body_format: json
+        body:
+          name: "{{ inventory_hostname }}"
+        status_code: [200]
+      tags: [grafana, grafana-org]
+
+    # ── Grafana unified alerting provisioning ────────────────────────────────
+
+    - name: Ensure Grafana alerting provisioning directory exists
+      become: true
+      file:
+        path: /etc/grafana/provisioning/alerting
+        state: directory
+        owner: root
+        group: grafana
+        mode: '0750'
+      tags: [grafana, grafana-alerting]
+
+    - name: Deploy Grafana alerting contact points
+      become: true
+      template:
+        src: "{{ playbook_dir }}/../../templates/grafana/contact_points.yml.j2"
+        dest: /etc/grafana/provisioning/alerting/contact_points.yml
+        owner: root
+        group: grafana
+        mode: '0640'
+      notify: restart grafana
+      tags: [grafana, grafana-alerting]
+
+    - name: Deploy Grafana alerting notification policies
+      become: true
+      template:
+        src: "{{ playbook_dir }}/../../templates/grafana/notification_policies.yml.j2"
+        dest: /etc/grafana/provisioning/alerting/notification_policies.yml
+        owner: root
+        group: grafana
+        mode: '0640'
+      notify: restart grafana
+      tags: [grafana, grafana-alerting]
+
+    - name: Deploy Grafana alert rules
+      become: true
+      template:
+        src: "{{ playbook_dir }}/../../templates/grafana/alert_rules.yml.j2"
+        dest: /etc/grafana/provisioning/alerting/alert_rules.yml
+        owner: root
+        group: grafana
+        mode: '0640'
+      notify: restart grafana
+      tags: [grafana, grafana-alerting]
+
+    # ── Grafana dashboard provisioning ───────────────────────────────────────
+
+    - name: Ensure Grafana dashboards directory exists
+      become: true
+      file:
+        path: /var/lib/grafana/dashboards
+        state: directory
+        owner: root
+        group: grafana
+        mode: '0750'
+      tags: [grafana, grafana-dashboards]
+
+    - name: Ensure Grafana dashboard provisioning directory exists
+      become: true
+      file:
+        path: /etc/grafana/provisioning/dashboards
+        state: directory
+        owner: root
+        group: grafana
+        mode: '0750'
+      tags: [grafana, grafana-dashboards]
+
+    - name: Deploy Grafana dashboard provisioning config
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/grafana/dashboards.yml"
+        dest: /etc/grafana/provisioning/dashboards/dashboards.yml
+        owner: root
+        group: grafana
+        mode: '0640'
+      notify: restart grafana
+      tags: [grafana, grafana-dashboards]
+
+    - name: Deploy Grafana dashboards
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/grafana/dashboards/"
+        dest: /var/lib/grafana/dashboards/
+        owner: root
+        group: grafana
+        mode: '0640'
+      notify: restart grafana
+      tags: [grafana, grafana-dashboards]
+
+  handlers:
+    - name: restart grafana
+      become: true
+      service:
+        name: grafana-server
+        state: restarted
+
+
+# ── Play 2: Galaxy Server Telegraf ────────────────────────────────────────────
+
+- name: Configure Telegraf and Galaxy monitoring scripts on Galaxy servers
+  hosts: galaxyservers
+  become: true
+  become_user: root
+
+  pre_tasks:
+
+    - name: Install RHEL/CentOS/Rocky specific dependencies
+      package:
+        name: ['chkconfig']
+        state: latest
+      become: true
+      become_user: root
+      tags: always
+
+    # InfluxData uses two keys: the legacy compat key (configured in telegraf_yum_gpgkey)
+    # and a newer key that signs the influxdata-archive-keyring package (rotated Jan 2026).
+    # Both must be in the RPM keyring before dnf attempts to install the keyring package.
+    - name: Import InfluxData legacy GPG key
+      ansible.builtin.rpm_key:
+        key: "{{ telegraf_yum_gpgkey }}"
+        state: present
+      become: true
+      become_user: root
+      when: ansible_os_family == 'RedHat'
+      tags: telegraf
+
+    - name: Import InfluxData new GPG key (signs influxdata-archive-keyring 2026+)
+      ansible.builtin.rpm_key:
+        key: "https://repos.influxdata.com/influxdata-archive.key"
+        state: present
+      become: true
+      become_user: root
+      when: ansible_os_family == 'RedHat'
+      tags: telegraf
+
+  roles:
+
+    # Adds monitoring.usegalaxy.be -> <monitoring-ip> to /etc/hosts (see group_vars/all/monitoring.yml)
+    # and disables cloud-init /etc/hosts management so the entry survives reboots.
+    - role: pdg.update_hosts
+      tags: hosts
+
+    # Installs condor monitoring scripts
+    - role: hxr.monitor-cluster
+      tags: monitoring-scripts
+
+    # Deploys gxadmin-based job stats scripts for Telegraf exec inputs
+    - role: usegalaxy-eu.job-radar-stats-influxdb
+      tags: monitoring-scripts
+
+    # Installs and configures telegraf
+    - role: dj-wasabi.telegraf
+      tags: telegraf
+
+  post_tasks:
+
+    # ── Galaxy internal metrics scripts ──────────────────────────────────────
+
+    - name: Ensure galaxy-metrics directory exists
+      become: true
+      file:
+        path: /usr/local/share/galaxy-metrics
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-metrics-internal script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-metrics-internal"
+        dest: /usr/local/share/galaxy-metrics/psql_query_metrics_telegraf.py
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-metrics-internal SQL queries
+      become: true
+      template:
+        src: "{{ playbook_dir }}/../../templates/galaxy/monitoring/galaxy-metrics-queries-daily.sql.j2"
+        dest: /usr/local/share/galaxy-metrics/queries_daily.sql
+        owner: root
+        group: root
+        mode: '0644'
+      notify: restart telegraf
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-metrics-backfill script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-metrics-backfill"
+        dest: /usr/local/share/galaxy-metrics/backfill.py
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    # ── Telegraf stale plugin cleanup ────────────────────────────────────────
+
+    - name: Remove stale Telegraf plugin config files
+      become: true
+      file:
+        path: "/etc/telegraf/telegraf.d/{{ item }}"
+        state: absent
+      loop:
+        - pulsar_monitor_esg.conf                    # ESG/pulsar project inactive
+        - pular_monitor_esg.conf                     # typo duplicate of above
+        - galaxy_jobs_destination_overview_esg.conf  # duplicate of non-esg; ESG output inactive
+        - monitor_galaxy_tool_times_esg.conf         # ESG project inactive, script not deployed
+        - monitor_galaxy_queue.conf                  # stale duplicate; was running at 15s (too aggressive)
+        - monitor_galaxy_queue_state.conf            # stale duplicate of galaxy_jobs_destination_overview
+        - monitor_wf_invocations.conf                # stale duplicate; was running at 15s (too aggressive)
+      notify: restart telegraf
+      tags: telegraf
+
+    # ── Galaxy monitoring scripts ────────────────────────────────────────────
+
+    - name: Deploy galaxy-journalctl-monitor script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-journalctl-monitor"
+        dest: /usr/bin/galaxy-journalctl-monitor
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-queue-by-destination script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-queue-by-destination"
+        dest: /usr/bin/galaxy-queue-by-destination
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-job-error-stats script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-job-error-stats"
+        dest: /usr/bin/galaxy-job-error-stats
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-stuck-local-jobs script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-stuck-local-jobs"
+        dest: /usr/bin/galaxy-stuck-local-jobs
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-backup-freshness script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-backup-freshness"
+        dest: /usr/bin/galaxy-backup-freshness
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-failed-units script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-failed-units"
+        dest: /usr/bin/galaxy-failed-units
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy nfsstat-influx script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/nfsstat-influx"
+        dest: /usr/bin/nfsstat-influx
+        owner: root
+        group: root
+        mode: '0755'
+      tags: monitoring-scripts
+
+    - name: Deploy monitor-galaxy-tool-times script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/monitor-galaxy-tool-times"
+        dest: /usr/bin/monitor-galaxy-tool-times
+        owner: root
+        group: root
+        mode: '0755'
+      tags: monitoring-scripts
+
+    # ── Telegraf config validation ───────────────────────────────────────────
+
+    - name: Validate Telegraf configuration
+      become: true
+      command: telegraf --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --test
+      register: telegraf_test
+      changed_when: false
+      failed_when: >
+        telegraf_test.rc != 0 or
+        ('E!' in telegraf_test.stdout) or
+        ('E!' in telegraf_test.stderr)
+      ignore_errors: true
+      tags: [telegraf, telegraf-test]
+
+    - name: Show Telegraf test errors (if any)
+      debug:
+        msg: "{{ (telegraf_test.stdout + telegraf_test.stderr) | split('\n') | select('match', '.*E!.*') | list }}"
+      when: telegraf_test is defined
+      tags: [telegraf, telegraf-test]
+
+    # Cert-renewal SSH key authorization moved to 00-proxy.yml (second play),
+    # which also generates the key and deploys the refresh-certs forced-command
+    # script — the tasks that used to live here referenced a key nothing created,
+    # so ignore_errors silently skipped them on every run.
+
+  handlers:
+    - name: restart telegraf
+      become: true
+      service:
+        name: telegraf
+        state: restarted
+
+
+# ── Play 3: Infrastructure Telegraf (proxy, db, compute) ─────────────────────
+
+- name: Deploy Telegraf to infrastructure hosts
+  hosts: telegrafservers
+  become: true
+  become_user: root
+
+  pre_tasks:
+
+    - name: Install RHEL/CentOS/Rocky specific dependencies
+      package:
+        name: ['chkconfig']
+        state: latest
+      become: true
+      become_user: root
+      tags: always
+
+    # InfluxData uses two keys: the legacy compat key (configured in telegraf_yum_gpgkey)
+    # and a newer key that signs the influxdata-archive-keyring package (rotated Jan 2026).
+    # Both must be in the RPM keyring before dnf attempts to install the keyring package.
+    - name: Import InfluxData legacy GPG key
+      ansible.builtin.rpm_key:
+        key: "{{ telegraf_yum_gpgkey }}"
+        state: present
+      become: true
+      become_user: root
+      when: ansible_os_family == 'RedHat'
+      tags: telegraf
+
+    - name: Import InfluxData new GPG key (signs influxdata-archive-keyring 2026+)
+      ansible.builtin.rpm_key:
+        key: "https://repos.influxdata.com/influxdata-archive.key"
+        state: present
+      become: true
+      become_user: root
+      when: ansible_os_family == 'RedHat'
+      tags: telegraf
+
+  roles:
+
+    # Adds monitoring.usegalaxy.be to /etc/hosts (see group_vars/all/monitoring.yml)
+    # and disables cloud-init /etc/hosts management so the entry survives reboots.
+    - role: pdg.update_hosts
+      tags: hosts
+
+    - role: dj-wasabi.telegraf
+      tags: telegraf
+
+  post_tasks:
+
+    - name: Validate Telegraf configuration
+      become: true
+      command: telegraf --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --test
+      register: telegraf_test
+      changed_when: false
+      failed_when: >
+        telegraf_test.rc != 0 or
+        ('E!' in telegraf_test.stdout) or
+        ('E!' in telegraf_test.stderr)
+      ignore_errors: true
+      tags: [telegraf, telegraf-test]
+
+    - name: Show Telegraf test errors (if any)
+      debug:
+        msg: "{{ (telegraf_test.stdout + telegraf_test.stderr) | split('\n') | select('match', '.*E!.*') | list }}"
+      when: telegraf_test is defined
+      tags: [telegraf, telegraf-test]
+
+  handlers:
+    - name: restart telegraf
+      become: true
+      service:
+        name: telegraf
+        state: restarted

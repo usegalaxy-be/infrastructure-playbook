@@ -1,0 +1,43 @@
+---
+# pdg.update_hosts variables for proxyservers group.
+# /etc/hosts overrides for proxy servers.
+#
+# The pdg.update_hosts role (used in 00-proxy.yml) sets manage_etc_hosts: false
+# in /etc/cloud/cloud.cfg to prevent cloud-init from regenerating /etc/hosts on
+# boot and wiping custom entries, then applies host_mappings / host_mappings_absent.
+#
+# Sensitive entries are stored in vault.yml
+host_mappings: "{{ vault_host_mappings }}"
+
+shared_certs_dir: /srv/galaxy/shared/shared_certs
+
+
+# usegalaxy_eu.handy.os_setup
+# enable_hostname: true
+enable_powertools: true
+enable_remap_user: true
+enable_create_user: true
+handy_users:
+  - user_name: rabbitmq
+    user_uid: 999
+    user_group: rabbitmq
+    user_comment: "RabbitMQ useraccount"
+handy_groups:
+  - group_name: rabbitmq
+    group_gid: 999
+
+
+# dj-wasabi.telegraf
+# The proxy runs CentOS 7 with the RHEL 7 InfluxDB repo. Telegraf 1.38+ is signed
+# with the new 2026 InfluxData key which is not in the repo's gpgkey field. Both keys
+# are imported into the RPM keyring via rpm_key pre_tasks in 07-telegraf.yml, so
+# disabling the repo-level gpgcheck here does not bypass signature verification.
+telegraf_yum_gpgcheck: "false"
+
+
+# galaxyproject.tusd
+# NOTE: not currently working
+# galaxy_tusd_port: 1080
+# galaxy_tus_upload_store: "{{ galaxy_mutable_data_dir }}/data_stage/tus" #/data/tus
+
+

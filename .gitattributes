@@ -1,0 +1,19 @@
+# These rules apply when vault files contain real ansible-vault encrypted content.
+# In this public repository the vault files are replaced with stubs (see README.md).
+# If you populate them with encrypted secrets, uncomment the rules below and configure
+# the ansible-vault diff driver in your .gitconfig:
+#   git config --global diff.ansible-vault.textconv "ansible-vault view"
+#
+# inventories/group_vars/all/vault/condor_vault.yml diff=ansible-vault merge=binary
+# inventories/group_vars/all/vault/db_vault.yml diff=ansible-vault merge=binary
+# inventories/group_vars/all/vault/influx_vault.yml diff=ansible-vault merge=binary
+# inventories/group_vars/all/vault/tiaas_vault.yml diff=ansible-vault merge=binary
+# inventories/group_vars/galaxyservers/vault.yml diff=ansible-vault merge=binary
+# inventories/group_vars/monitoring/vault.yml diff=ansible-vault merge=binary
+# inventories/group_vars/proxyservers/vault.yml diff=ansible-vault merge=binary
+# inventories/group_vars/sentryservers/vault.yml diff=ansible-vault merge=binary
+# inventories/host_vars/test.usegalaxy.be/vault/galaxy_vars.yml diff=ansible-vault merge=binary
+# inventories/host_vars/test.usegalaxy.be/vault/oidc_vars.yml diff=ansible-vault merge=binary
+# inventories/host_vars/usegalaxy.be/vault/galaxy_vars.yml diff=ansible-vault merge=binary
+# inventories/host_vars/usegalaxy.be/vault/gitlab_access.yml diff=ansible-vault merge=binary
+# inventories/host_vars/usegalaxy.be/vault/oidc_vars.yml diff=ansible-vault merge=binary

@@ -1,0 +1,9 @@
+# Secrets fetched from HashiCorp Vault at playbook runtime.
+# Requires: VAULT_ADDR and VAULT_TOKEN (or ANSIBLE_HASHI_VAULT_* AppRole variables).
+_vault_monitoring: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/monitoring') }}"
+vault_grafana_admin_user: "{{ _vault_monitoring.vault_grafana_admin_user }}"
+vault_grafana_admin_password: "{{ _vault_monitoring.vault_grafana_admin_password }}"
+vault_grafana_allow_embedding: "{{ _vault_monitoring.vault_grafana_allow_embedding }}"
+vault_grafana_teams_webhook_url: "{{ _vault_monitoring.vault_grafana_teams_webhook_url }}"
+vault_grafana_teams_webhook_url_test: "{{ _vault_monitoring.vault_grafana_teams_webhook_url_test }}"
+vault_alert_email: "{{ _vault_monitoring.vault_alert_email }}"

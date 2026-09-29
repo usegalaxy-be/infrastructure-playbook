@@ -1,0 +1,191 @@
+---
+# Support for testing tools from two sources:
+# 1. YAML file with ephemeris format (from get-tool-list)
+# 2. Plain text file with toolshed URLs (one per line)
+
+- name: Attempt to deploy tools file from role/playbook files (no-op if missing)
+  ansible.builtin.copy:
+    src: "{{ galaxy_tools_installed_tool_list }}"
+    dest: "{{ tool_install_dir }}/{{ galaxy_tools_installed_tool_list | basename  }}"
+    owner: root
+    group: root
+    mode: '0644'
+    force: no
+  ignore_errors: true
+  when: galaxy_tools_test_mode == 'tools_file'
+# - name: Check if the currently installed tools list exists locally
+
+# Always a path on the managed host: galaxy_tools_installed_tool_list may be a
+# controller-side file, and ephemeris mode has get-tool-list write the list remotely.
+- name: Set remote installed tools path
+  ansible.builtin.set_fact:
+    installed_tools_remote: >-
+      {{ (galaxy_tools_test_mode == 'ephemeris')
+         | ternary(galaxy_tools_full_sweep_tool_list,
+                   tool_install_dir ~ '/' ~ (galaxy_tools_installed_tool_list | basename)) }}
+
+- name: Check if the currently installed tools list exists on remote
+  ansible.builtin.stat:
+    path: "{{ installed_tools_remote }}"
+  register: file_check
+  when: galaxy_tools_test_mode == 'ephemeris'
+
+# Only ephemeris mode overwrites the list (get-tool-list, next task).
+- name: Backup installed tools list
+  copy:
+    src: "{{ installed_tools_remote }}"
+    dest: "{{ installed_tools_remote }}.{{ ansible_date_time.date }}@{{ ansible_date_time.time }}"
+    remote_src: true
+  when:
+    - galaxy_tools_test_mode == 'ephemeris'
+    - file_check.stat.exists | default(false)
+
+- name: Get installed tools (if using ephemeris YAML format)
+  command: >- 
+    {{ ephemeris_venv_dir }}/bin/get-tool-list 
+      -o {{ installed_tools_remote }} 
+      -a {{ galaxy_singularity_user_api_key }} 
+      -g {{ galaxy_tools_galaxy_instance_url }}
+      -v
+      --include-tool-panel-id
+  args:
+    chdir: "{{ tool_install_dir }}"
+  when: galaxy_tools_test_mode == 'ephemeris'
+
+- name: Deploy Galaxy Tool tests python scripts
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0755
+    src: scripts/tool_tests.py.j2
+    dest: "{{ tool_install_dir }}/tool_tests.py"
+
+- name: Deploy Galaxy Tool tests scripts
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0755
+    src: scripts/tool-tests.sh.j2
+    dest: "{{ tool_install_dir }}/tool-tests.sh"
+
+- name: Deploy Galaxy Tool test summary script
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0755
+    src: scripts/tool_tests_summary.py.j2
+    dest: "{{ tool_install_dir }}/tool_tests_summary.py"
+
+- name: Deploy Galaxy Tool test output formatting scripts
+  ansible.builtin.copy:
+    owner: root
+    group: root
+    mode: 0755
+    src: ephemeris_output_parse.py
+    dest: "{{ tool_install_dir }}/ephemeris_output_parse.py"
+
+- name: Deploy the synced-tools diff script (for synced_diff test mode)
+  ansible.builtin.copy:
+    owner: root
+    group: root
+    mode: 0755
+    src: compute_new_synced_tools.py
+    dest: "{{ tool_install_dir }}/compute_new_synced_tools.py"
+  when: shared_tool_conf_file is defined and shared_tool_conf_file
+
+- name: Creates test output directory
+  ansible.builtin.file:
+    path: "{{ tool_test_dir }}"
+    owner: root
+    group: root
+    mode: 0755
+    state: directory
+
+- name: Deploy Galaxy Tool tests unit
+  template:
+    owner: root
+    group: root
+    mode: 0755
+    src: systemd/galaxy-tool-tests.service.j2
+    dest: /etc/systemd/system/galaxy-tool-tests.service
+  # notify: systemd daemon reload
+
+# - name: Enable Galaxy Tool tests unit and ensure it is running
+#   systemd:
+#     name: galaxy-tool-tests.service
+#     enabled: yes
+#     state: started
+
+- name: Check if the service is running
+  ansible.builtin.shell: systemctl is-active galaxy-tool-tests.service
+  register: service_status
+  ignore_errors: true
+
+# - name: Restart Galaxy Tool tests service if running
+#   ansible.builtin.service:
+#     name: galaxy-tool-tests.service
+#     state: restarted
+#     daemon_reload: true
+#   when: service_status.stdout == "active"
+
+- name: Start Galaxy Tool tests if not running
+  ansible.builtin.service:
+    name: galaxy-tool-tests.service
+    state: started
+    daemon_reload: true
+  when: service_status.stdout != "active"
+
+- name: Deploy the yearly full tool-test sweep service
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0644
+    src: systemd/galaxy-tool-tests-full.service.j2
+    dest: "/etc/systemd/system/{{ galaxy_tools_full_sweep_unit }}"
+  register: full_sweep_service
+
+- name: Deploy the yearly full tool-test sweep timer
+  ansible.builtin.template:
+    owner: root
+    group: root
+    mode: 0644
+    src: systemd/galaxy-tool-tests-full.timer.j2
+    dest: /etc/systemd/system/galaxy-tool-tests-full.timer
+  register: full_sweep_timer
+
+- name: Enable and start the yearly full tool-test sweep timer
+  ansible.builtin.systemd:
+    name: galaxy-tool-tests-full.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ full_sweep_service.changed or full_sweep_timer.changed }}"
+
+# - name: Test installed tools
+#   command: >- 
+#     {{ ephemeris_venv_dir }}/bin/shed-tools test 
+#       -t {{ galaxy_tools_installed_tool_list }} 
+#       -a {{ galaxy_singularity_user_api_key }} 
+#       -g {{ galaxy_tools_galaxy_instance_url }}
+#       -v
+#       --test-json {{ galaxy_tool_test_file }}
+#       --parallel-tests {{ galaxy_tools_parallel_tests }}
+#       --log-file {{ galaxy_tools_test_log_file }}
+#   register: test_result
+#   ignore_errors: "{{ galaxy_tools_ignore_errors }}"
+#   # async: 45
+#   # poll: 0
+#   args:
+#     chdir: "{{ tool_install_dir }}"
+
+# - name: Run Galaxy tool tests using selected mode
+#   command: >-
+#     {{ tool_install_dir }}/tool-tests.sh
+#     {{ galaxy_tools_test_mode }}
+#     {{ installed_tools_remote }}
+#     {{ test_tools_since_date }}
+#     {{ sqlite_db_path }}
+#     {{ parallel_tests }}
+#   register: test_result
+#   ignore_errors: false
+#   args:
+#     chdir: "{{ tool_install_dir }}"

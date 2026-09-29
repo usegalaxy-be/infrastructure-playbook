@@ -1,0 +1,13 @@
+<tool id="test-condor-docker" name="TPV test: Condor Docker" version="1.0" hidden="true">
+    <description>Routing test for condor+docker destination (admin use only)</description>
+    <requirements>
+        <container type="docker">busybox:1.36.1-glibc</container>
+    </requirements>
+    <command><![CDATA[
+        echo "TPV test OK" > '$output'
+    ]]></command>
+    <inputs/>
+    <outputs>
+        <data name="output" format="txt" label="tpv-test-condor-docker"/>
+    </outputs>
+</tool>

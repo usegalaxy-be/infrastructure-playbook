@@ -1,0 +1,49 @@
+---
+
+sync_cron_tasks: []
+sync_cron_manual_run: false
+sync_cron_setup_cron: true
+sync_cron_frequency:
+  minute: 0
+  hour: 0
+  day: "*"
+  weekday: 6
+  month: "*"
+  disabled: no
+
+# Flag to run the rsync manually
+manual_rsync: false
+# Flag to run the rsync in a cron job
+cron_rsync: false
+# User to synchronize as
+sync_cron_username: "{{ galaxy_user_name }}"
+# Source path to rsync
+sync_cron_chdir_path: "/"
+# Source path to rsync
+sync_cron_src_path: "/etc/dependencies"
+# Dest url to sync to. Example: myuser@myhost:/my/path
+sync_cron_dest_url: "/etc/dependencies_test"
+# rsync flags to use. defaults is -a
+sync_cron_rsync_flags: "-av --progress"
+# arguments to pass to cron action
+# Use sync_cron_freq, not _sync_cron_freq
+_sync_cron_freq:
+  name: "rsync for {{ sync_cron_src_path }}"
+  minute: 0
+  hour: 0
+  day: "*"
+  weekday: 6
+  month: "*"
+  disabled: no
+sync_cron_freq: {}
+# Additional commands to execute after each synchronization
+# eg...
+#
+# sync_cron_additional_commands:
+#   - "echo yes"
+#   - "touch myfile"
+#
+# WARNING: When we have additional commands, the cron executes our command chain through
+#          bash -c '{{ cmd }}'. Mind your single quotes! either avoid them or escape them.
+#          http://stackoverflow.com/questions/1250079/how-to-escape-single-quotes-within-single-quoted-strings
+sync_cron_additional_commands: []

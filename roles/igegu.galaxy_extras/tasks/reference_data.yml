@@ -1,0 +1,21 @@
+
+
+
+- name: Install tool_data_table_conf 
+  template:
+    src: "{{ galaxy_config_template_src_dir }}/tool_data_table_conf.xml.j2"
+    dest: "{{ galaxy_config_merged[galaxy_app_config_section].tool_data_table_config_path }}"
+    backup: yes
+
+- name: Create loc files path
+  file:
+    path: "{{ manual_loc_files_path }}"
+    state: directory
+
+
+- name: Copy loc files
+  copy:
+    src: "{{ loc_files_source }}/{{ item }}"
+    dest: "{{ manual_loc_files_path }}/{{ item }}"
+    backup: yes
+  with_items: "{{ loc_files_list }}"

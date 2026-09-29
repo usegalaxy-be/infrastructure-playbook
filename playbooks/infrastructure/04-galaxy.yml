@@ -1,0 +1,377 @@
+---
+# Full Galaxy provisioning: clone/update code, venv, config, mutable setup, DB migration,
+# local tools, certbot, nginx, gravity, Telegraf. Primary playbook for Galaxy upgrades and
+# initial deploys. Run after 02-database.yml and 03-galaxy-prerequisites.yml.
+
+- name: Deploy Galaxy Core Application
+  hosts: galaxyservers
+  become: true
+  become_user: root
+  vars:
+    # Gravity-managed units that exec from the autofs-mounted NFS share
+    galaxy_autofs_dropin_units:
+      - galaxy-gunicorn@
+      - galaxy-handler@
+      - galaxy-celery
+      - galaxy-celery-beat
+      - galaxy-gx-it-proxy
+      - galaxy-tusd
+      - galaxy-workflow-scheduler
+  vars_files:
+  pre_tasks:
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/assert-tmpfs-venv.yml"
+
+    - name: Ensure local_tools subdirectories exist
+      ansible.builtin.file:
+        path: "{{ galaxy_local_tools_dir }}/{{ item }}"
+        state: directory
+        owner: "{{ galaxy_user_name }}"
+        group: "{{ galaxy_user_name }}"
+        mode: "0755"
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      loop:
+        - interactive
+        - tpv_test
+      tags:
+        - local_tools
+
+  roles:
+      # Installs and configures the Galaxy application (including a venv)
+      - role: galaxyproject.galaxy
+        become: true
+        become_user: "{{ galaxy_user_name }}"
+        tags:
+          - galaxy-core
+
+      # Adds a TPV (Total Perspective Vortex) lint script that automatically lints all TPV YAML files
+      # some custom changes to allow a different user than root to install scripts and copy tpv related files
+      - role: usegalaxy_eu.tpv_auto_lint
+        become: true
+        become_user: "{{ galaxy_user_name }}"
+        tags:
+          - tpv
+
+  post_tasks:
+    # Galaxy 26.0 bug: the root package.json stage script uses a single-level glob
+    # (cpy 'dist/*' './static/dist') which copies files in dist/ root but does not
+    # recurse into dist/assets/. The compiled search worker (filter.worker-*.js) and
+    # other hashed assets live in dist/assets/ and are silently skipped, breaking
+    # toolbox search with a permanent spinner. Copy the assets directory explicitly
+    # after the role runs. Remove once fixed upstream in galaxy-client or the role.
+    - name: Copy galaxy-client dist/assets to static/dist/assets (prebuilt staging workaround)
+      ansible.builtin.copy:
+        src: "{{ galaxy_server_dir }}/node_modules/@galaxyproject/galaxy-client/dist/assets/"
+        dest: "{{ galaxy_server_dir }}/static/dist/assets/"
+        remote_src: true
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+
+    # Refresh worker tmpfs whenever code changes, so a clone-only run can't leave it stale.
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/refresh-worker-tmpfs.yml"
+      tags:
+        - galaxy-core
+        - galaxy-client
+        - galaxy_manage_clone
+
+    # gx-it-proxy (run by npx) caches itself in ~/.npm/_npx/. The sqlite3 native
+    # bindings in this cache are compiled per Node.js ABI version and break silently
+    # after Node.js upgrades. We stop the service before wiping so npx isn't mid-install,
+    # then let Gravity restart it cleanly with a fresh cache.
+    # pg-native is required by gx-it-proxy for PostgreSQL session support but is not
+    # listed as an npm dependency — it must be installed globally in the nodeenv so
+    # Node.js can find it via NODE_PATH when gx-it-proxy runs.
+    - name: Install pg-native globally in Galaxy nodeenv
+      ansible.builtin.command: >
+        {{ galaxy_venv_dir }}/bin/npm install -g pg-native
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      environment:
+        PATH: "{{ galaxy_venv_dir }}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+      changed_when: false
+      tags:
+        - nodeenv
+
+    # - name: Stop gx-it-proxy before clearing npx cache
+    #   ansible.builtin.systemd:
+    #     name: galaxy-gx-it-proxy
+    #     state: stopped
+    #   failed_when: false
+
+    # - name: Clear npx cache to force fresh gx-it-proxy install (fixes sqlite3 ABI mismatch)
+    #   ansible.builtin.file:
+    #     path: "/home/{{ galaxy_user_name }}/.npm/_npx"
+    #     state: absent
+    #   become: true
+    #   become_user: "{{ galaxy_user_name }}"
+
+    # - name: Start gx-it-proxy with fresh npx cache
+    #   ansible.builtin.systemd:
+    #     name: galaxy-gx-it-proxy
+    #     state: started
+
+    # TPV's dry-run mock Tool object is missing requires_galaxy_python_environment,
+    # which is referenced in our tool_defaults.yml rules. Patch the installed package
+    # so tpv lint and dry-run work correctly. Remove once fixed upstream in TPV.
+    - name: Find TPV site-packages directory
+      ansible.builtin.command: >
+        {{ galaxy_venv_dir }}/bin/python -c
+        "import tpv, os; print(os.path.dirname(os.path.dirname(tpv.__file__)))"
+      register: _tpv_site_packages
+      changed_when: false
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      tags:
+        - patches
+        - tpv
+
+    - name: Patch TPV mock Tool to add requires_galaxy_python_environment
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/tpv_mock_galaxy_requires_galaxy_python_environment.patch"
+        basedir: "{{ _tpv_site_packages.stdout }}"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: _tpv_mock_patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+        - tpv
+
+    - name: Warn if TPV mock patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: TPV mock patch was not applied cleanly (rc={{ _tpv_mock_patch_result.rc }}).
+          Either already merged upstream or context mismatch — verify manually:
+          {{ _tpv_site_packages.stdout }}/tpv/commands/test/mock_galaxy.py
+      when: _tpv_mock_patch_result.rc | default(0) != 0
+      tags:
+        - patches
+        - tpv
+
+    # Temporary workaround for https://github.com/galaxyproject/galaxy/issues/22219
+    # DistributedObjectStore.start() does not propagate to backends, so the iRODS
+    # connection pool monitor thread never starts. Remove once the fix is in the
+    # deployed Galaxy release branch.
+    - name: Patch DistributedObjectStore to propagate start() to backends (GH#22219)
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/objectstore_distributed_start.patch"
+        dest: "{{ galaxy_server_dir }}/lib/galaxy/objectstore/__init__.py"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+
+    - name: Warn if GH#22219 patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: GH#22219 patch was not applied cleanly (rc={{ patch_result.rc }}).
+          Either already merged upstream or context mismatch — verify manually:
+          {{ galaxy_server_dir }}/lib/galaxy/objectstore/__init__.py
+      when: patch_result.rc | default(0) != 0
+      tags:
+        - patches
+
+    # KU Leuven firewalls/proxies silently reset pooled iRODS connections
+    # (12h hard cap at HAProxy/irods-proxy, idle kills) and the backend can drop
+    # the TLS handshake of a fresh connection under load (ssl.SSLError/SSLEOFError).
+    # The retry decorator runs idempotent reads again on a new connection, covering
+    # both NetworkException and ssl.SSLError. Without it, job preparation fails when
+    # _exists_remotely hits a bad connection. Remove once merged upstream.
+    - name: Patch iRODS objectstore to retry idempotent operations on connection errors
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/irods_network_exception_retry.patch"
+        dest: "{{ galaxy_server_dir }}/lib/galaxy/objectstore/irods.py"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: irods_retry_patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+
+    - name: Warn if iRODS connection-error retry patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: iRODS connection-error retry patch was not applied cleanly
+          (rc={{ irods_retry_patch_result.rc }}).
+          Either already applied, merged upstream, or context mismatch — verify manually:
+          {{ galaxy_server_dir }}/lib/galaxy/objectstore/irods.py
+      when: irods_retry_patch_result.rc | default(0) != 0
+      tags:
+        - patches
+
+    # Workaround for missing os.path.isdir guard in OmeZarr._find_zarr_metadata_file.
+    # When an interactive tool (e.g. ilastik) is stopped without producing zarr output,
+    # the extra_files directory is never created. os.listdir() then raises FileNotFoundError,
+    # crashing set_meta and causing a spurious "Job wrapper finish method failed" error.
+    # Remove once fixed upstream in Galaxy.
+    - name: Patch OmeZarr._find_zarr_metadata_file to handle missing extra_files directory
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/zarr_find_metadata_missing_dir.patch"
+        dest: "{{ galaxy_server_dir }}/lib/galaxy/datatypes/data.py"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: zarr_patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+
+    - name: Warn if zarr patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: zarr patch was not applied cleanly (rc={{ zarr_patch_result.rc }}).
+          Either already merged upstream or context mismatch — verify manually:
+          {{ galaxy_server_dir }}/lib/galaxy/datatypes/data.py
+      when: zarr_patch_result.rc | default(0) != 0
+      tags:
+        - patches
+
+    # LocalJobRunner used preexec_fn=os.setpgrp, which runs Python in the forked
+    # child before exec(). If another thread holds a lock (e.g. the logging lock)
+    # at fork time, that lock is copied into the child already held and the child
+    # hangs forever before exec() — orphaning the job in 'queued' with no extid.
+    # Hit prod twice (2026-09-06, 2026-09-12) on local_runner/protein_calculator.
+    # Remove once merged upstream.
+    - name: Patch LocalJobRunner to avoid preexec_fn fork-time lock deadlock
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/local_runner_fork_deadlock.patch"
+        dest: "{{ galaxy_server_dir }}/lib/galaxy/jobs/runners/local.py"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: local_runner_patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+
+    - name: Warn if local_runner fork deadlock patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: local_runner fork deadlock patch was not applied cleanly
+          (rc={{ local_runner_patch_result.rc }}).
+          Either already applied, merged upstream, or context mismatch — verify manually:
+          {{ galaxy_server_dir }}/lib/galaxy/jobs/runners/local.py
+      when: local_runner_patch_result.rc | default(0) != 0
+      tags:
+        - patches
+
+    # Galaxy cpuinfo verbose mode never stores its per-processor properties (missing
+    # assignment), so cpu_identifier/cpu_mods in WP5 reports are always null. Also adds
+    # a `fields` filter and a `unique` option to dedupe identical values across cores.
+    # Remove once fixed upstream in Galaxy.
+    - name: Patch cpuinfo plugin to actually store verbose processor properties
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/cpuinfo_verbose_store_properties.patch"
+        dest: "{{ galaxy_server_dir }}/lib/galaxy/job_metrics/instrumenters/cpuinfo.py"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: cpuinfo_patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+
+    - name: Warn if cpuinfo verbose patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: cpuinfo verbose patch was not applied cleanly (rc={{ cpuinfo_patch_result.rc }}).
+          Either already fixed upstream or context mismatch — verify manually:
+          {{ galaxy_server_dir }}/lib/galaxy/job_metrics/instrumenters/cpuinfo.py
+      when: cpuinfo_patch_result.failed | default(false)
+      tags:
+        - patches
+
+    # Temporary workaround: embedded Pulsar (pulsar-galaxy-lib 0.15.9) crashes with
+    # TypeError when finish_job is called for an interactive tool job whose Condor job
+    # already exited before condor_rm fires — full_status() returns a minimal dict
+    # without 'outputs_directory_contents', leaving PulsarOutputs.output_directory_contents
+    # as None. Three call sites in staging/__init__.py and staging/down.py then crash
+    # on None with "argument of type 'NoneType' is not iterable".
+    # Remove once fixed upstream in Pulsar.
+    - name: Find Pulsar client staging site-packages directory
+      ansible.builtin.command: >
+        {{ galaxy_venv_dir }}/bin/python -c
+        "import sys, os; p = next(p for p in sys.path if os.path.isdir(os.path.join(p, 'pulsar', 'client', 'staging'))); print(p)"
+      environment:
+        PYTHONPATH: "{{ galaxy_server_dir }}/lib"
+      register: _pulsar_site_packages
+      changed_when: false
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      tags:
+        - patches
+        - pulsar
+
+    - name: Patch Pulsar staging to handle None output_directory_contents (IT job finish crash)
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/pulsar_staging_none_output_directory.patch"
+        basedir: "{{ _pulsar_site_packages.stdout }}"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: pulsar_patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+        - pulsar
+
+    - name: Warn if Pulsar staging patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: Pulsar staging patch was not applied cleanly (rc={{ pulsar_patch_result.rc }}).
+          Either already fixed upstream or context mismatch — verify manually in
+          {{ _pulsar_site_packages.stdout }}/pulsar/client/staging/
+      when: pulsar_patch_result.rc | default(0) != 0
+      tags:
+        - patches
+        - pulsar
+
+    # Gravity overwrites galaxy-gunicorn@.service on every update, so we use a
+    # drop-in to add the autofs dependency without fighting Gravity. Without this,
+    # systemd restarts Galaxy before autofs mounts the NFS share, causing ExecStart
+    # to fail with ENOENT on the galaxyctl shebang interpreter. Applies to ALL
+    # gravity-managed units, not just gunicorn (2026-07-09 test reboot: handlers,
+    # celery, tusd etc. crash-looped at boot while gunicorn waited for the mount).
+    - name: Create systemd drop-in directories for Galaxy services
+      ansible.builtin.file:
+        path: "/etc/systemd/system/{{ item }}.service.d"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop: "{{ galaxy_autofs_dropin_units }}"
+      tags: [galaxy, systemd]
+
+    - name: Create systemd drop-ins to depend on autofs before starting Galaxy
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item }}.service.d/autofs.conf"
+        content: |
+          [Unit]
+          After=autofs.service
+
+          [Service]
+          ExecStartPre=/bin/ls {{ galaxy_shared_root }}/.
+        owner: root
+        group: root
+        mode: '0644'
+      loop: "{{ galaxy_autofs_dropin_units }}"
+      register: _autofs_dropin
+      tags: [galaxy, systemd]
+
+    - name: Reload systemd after autofs drop-in change
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: _autofs_dropin.changed
+      tags: [galaxy, systemd]

@@ -1,0 +1,15 @@
+---
+autofs_service:
+  install: false
+  enable: false
+
+# Consuming inventory (group_vars/host_vars) is expected to override this
+# wholesale with its own mounts — see prodcomputeservers.yml/vibcomputeservers.yml
+# for real examples.
+autofs_mounts: 
+  - name: "staging"
+    conf:
+      - "data      -rw,hard,intr,nosuid,quota      10.xxx.xx.xxx:/data"
+    mountpoint: "/srv/galaxy/staging"
+    conf_location: "/etc/auto.data"
+    map_options: "nfsvers=4.1 browse"

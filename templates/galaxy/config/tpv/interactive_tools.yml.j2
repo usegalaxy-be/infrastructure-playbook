@@ -1,0 +1,121 @@
+---
+# TPV rules for Galaxy Interactive Tools (GxIT)
+# All tools use path-based routing (requires_path_in_url="True"):
+#   routed via https://test.usegalaxy.be/interactivetool/ep/<token>/
+# No wildcard DNS or extra SSL certificates required.
+
+tools:
+  _docker_it:
+    abstract: true
+    params:
+      docker_enabled: true
+      singularity_enabled: false
+      docker_net: bridge
+      require_container: true
+      outputs_to_working_directory: false
+      container_monitor_result: callback
+      docker_run_extra_arguments: --user $UID:$GID
+      # GxIT jobs produce no useful job stdout/stderr in the staging dir
+      # (outputs go to iRODS via objectstore). Always clean up so that failed
+      # or stopped jobs don't leave _interactive/ dirs that crash the embedded
+      # Pulsar work thread on handler restart.
+      cleanup_job: always
+    rules:
+      - id: require_login
+        if: not user
+        fail: "Interactive tools require a registered and activated account."
+    scheduling:
+      require:
+        - interactive
+        - docker
+      reject:
+        - pulsar
+
+  interactive_tool_jupyter_notebook:
+    inherits: _docker_it
+    cores: 1
+    mem: 4
+
+  interactive_tool_pavian:
+    inherits: _docker_it
+    cores: 1
+    mem: 4
+    params:
+      # shiny-server requires root inside the container to write to /srv/shiny-server/app.R
+      # and /etc/shiny-server/shiny-server.conf (both root:root 644 in the image).
+      # docker_run_extra_arguments: "" removes the --user flag from _docker_it,
+      # and docker_set_user: "" suppresses Galaxy's default $UID --user injection.
+      docker_run_extra_arguments: ""
+      docker_set_user: ""
+    rules:
+      - id: require_login
+        if: not user
+        fail: "Interactive tools require a registered and activated account."
+
+  interactive_tool_phinch:
+    inherits: _docker_it
+    cores: 1
+    mem: 4
+    params:
+      docker_run_extra_arguments: ""
+      docker_set_user: ""
+    rules:
+      - id: require_login
+        if: not user
+        fail: "Interactive tools require a registered and activated account."
+
+  # jlesage/baseimage-gui containers: /init requires root, app runs as uid=1001 via USER_ID/GROUP_ID.
+  # NFS root_squash is handled in each tool command via groupadd/useradd/runuser.
+  # docker_set_user: "" suppresses Galaxy's default --user $UID:$GID injection — jlesage /init
+  # must start as root; privilege drop happens inside the container via USER_ID/GROUP_ID.
+  _novnc_it:
+    abstract: true
+    inherits: _docker_it
+    params:
+      docker_run_extra_arguments: "--env USER_ID=$UID --env GROUP_ID=$(id -g)"
+      docker_set_user: ""
+    rules:
+      - id: require_login
+        if: not user
+        fail: "Interactive tools require a registered and activated account."
+
+  interactive_tool_ilastik:
+    inherits: _novnc_it
+    cores: 2
+    mem: 8
+
+  interactive_tool_cellpose:
+    inherits: _novnc_it
+    cores: 2
+    mem: 8
+
+  interactive_tool_cellprofiler:
+    inherits: _novnc_it
+    cores: 2
+    mem: 8
+
+  interactive_tool_napari:
+    inherits: _novnc_it
+    cores: 4
+    mem: 32
+    rules:
+      - id: require_admin
+        if: not user or user.email not in app.config.admin_users
+        fail: "This interactive tool has been disabled due to security concerns. If you need to use the tool rather urgently, please contact the Galaxy BE team for more information."
+
+  interactive_tool_scop3p_toolkit:
+    inherits: _docker_it
+    cores: 2
+    mem: 8
+    params:
+      # Run as root (drops --user $UID:$GID from _docker_it) so the container
+      # can write to root-owned overlay paths (/apps/portal/main.py,
+      # /var/log/scop3p_toolkit/). Set -w /tmp so relative cache paths
+      # (e.g. af_cache) land in /tmp rather than the NFS job working directory
+      # where root is squashed.
+      docker_run_extra_arguments: "-w /tmp"
+      docker_set_user: ""
+    rules:
+      - id: require_login
+        if: not user
+        fail: "Interactive tools require a registered and activated account."

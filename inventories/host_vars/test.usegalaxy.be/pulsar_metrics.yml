@@ -1,0 +1,32 @@
+---
+# usegalaxy_eu.ansible-pulsar-util vars
+# role has to be one of consumer or producer
+pulsar_metric_role: consumer
+
+# consumer role variables
+pulsar_consumer_dir: "/opt/pulsar_metrics"
+consumer_venv_dir: "{{ pulsar_consumer_dir }}/venv"
+consumer_galaxy_job_conf: "{{ galaxy_config_dir }}/galaxy.yml"
+tpv_destinations_conf: "{{ tpv_mutable_dir }}/destinations.yml"
+
+consumer_energy_measurement: "pulsar_carbon_intensity"
+energy_auth_token: "{{ vault_electricity_map_token }}"
+
+consumer_influx_address: "{{ inventory_hostname }}"
+consumer_influx_port: 59886
+consumer_influx_db: esg_tpv_broker
+consumer_influx_username: "{{ influxdb_users.regular[1].username }}"
+consumer_influx_password: "{{ influxdb_users.regular[1].password }}"
+consumer_influx_measurement: "htcondor_cluster_usage"
+
+consumer_destinations:
+  - pulsar_de02
+  - pulsar_cz01 
+  - pulsar_it01
+  - pulsar_sp01
+  - pulsar_uk01
+  - pulsar_tr01
+  - pulsar_no01
+  - pulsar_pl01
+  - pulsar_ch01
+  - pulsar_sl01

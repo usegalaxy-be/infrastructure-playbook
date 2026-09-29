@@ -1,0 +1,12 @@
+# Managed by Ansible (roles/pdg.galaxy_code_tmpfs)
+[Unit]
+Description=tmpfs for node-local Galaxy code ({{ galaxy_code_tmpfs_mount }})
+
+[Mount]
+What=tmpfs
+Where={{ galaxy_code_tmpfs_mount }}
+Type=tmpfs
+Options=size={{ galaxy_code_tmpfs_size }},mode=0755
+
+[Install]
+WantedBy=multi-user.target

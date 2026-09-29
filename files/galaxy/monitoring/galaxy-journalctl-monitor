@@ -1,0 +1,23 @@
+#!/bin/bash
+# galaxy-journalctl-monitor
+# Counts ERROR/WARNING/CRITICAL log entries from Galaxy systemd services
+# over the past 60 seconds, and outputs InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/galaxy-journalctl-monitor
+# Telegraf exec plugin interval: 1m
+#
+# Adjust the -u glob if your Galaxy gravity services use a different prefix.
+
+tmpfile=$(mktemp /tmp/galaxy-journal-XXXXXX)
+
+journalctl --since "-60s" -u 'galaxy*' --no-pager --output=short 2>/dev/null > "$tmpfile"
+
+errors=$(grep -ciE '\bERROR\b' "$tmpfile" 2>/dev/null); errors=${errors:-0}
+warnings=$(grep -ciE '\bWARNING\b' "$tmpfile" 2>/dev/null); warnings=${warnings:-0}
+criticals=$(grep -ciE '\bCRITICAL\b' "$tmpfile" 2>/dev/null); criticals=${criticals:-0}
+
+rm -f "$tmpfile"
+
+printf 'galaxy_journal_errors,level=error count=%si\n' "$errors"
+printf 'galaxy_journal_errors,level=warning count=%si\n' "$warnings"
+printf 'galaxy_journal_errors,level=critical count=%si\n' "$criticals"

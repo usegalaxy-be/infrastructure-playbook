@@ -1,0 +1,7 @@
+# Generated SSH Config
+{% for server in servers.servers %}
+Host {{ server.name }}
+  HostName {{ server.addresses.VSC_00003_vm[0].addr }}
+  User galaxy_master
+
+{% endfor %}

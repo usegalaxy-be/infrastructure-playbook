@@ -1,0 +1,59 @@
+---
+users:
+  # Abstract groups
+  # NOTE: a user can only belong to one abstract group, the last one matched is used
+  admin_users:
+    abstract: true
+  vib_users:
+    abstract: true
+    # params:
+    #   requirements: 'GalaxyGroup == "vib"'
+    scheduling:
+      # PREFER (not require) vib-users: a hard require would exclude VIB users from
+      # every destination that does not advertise the vib-users tag (condor_conda,
+      # condor_tpv, condor_gpu, condor_training, remote pulsar_* nodes), causing
+      # "no matching destination" for GPU/training/pulsar/overflow tools.
+      # prefer still satisfies the vib-only destinations' `require: vib-users`
+      # (condor_vib_tpv / condor_vib_conda) and ranks their VIB workers first, while
+      # letting jobs fall through to general destinations when no VIB one matches.
+      prefer:
+        - vib-users
+  # Actual users               
+  paul.degeest@psb.ugent.be:
+    inherits: admin_users
+  tool_admin@test.be:
+    params:
+      # singularity_enabled: true
+      # object_store_id: "new_internal_nfs_shares"
+    scheduling:
+      prefer:
+        - singularity
+  conda_user@test.be:
+    params:
+      singularity_enabled: false
+      # object_store_id: "new_internal_nfs_shares"
+    scheduling:
+      require:
+        - conda
+  # NOTE: decomissioning pulsar, vib users go to regular destinations for now.      
+  .*@vib.be:
+    inherits: vib_users
+  # paul.degeest@vib.be:
+    # rules:
+    # - id: debug
+    #   if: "True"
+    #   execute: |
+    #     try:
+    #         # A mapper is passed in the context of TPV rules, which is what this is.
+    #         # The mapper has a 'destinations' property
+    #         if mapper:
+    #             destinations = mapper.destinations
+    #             mismatched_destinations = {}
+    #             for dest in destinations:
+    #                 match_result = entity.matches(dest)
+    #                 if match_result is not MATCH_TRUE:
+    #                     mismatched_destinations[dest.id] = str(match_result)
+    #             out['mismatched_destinations'] = mismatched_destinations
+    #     except Exception:
+    #         log.exception("TPV debug mismatch explanation failed")
+

@@ -1,0 +1,27 @@
+---
+# Re-run THIS env's node-local Galaxy tmpfs populate on every condor worker, so the
+# RAM copy stays in lockstep with the Galaxy code/venv this playbook just deployed.
+#
+# import_tasks'd into the post_tasks of the head-deploy playbooks that change lib or
+# venv (galaxy_manage_clone or galaxy_fetch_dependencies = yes). It runs on the head
+# (which is inside --limit) and delegates the populate to each worker — delegation
+# bypasses --limit, which a `hosts: computeservers` play could not.
+#
+# - Gated on galaxy_code_tmpfs_enabled, so it's a no-op until the env activates tmpfs.
+# - Picks the per-env populate script from the head's own galaxy_code_tmpfs_mount.
+# - Assumes the script already exists on the workers (initial rollout:
+#   playbooks/one-off/galaxy-code-tmpfs.yml). A down worker is tolerated (its boot
+#   service repopulates); run with the OpenStack venv active so VIB workers are in
+#   groups['computeservers'].
+- name: Repopulate this env's Galaxy code tmpfs on all condor workers (version lockstep)
+  ansible.builtin.command: "/usr/local/sbin/galaxy-code-tmpfs-populate-{{ galaxy_code_tmpfs_mount | basename }}"
+  become: true
+  become_user: root
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['computeservers'] | default([]) }}"
+  loop_control:
+    label: "{{ item }}"
+  changed_when: true
+  failed_when: false
+  when: galaxy_code_tmpfs_enabled | default(false)
+  tags: [galaxy_code_tmpfs]

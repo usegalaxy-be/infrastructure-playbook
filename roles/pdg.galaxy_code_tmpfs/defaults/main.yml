@@ -1,0 +1,20 @@
+---
+# Node-local RAM copy of the Galaxy codebase on condor workers, so the in-job
+# metadata step (metadata/set.py) imports the framework from RAM instead of
+# cold from NFS. See roles/pdg.galaxy_code_tmpfs/README.md.
+#
+# The workers' "local" disk is Cinder-backed (slow for cold small-file reads),
+# so this uses a tmpfs (RAM), not a disk copy.
+
+# tmpfs mount point; galaxy lib + venv are placed under it.
+galaxy_code_tmpfs_mount: /opt/galaxy
+galaxy_code_tmpfs_size: 2G
+
+# NFS sources to copy FROM. Per-environment: set the matching prod paths when
+# running against prod workers. Must be readable on the worker (it mounts them).
+galaxy_code_tmpfs_src_lib: /srv/galaxy_test/shared/server/lib
+galaxy_code_tmpfs_src_venv: /srv/galaxy_test/shared/database/tool-dependencies/venv-py3.11
+
+# Run the populate step now (rsync + rewrite + compile). The boot service always
+# runs it on boot; set true to also refresh immediately (e.g. after a Galaxy deploy).
+galaxy_code_tmpfs_populate_now: true

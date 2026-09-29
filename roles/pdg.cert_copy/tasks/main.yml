@@ -1,0 +1,41 @@
+---
+# tasks file for pdg.cert_copy
+# Set up shared ssl certs 
+
+- name: Ensure the deploy hooks directory exists
+  file:
+    path: "{{ renewal_script_path }}"
+    state: directory
+    mode: '0755'
+
+- name: Deploy the certificate copy script
+  copy:
+    src: copy_certs.sh
+    dest: "{{ renewal_script_path }}/copy_to_nfs.sh"
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure certbot to use the deploy hook script
+  lineinfile:
+    path: "{{ renewal_config_path }}/yourdomain.com.conf"
+    regexp: "^renew_hook ="
+    line: "renew_hook = {{ renewal_script_path }}/copy_certs.sh"
+    create: yes
+
+- name: Deploy the certificate copy script to VM 2
+  copy:
+    src: copy_from_nfs.sh
+    dest: /usr/local/bin/copy_from_nfs.sh
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Create cron job to run the copy_from_nfs.sh script on VM 2
+  cron:
+    name: "Copy SSL certs from NFS"
+    job: "/usr/local/bin/copy_from_nfs.sh"
+    minute: "0"
+    hour: "0"
+    user: root
+  delegate_to: vm2

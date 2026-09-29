@@ -1,0 +1,49 @@
+# Helper variables — IPs sourced from OpenStack, stored in Vault as an interim
+# measure until scoped NetBox access is available (see usegalaxy-be/network/device_ips).
+_vault_device_ips: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips') }}"
+
+# grycap.htcondor
+htcondor_server: "{{ _vault_device_ips.usegalaxy_be_ip }}"
+
+# SSH authorized keys: common galaxy_master set + the loginnode fleet key for `test`,
+# which is the connection user on these (vgcn) images today. galaxy_master also exists
+# here (covered by _common); when these images are rebuilt on rocky, add a rocky entry.
+workenv_ssh_authorized_keys: "{{ workenv_ssh_authorized_keys_common + [{'user': 'test', 'key': loginnode_infra_key, 'state': 'present'}] }}"
+
+# galaxyproject.cvmfs
+# Workers run jobs and pull singularity images, so they need a larger cache than the head node.
+# Cache is on the root disk (/var/lib/cvmfs default) — no extra volumes on worker nodes.
+cvmfs_quota_limit: 10000
+influx_url: https://usegalaxy.be:59086
+
+# pdf.autofs
+_nfs_ip: "{{ _vault_device_ips.nfs_usegalaxy_be_ip }}"
+
+autofs_mounts:
+  - name: "prod"
+    conf:
+      - "database  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/database"
+      - "local_tools  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/local_tools"
+      - "etc  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/etc"
+      - "dm-data  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/dm_data"
+      - "src  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/src"
+    mountpoint: "/srv/galaxy/shared"
+    conf_location: "/etc/auto.prod"
+    map_options: "nfsvers=3 browse"
+  - name: "test"
+    conf:
+      - "database  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/test_share/database"
+      - "local_tools  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/test_share/local_tools"
+      - "server  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/test_share/server"
+      - "tmp  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/test_share/tmp"
+      - "venv  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/test_share/venv"
+      - "shared_data -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/shared_data"
+    mountpoint: "/srv/galaxy_test/shared"
+    conf_location: "/etc/auto.test"
+    map_options: "nfsvers=3 browse"
+  - name: "staging"
+    conf:
+      - "psb_data     -rw,hard,intr,nosuid,quota      {{ _nfs_ip }}:/data/share/data_stage/psb_data"
+    mountpoint: "/data_stage"
+    conf_location: "/etc/auto.staging"
+    map_options: "nfsvers=3 browse"

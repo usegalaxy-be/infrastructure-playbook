@@ -1,0 +1,47 @@
+---
+- name: Deploy Celery units for internal queue
+  template:
+    owner: root
+    group: root
+    mode: 0644
+    src: galaxy-celery-internal@.service.j2
+    dest: /etc/systemd/system/galaxy-celery-internal@.service
+  notify: daemon reload
+
+- name: Deploy Celery units for external queue
+  template:
+    owner: root
+    group: root
+    mode: 0644
+    src: galaxy-celery-external@.service.j2
+    dest: /etc/systemd/system/galaxy-celery-external@.service
+  notify: daemon reload
+
+- name: Deploy Celery-beat units
+  template:
+    owner: root
+    group: root
+    mode: 0644
+    src: galaxy-celery-beat.service.j2
+    dest: /etc/systemd/system/galaxy-celery-beat.service
+  notify: daemon reload
+
+- name: Enable Celery internal
+  systemd:
+    name: "galaxy-celery-internal@{{ item }}.service"
+    enabled: true
+    state: restarted
+  loop: "{{ range(0, galaxy_systemd_celery_internal_workers) | list }}"
+
+- name: Enable Celery external
+  systemd:
+    name: "galaxy-celery-external@{{ item }}.service"
+    enabled: true
+    state: restarted
+  loop: "{{ range(0, galaxy_systemd_celery_external_workers) | list }}"
+
+- name: Enable Celery-beat
+  systemd:
+    name: "galaxy-celery-beat.service"
+    enabled: true
+    state: started
