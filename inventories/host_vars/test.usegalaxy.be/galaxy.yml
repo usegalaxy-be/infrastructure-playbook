@@ -20,7 +20,7 @@ galaxy_server_dir: "{{ galaxy_shared_root }}/server"
 # Galaxy's virtualenv directory. Versioned by Python version so a new venv is only
 # created when the Python interpreter changes — old Galaxy keeps serving while the new
 # venv is built alongside it, then galaxyctl graceful switches over with no downtime.
-galaxy_venv_dir: "{{ galaxy_shared_root }}/database/tool-dependencies/venv-py{{ galaxy_python_version }}"
+galaxy_venv_dir: "{{ galaxy_shared_root }}/venv/venv-py{{ galaxy_python_version }}"
 
 # Node-local RAM (tmpfs) copy of this env's Galaxy lib+venv on the condor workers,
 # so the in-job metadata step imports from RAM instead of cold from NFS (see
@@ -30,9 +30,9 @@ galaxy_venv_dir: "{{ galaxy_shared_root }}/database/tool-dependencies/venv-py{{ 
 galaxy_code_tmpfs_mount: /opt/galaxy_test
 galaxy_code_tmpfs_enabled: true
 
-# TODO: any tool dependencies that are not the venv could be shared between prod and test
-galaxy_dependency_dir: "{{ galaxy_shared_root }}/database/tool-dependencies"
-galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/database/tool-dependencies"
+# Non-venv tool dependencies, shared between prod and test (see shared_deps mount)
+galaxy_dependency_dir: "{{ galaxy_shared_root }}/shared_deps"
+galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/shared_deps/tool-dependencies"
 
 # rsynced tool dependencies from production
 # this should be done differenly by mounting the same shared directory for both production and test, but this is a quick solution for now
@@ -42,44 +42,24 @@ shared_tool_conf_file: "{{ galaxy_shared_root }}/shared_data/test/mutable-config
 galaxy_tool_config_files:
   - "{{ galaxy_config_dir }}/tool_conf.xml"
   - "{{ galaxy_shed_tool_conf_file }}"
+  - "{{ galaxy_config_dir }}/shared_local_tool_conf.xml"
   - "{{ shared_tool_conf_file | default('') }}"
   # - "{{ galaxy_server_dir }}/config/tool_conf.xml.sample"
   - "{{ galaxy_config_dir }}/tool_conf_interactive.xml"
 
-# Directory on the Galaxy server where local tools will be installed. This is the default
-# TODO: change this to be within the shared nfs directory and shared between prod and test
+# Directory on the Galaxy server where env-only local tools will be installed
+# (the common tool pool lives separately, see galaxy_shared_local_tools_dir).
 galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
 
-# Extend the group_vars galaxy_local_tools list with test-only test tools.
+# Test-only tools: a version prod isn't on yet, and the TPV routing-probe tools.
 # test tools are deployed to galaxy_local_tools_dir/tpv_test/ and appear in
 # local_tool_conf.xml under a "TPV test Tools" section (test only).
 galaxy_local_tools:
-  - api_test.xml
-  - testing.xml
-  - plink.xml
-  - protein_calculator/v1.0.2/protein_calculator.xml
-  - protein_calculator/v1.1.0/protein_calculator.xml
   - protein_calculator/v1.1.0+galaxy2/protein_calculator.xml
   # tool script (copied but not registered — the .py rides along so the container
   # version check ($__root_dir__ -> lib/galaxy/version.py) is deployed, not scp'd)
   # - protein_calculator/v1.1.0+galaxy2/protein_calculator.py
   - openfold3/openfold3.xml
-  # Interactive tools
-  - interactive/interactivetool_ilastik.xml
-  - interactive/interactivetool_pavian.xml
-  - interactive/interactivetool_phinch.xml
-  - interactive/interactivetool_cellpose.xml
-  - interactive/interactivetool_scop3p_toolkit.xml
-  - interactive/pytorch_convert_safetensors.py
-  - interactive/interactivetool_cellprofiler.xml
-  - interactive/interactivetool_napari.xml
-  - interactive/pavian.png
-  - interactive/phinch.png
-  - interactive/ilastik.png
-  - interactive/cellpose.png
-  - interactive/cellprofiler.png
-  - interactive/napari.png
-  - interactive/scop3p_toolkit.png
   # TPV test tools (test-only): one per distinct routing destination
   - {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
   - {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
@@ -90,9 +70,9 @@ galaxy_local_tools:
   - {file: tpv_test/test-pulsar-vib.xml,         section_name: "TPV test Tools", section_id: tpv_test}
   - {file: tpv_test/test-pulsar-vib-gpu.xml,     section_name: "TPV test Tools", section_id: tpv_test}
 
-# Directory to store Data Manager based tool-data. Defaults to the value of the <tool_data_path> option.
-# TODO: This should probably be within the shared nfs directory and shared between prod and test
-galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/dm_data"
+# Directory to store Data Manager based tool-data. Shared between prod and test
+# (see shared_dm_data mount) — reference data, not env-specific state.
+galaxy_data_manager_data_path: "{{ galaxy_shared_root }}/shared_dm_data"
 
 # same as default
 # TODO: can be shared between prod and test

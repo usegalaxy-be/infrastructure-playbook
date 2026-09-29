@@ -1,0 +1,92 @@
+---
+# Mount and autofs info gathering
+# ================================
+# Collects current mount points and autofs configuration from all hosts.
+# Output is saved per-host to files/info/mounts/<hostname>/ for review.
+#
+# Usage:
+#   ansible-playbook playbooks/infrastructure/info-mounts.yml
+#   ansible-playbook playbooks/infrastructure/info-mounts.yml --limit testgalaxyservers
+
+- name: Gather mount and autofs information
+  hosts: "all:!loginnode"
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Get active mounts (/proc/mounts)
+      command: cat /proc/mounts
+      register: proc_mounts
+      changed_when: false
+
+    - name: Get NFS mounts summary
+      shell: mount -t nfs,nfs4 2>/dev/null || true
+      register: nfs_mounts
+      changed_when: false
+
+    - name: Get autofs master config
+      command: cat /etc/auto.master
+      register: autofs_master
+      changed_when: false
+      failed_when: false
+
+    - name: Find autofs drop-in configs
+      find:
+        paths: /etc/auto.master.d
+        patterns: "*.autofs"
+      register: autofs_dropins
+      failed_when: false
+
+    - name: Read autofs drop-in files
+      command: "cat {{ item.path }}"
+      loop: "{{ autofs_dropins.files | default([]) }}"
+      register: autofs_dropin_contents
+      changed_when: false
+      failed_when: false
+
+    - name: Find autofs map files
+      find:
+        paths: /etc
+        patterns: "auto.*"
+        excludes: "auto.master"
+      register: autofs_maps
+      failed_when: false
+
+    - name: Read autofs map files
+      command: "cat {{ item.path }}"
+      loop: "{{ autofs_maps.files | default([]) }}"
+      register: autofs_map_contents
+      changed_when: false
+      failed_when: false
+
+    - name: Get NFS exports (NFS server only)
+      command: exportfs -v
+      register: nfs_exports
+      changed_when: false
+      failed_when: false
+
+    - name: Display results for {{ inventory_hostname }}
+      debug:
+        msg: |
+          ========== {{ inventory_hostname }} ==========
+
+          --- NFS mounts ---
+          {{ nfs_mounts.stdout | default('(none)') }}
+
+          --- /etc/auto.master ---
+          {{ autofs_master.stdout | default('(not found)') }}
+
+          --- autofs drop-ins (/etc/auto.master.d/) ---
+          {% for item in autofs_dropin_contents.results | default([]) %}
+          {{ item.item.path }}:
+          {{ item.stdout | default('(empty)') }}
+          {% endfor %}
+
+          --- autofs map files ---
+          {% for item in autofs_map_contents.results | default([]) %}
+          {{ item.item.path }}:
+          {{ item.stdout | default('(empty)') }}
+          {% endfor %}
+
+          --- exportfs -v (NFS server only) ---
+          {{ nfs_exports.stdout | default('(not an NFS server or nothing exported)') }}

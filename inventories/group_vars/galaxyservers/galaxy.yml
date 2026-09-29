@@ -109,8 +109,8 @@ galaxy_mutable_data_dir: "{{ galaxy_shared_root }}/database"
 
 galaxy_object_store_cache_path: "{{ galaxy_mutable_data_dir }}/object_store_cache"
 
-# NOTE: should probably be moved to mutable data and shared between prod and test
-galaxy_tool_data_path: "{{ galaxy_mutable_config_dir }}/tool_data"
+# Shared between prod and test (see inventories/host_vars/*/nfs_client.yml shared_tool_data mount)
+galaxy_tool_data_path: "{{ galaxy_shared_root }}/shared_tool_data"
 
 # Where to write Galaxy logs to (same as default)
 # NOTE: needs to be referenced in gxconfig.yml to work
@@ -130,7 +130,7 @@ galaxy_extra_dirs:
   - "{{ galaxy_data_manager_data_path }}"
   - "{{ galaxy_shed_tool_data_path }}"
   - "{{ galaxy_shed_database_path }}"
-  - "{{ galaxy_local_tools_dir }}/interactive"
+  - "{{ galaxy_shared_local_tools_dir }}/interactive"
   - "{{ galaxy_library_dir }}/admin"
   - "{{ galaxy_library_dir }}/user"
   - "{{ galaxy_job_working_directory }}/_interactive"
@@ -157,23 +157,30 @@ galaxy_job_metrics_plugins:
 
 galaxy_config_style: yaml
 
-# Local (relative to playbook) path to local tools
+# Local (relative to playbook) path to local tools. Shared between both envs;
+# which destination (shared vs per-env) each file goes to is decided by which
+# list it's in (galaxy_shared_local_tools below, vs galaxy_local_tools in
+# each host's own host_vars), not by which subdirectory it lives in here.
 galaxy_local_tools_src_dir: "{{ inventory_dir }}/../files/galaxy/tools"
 
 # Local (relative to playbook) path to dynamic job rules
 galaxy_dynamic_job_rules_src_dir: "{{ inventory_dir }}/../files/galaxy/dynamic_job_rules"
 
-galaxy_local_tools:
+# Where the common tool pool is deployed and read from (see shared_tools mount
+# in inventories/host_vars/*/nfs_client.yml). Both envs load the same files
+# from here, generated into shared_local_tool_conf.xml
+# (see playbooks/tasks/deploy-shared-local-tools.yml).
+galaxy_shared_local_tools_dir: "{{ galaxy_shared_root }}/shared_tools"
+
+# Tools identical on both prod and test. Env-only tools (e.g. test's TPV
+# routing-probe tools, or a tool version only one env is trialling) go in
+# that host's own galaxy_local_tools instead (host_vars/*/galaxy.yml).
+galaxy_shared_local_tools:
 - api_test.xml
 - testing.xml
 - plink.xml
 - protein_calculator/v1.0.2/protein_calculator.xml
 - protein_calculator/v1.1.0/protein_calculator.xml
-- {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-conda.xml,       section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-gpu.xml,         section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-gpu-v3.xml,      section_name: "TPV test Tools", section_id: tpv_test}
 - interactive/interactivetool_ilastik.xml
 - interactive/interactivetool_pavian.xml
 - interactive/interactivetool_phinch.xml
