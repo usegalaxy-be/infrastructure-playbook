@@ -1,0 +1,79 @@
+---
+# ============================================================================
+# Security hardening variables — applies to all hosts
+# Playbook: playbooks/infrastructure/security.yml
+# ============================================================================
+
+# IP of the jumphost (this machine). SSH is ONLY allowed from this IP.
+# All other inbound SSH connections are dropped by iptables.
+ssh_jumphost_ip: "10.113.3.15"
+
+# -----------------------------------------------------------------------
+# fail2ban
+# -----------------------------------------------------------------------
+fail2ban_maxretry: 5       # ban after this many failures
+fail2ban_findtime: "10m"   # within this window
+fail2ban_bantime: "1h"     # ban duration (use -1 for permanent)
+
+# -----------------------------------------------------------------------
+# devsec.hardening — ssh_hardening role variables
+# Full list: https://github.com/dev-sec/ansible-collection-hardening
+# -----------------------------------------------------------------------
+
+# Users permitted to log in via SSH.
+# galaxy_master: used by all infra hosts
+# test: used by compute workers (see inventory)
+ssh_allow_users: "galaxy_master test"
+
+# Disable password and root login
+ssh_permit_root_login: "no"
+ssh_password_authentication: "no"
+ssh_challenge_response_authentication: "no"
+
+# Limit auth attempts and login grace time
+ssh_max_auth_tries: 3
+ssh_login_grace_time: "30s"
+
+# Keep PAM enabled (needed for sudo/pam_systemd on RHEL)
+ssh_use_pam: true
+
+# Keep X11 and agent forwarding off
+ssh_x11_forwarding: false
+ssh_allow_agent_forwarding: false
+ssh_allow_tcp_forwarding: "no"
+
+# -----------------------------------------------------------------------
+# usegalaxy-eu.autoupdates — dnf-automatic (security patches only)
+# -----------------------------------------------------------------------
+# Only apply security-classified updates — avoids surprise breakage from
+# major version bumps on active Galaxy/DB workloads.
+au_upgrade_type: "security"
+
+# Actually apply updates (default upstream is 'no', which only downloads).
+au_apply_updates: "yes"
+
+# Spread updates randomly over 1 hour so hosts don't hammer the repo
+# simultaneously.
+au_random_sleep: 3600
+
+# Tag log/MOTD entries with the real hostname.
+au_system_name: "{{ inventory_hostname }}"
+
+# Write what was updated to /etc/motd (visible on next SSH login).
+au_emit_via: "motd"
+
+# -----------------------------------------------------------------------
+# playbooks/infrastructure/update.yml
+# -----------------------------------------------------------------------
+# Oldest Rocky 9 kernel carrying CVE-2026-31431, CVE-2026-43284 and
+# CVE-2026-46242. RHEL fixed the last of these in 687.23.1, a build Rocky
+# skipped, so the first Rocky build with all three is 687.24.1.
+kernel_cve_minimum: "5.14.0-687.24.1.el9_8"
+
+# Update scope: 'kernel' for the CVE catch-up, 'security' for advisories only, 'baseline' for all packages.
+update_scope: kernel
+
+# PostgreSQL unit name on the db host. Unverified: the repo installs via
+# galaxyproject.postgresql and hxr.postgres-connection refers to "postgresql".
+# Confirm on the host before running update.yml --tags db.
+postgresql_service_name: postgresql-15

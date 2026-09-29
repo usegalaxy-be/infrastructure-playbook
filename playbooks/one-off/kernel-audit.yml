@@ -1,0 +1,144 @@
+---
+# ============================================================================
+# Fleet kernel audit (read-only)
+# ============================================================================
+#
+# Reports, per host: the running kernel, the newest installed kernel package,
+# the newest kernel the repos offer, the OS version, whether the running
+# kernel carries the three 2026 kernel CVEs, and whether the rfc00196 and
+# rfc00197 workarounds are still in place.
+#
+# Makes no changes. Safe to run at any time.
+#
+# Usage:
+#   source /home/galaxy_master/usegalaxy-be-admin/.openstack/bin/activate
+#   ansible-playbook playbooks/one-off/kernel-audit.yml
+#
+#   # Also write the report to a file tracked in the repo:
+#   ansible-playbook playbooks/one-off/kernel-audit.yml -e save_report=true
+#
+# Covers every host including the loginnode, proxy (el7) and db (el8 with an
+# ELRepo kernel). The CVE verdict only applies to el9 kernels; the other two
+# are reported as out of scope rather than passed or failed.
+#
+# kernel_cve_minimum is defined in inventories/group_vars/all/security.yml.
+# ============================================================================
+
+- name: Audit fleet kernel versions
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    save_report: false
+  tasks:
+    - name: Read the OS release
+      ansible.builtin.slurp:
+        src: /etc/os-release
+      register: kernel_audit_osrelease
+
+    - name: Find the newest installed kernel package
+      ansible.builtin.shell: |
+        set -o pipefail
+        rpm -q kernel --qf '%{VERSION}-%{RELEASE}\n' 2>/dev/null | sort -V | tail -1
+      args:
+        executable: /bin/bash
+      register: kernel_audit_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Find the newest kernel the repos offer
+      ansible.builtin.shell: |
+        set -o pipefail
+        dnf -q list --showduplicates kernel 2>/dev/null | awk '/^kernel/ {print $2}' | sort -V | tail -1
+      args:
+        executable: /bin/bash
+      register: kernel_audit_available
+      changed_when: false
+      failed_when: false
+
+    - name: Check whether the running kernel meets the CVE minimum
+      ansible.builtin.shell: |
+        set -o pipefail
+        running=$(uname -r | sed 's/\.x86_64$//')
+        oldest=$(printf '%s\n%s\n' "{{ kernel_cve_minimum }}" "$running" | sort -V | head -1)
+        test "$oldest" = "{{ kernel_cve_minimum }}"
+      args:
+        executable: /bin/bash
+      register: kernel_audit_meets_minimum
+      changed_when: false
+      failed_when: false
+
+    - name: Compare the running kernel with the newest installed package
+      ansible.builtin.shell: |
+        set -o pipefail
+        running=$(uname -r | sed 's/\.x86_64$//')
+        installed=$(rpm -q kernel --qf '%{VERSION}-%{RELEASE}\n' 2>/dev/null | sort -V | tail -1)
+        if [ -z "$installed" ]; then
+          echo "no-kernel-package-installed"
+        elif [ "$running" = "$installed" ]; then
+          echo "consistent"
+        elif [ "$(printf '%s\n%s\n' "$running" "$installed" | sort -V | tail -1)" = "$installed" ]; then
+          echo "NEWER-KERNEL-INSTALLED-PENDING-REBOOT"
+        else
+          echo "RUNNING-NEWER-THAN-ANY-INSTALLED-PACKAGE"
+        fi
+      args:
+        executable: /bin/bash
+      register: kernel_audit_rpm_state
+      changed_when: false
+      failed_when: false
+
+    - name: Check for the CVE-2026-31431 boot parameter
+      ansible.builtin.command: grep -q initcall_blacklist=algif_aead_init /proc/cmdline
+      register: kernel_audit_copyfail_arg
+      changed_when: false
+      failed_when: false
+
+    - name: Check for the CVE-2026-43284 modprobe rule
+      ansible.builtin.stat:
+        path: /etc/modprobe.d/dirtyfrag.conf
+      register: kernel_audit_dirtyfrag_conf
+
+    # Verdict words avoid yes/no/true/false, which Ansible coerces to booleans.
+    - name: Derive the report fields
+      ansible.builtin.set_fact:
+        kernel_audit_os: >-
+          {{ (kernel_audit_osrelease.content | b64decode).split('VERSION="')[1].split('"')[0]
+             if 'VERSION="' in (kernel_audit_osrelease.content | b64decode) else 'unknown' }}
+        kernel_audit_verdict: >-
+          {{ 'not-el9-assess-separately' if '.el9_' not in ansible_kernel
+             else ('fixed' if kernel_audit_meets_minimum.rc == 0 else 'VULNERABLE') }}
+
+    - name: Build the per-host verdict
+      ansible.builtin.set_fact:
+        kernel_audit_line: "{{ inventory_hostname }} | os={{ kernel_audit_os | trim }} | running={{ ansible_kernel }} | installed={{ kernel_audit_installed.stdout | default('none') | trim }} | available={{ kernel_audit_available.stdout | default('unknown') | trim }} | cve={{ kernel_audit_verdict | trim }} | rpm={{ kernel_audit_rpm_state.stdout | default('unknown') | trim }} | copyfail_workaround={{ 'present' if kernel_audit_copyfail_arg.rc == 0 else 'absent' }} | dirtyfrag_workaround={{ 'present' if kernel_audit_dirtyfrag_conf.stat.exists else 'absent' }}"
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "{{ kernel_audit_line }}"
+
+- name: Write the collected report
+  hosts: localhost
+  gather_facts: false
+  vars:
+    save_report: false
+  tasks:
+    - name: Ensure the report directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../../inventories/host_files"
+        state: directory
+        mode: '0755'
+      when: save_report | bool
+
+    - name: Save the report under inventories/host_files
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../../inventories/host_files/kernel_audit.txt"
+        mode: '0644'
+        content: |
+          Fleet kernel audit, generated by playbooks/one-off/kernel-audit.yml
+          CVE minimum: {{ hostvars[groups['all'][0]]['kernel_cve_minimum'] | default('unset') }}
+
+          {% for host in groups['all'] | sort %}
+          {{ hostvars[host]['kernel_audit_line'] | default(host ~ ' | unreachable or skipped') }}
+          {% endfor %}
+      when: save_report | bool

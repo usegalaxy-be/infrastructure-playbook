@@ -1,0 +1,100 @@
+---
+# ============================================================================
+# Shared OS update block — included by playbooks/infrastructure/update.yml
+# ============================================================================
+#
+# Applies package updates, reboots only when needed, then asserts the running
+# kernel is new enough to carry the three 2026 kernel CVEs.
+#
+# Caller may override:
+#   os_update_reboot_timeout     (default 600)
+#   os_update_post_reboot_delay  (default 15)
+#   os_update_label              (default inventory_hostname, used in task names)
+# ============================================================================
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Ensure needs-restarting is available"
+  ansible.builtin.dnf:
+    name: dnf-utils
+    state: present
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Apply updates ({{ update_scope }})"
+  ansible.builtin.dnf:
+    name: "{{ ['kernel'] if update_scope == 'kernel' else ['*'] }}"
+    state: latest
+    # security scope: security and bugfix advisories only.
+    security: "{{ update_scope == 'security' }}"
+    bugfix: "{{ update_scope == 'security' }}"
+    update_cache: true
+    # Compute workers carry exclude=openssh openssl in dnf.conf; bypass it here.
+    disableexcludes: all
+  register: os_update_result
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Show updated packages"
+  ansible.builtin.debug:
+    msg: "{{ os_update_result.results | default(['no changes']) }}"
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Check if a reboot is required"
+  ansible.builtin.command: needs-restarting -r
+  register: os_update_reboot_needed
+  changed_when: false
+  failed_when: false
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Reboot"
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ os_update_reboot_timeout | default(600) }}"
+    post_reboot_delay: "{{ os_update_post_reboot_delay | default(15) }}"
+    msg: "Rebooting for OS updates (scope: {{ update_scope }})"
+  when: os_update_reboot_needed.rc == 1
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Refresh facts after reboot"
+  ansible.builtin.setup:
+    filter: ansible_kernel
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Assert the running kernel carries the 2026 CVE fixes"
+  ansible.builtin.shell: |
+    set -o pipefail
+    running=$(uname -r | sed 's/\.x86_64$//')
+    oldest=$(printf '%s\n%s\n' "{{ kernel_cve_minimum }}" "$running" | sort -V | head -1)
+    test "$oldest" = "{{ kernel_cve_minimum }}"
+  args:
+    executable: /bin/bash
+  register: os_update_kernel_ok
+  changed_when: false
+  failed_when: os_update_kernel_ok.rc != 0
+  # The minimum is an el9 build, so the comparison is meaningless elsewhere.
+  when: "'.el9_' in ansible_kernel"
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Report running kernel"
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: running {{ ansible_kernel }},
+      {{ 'minimum ' ~ kernel_cve_minimum
+         if '.el9_' in ansible_kernel
+         else 'not an el9 kernel, CVE minimum not applicable, assess separately' }}
+
+# Retire the rfc00196 and rfc00197 workarounds, only once the kernel assertion
+# above has passed. Opt in with -e remove_cve_workarounds=true.
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Remove the CVE-2026-31431 boot parameter"
+  ansible.builtin.command: grubby --update-kernel=ALL --remove-args="initcall_blacklist=algif_aead_init"
+  register: os_update_grubby
+  changed_when: os_update_grubby.rc == 0
+  when:
+    - remove_cve_workarounds | default(false) | bool
+    - "'.el9_' in ansible_kernel"
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Remove the CVE-2026-43284 modprobe rule"
+  ansible.builtin.file:
+    path: /etc/modprobe.d/dirtyfrag.conf
+    state: absent
+  when:
+    - remove_cve_workarounds | default(false) | bool
+    - "'.el9_' in ansible_kernel"
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Note the lingering boot parameter"
+  ansible.builtin.debug:
+    msg: >-
+      initcall_blacklist=algif_aead_init is removed from the boot config but
+      stays on the running kernel until the next reboot. It is harmless.
+  when:
+    - remove_cve_workarounds | default(false) | bool
+    - "'.el9_' in ansible_kernel"
