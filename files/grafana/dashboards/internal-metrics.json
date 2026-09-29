@@ -3473,8 +3473,8 @@
           "type": "influxdb",
           "uid": "be-internal-metrics"
         },
-        "definition": "SHOW TAG VALUES FROM \"jobs_submitted_-_flemish_institutions\" WITH KEY = \"institution\"",
-        "query": "SHOW TAG VALUES FROM \"jobs_submitted_-_flemish_institutions\" WITH KEY = \"institution\"",
+        "definition": "SHOW TAG VALUES WITH KEY = \"institution\"",
+        "query": "SHOW TAG VALUES WITH KEY = \"institution\"",
         "multi": true,
         "includeAll": true,
         "current": {
@@ -3495,8 +3495,8 @@
           "type": "influxdb",
           "uid": "be-internal-metrics"
         },
-        "definition": "SHOW TAG VALUES FROM \"jobs_submitted_-_vib_centers\" WITH KEY = \"vib_domain\"",
-        "query": "SHOW TAG VALUES FROM \"jobs_submitted_-_vib_centers\" WITH KEY = \"vib_domain\"",
+        "definition": "SHOW TAG VALUES WITH KEY = \"vib_domain\"",
+        "query": "SHOW TAG VALUES WITH KEY = \"vib_domain\"",
         "multi": true,
         "includeAll": true,
         "current": {
