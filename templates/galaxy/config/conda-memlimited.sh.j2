@@ -1,0 +1,4 @@
+#!/bin/bash
+# Caps conda's virtual memory so a runaway solve fails instead of OOM-killing the host (see conda_exec in gxconfig.yml).
+ulimit -v {{ conda_memlimited_ulimit_kb }}
+exec "{{ miniconda_prefix }}/bin/conda" "$@"
