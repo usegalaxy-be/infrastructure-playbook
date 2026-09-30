@@ -1,0 +1,26 @@
+---
+# NFS Client Mounts (autofs)
+# ==========================
+# Configures autofs-based NFS mounts on Galaxy and compute nodes.
+# Mount configuration lives in group_vars/all/nfs_config.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml
+#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit testgalaxyservers
+
+- name: Configure NFS client mounts via autofs
+  hosts: "galaxyservers:computeservers"
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Create NFS mount base directories
+      file:
+        path: "{{ item.mountpoint }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ autofs_mounts }}"
+      when: autofs_mounts is defined
+
+  roles:
+    - role: pdg.autofs

@@ -1,0 +1,25 @@
+---
+# NFS client autofs configuration for usegalaxy.be (prod)
+# Mirrors current autofs mounts observed via info-galaxy-dirs.yml.
+# Mount base: /srv/galaxy/shared
+#
+# Same set of per-env mount names as test (database, server, venv,
+# local_tools, tmp) plus the shared_* mounts common to both environments.
+
+autofs_mounts:
+  - name: galaxy_prod
+    mountpoint: "/srv/galaxy/shared"
+    conf_location: "/etc/auto.data.prod"
+    map_options: "browse"
+    conf:
+      - "database         -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/database"
+      - "server           -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/server"
+      - "venv             -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/venv"
+      - "local_tools      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/local_tools"
+      - "tmp              -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/tmp"
+      - "shared_certs     -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_certs"
+      - "shared_data      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data"
+      - "shared_tool_data -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/tool_data"
+      - "shared_deps      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/dependencies"
+      - "shared_dm_data   -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/dm_data"
+      - "shared_tools     -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/local_tools"

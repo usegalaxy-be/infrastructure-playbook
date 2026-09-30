@@ -1,0 +1,23 @@
+---
+# NFS client autofs configuration for test.usegalaxy.be
+# Mirrors the current /etc/auto.master.d/galaxy_test.autofs + /etc/auto.data setup.
+# Mount base: /srv/galaxy_test/shared
+# Map options: nfsvers=3 browse (browse keeps mount points visible even when unmounted)
+
+autofs_mounts:
+  - name: galaxy_test
+    mountpoint: "/srv/galaxy_test/shared"
+    conf_location: "/etc/auto.data"
+    map_options: "nfsvers=3 browse"
+    conf:
+      - "database         -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test_share/database"
+      - "server           -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test_share/server"
+      - "venv             -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test_share/venv"
+      - "local_tools      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test_share/local_tools"
+      - "tmp              -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test_share/tmp"
+      - "shared_certs     -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_certs"
+      - "shared_data      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data"
+      - "shared_tool_data -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/tool_data"
+      - "shared_deps      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/dependencies"
+      - "shared_dm_data   -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/dm_data"
+      - "shared_tools     -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data/local_tools"

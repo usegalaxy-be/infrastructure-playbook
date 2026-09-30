@@ -54,6 +54,8 @@
     - name: Print tpv_debug
       debug:
         msg: "tpv_debug: {{ tpv_debug }}"
+
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/playbooks/tasks/deploy-shared-local-tools.yml"
   roles:
     # set up local galaxy clone and local config
     - role: galaxyproject.galaxy

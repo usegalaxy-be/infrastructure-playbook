@@ -6,9 +6,64 @@ nfs_data_device: "/dev/vdb"
 # metadata/IO-bound workload; tune relative to flavor size.
 nfs_server_threads: 64
 
-# geerlingguy.nfs — exports. Matches live /etc/exports (no path changes).
-# NFSv3 allows mounting any subdirectory of an exported tree, so individual
-# paths under /data/share don't need their own export entries.
+# geerlingguy.nfs — exports
+# root_squash is the NFS default but made explicit here for clarity.
+# no_subtree_check added as best practice (avoids subtree permission issues
+# and is the recommended default for non-nested exports).
+#
+# NFSv3 allows mounting any subdirectory of an exported tree, so paths that
+# only need default (root_squash) behavior don't need their own export entry
+# — they're already reachable under the parent /data/share export below. Only
+# paths that need no_root_squash get a dedicated entry, since that option has
+# to be set per-export.
+#
+# no_root_squash is required for paths where Docker daemon (root) on compute
+# nodes needs to bind-mount job working directories into containers, and where
+# Ansible privsep (root) writes Galaxy venv/server on NFS.
+#
+# Prod and test use the identical set of per-env subdirectory names
+# (database, server, venv, local_tools, tmp) under their own tree
+# (prod_duplicate/, test_share/). Anything that doesn't need to differ
+# between the two environments (reference tool_data, non-venv tool
+# dependencies, the common local_tools pool) lives once under shared_data
+# instead of being duplicated on both trees.
 nfs_exports:
-  - "/data/share              *(rw,sync)"
-  - "/data/share/data_stage   *(rw,sync)"
+  # Parent export (required; NFS server needs to export a parent before its children).
+  # Existing paths not listed below (etc/, src/, database/tool-dependencies/, etc.)
+  # stay reachable through this parent export during the transition — they're
+  # removed once the data migration (RFC00236) actually moves their content.
+  - "/data/share                                        *(rw,sync,root_squash,no_subtree_check)"
+  - "/data/share/data_stage                             *(rw,sync,root_squash,no_subtree_check)"
+  # shared_certs: certbot post-renewal hook (root) copies certs here → no_root_squash
+  - "/data/share/shared_certs                           *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/shared_data                            *(rw,sync,root_squash,no_subtree_check)"
+  # shared_data/tool_data, shared_data/dependencies, shared_data/dm_data: read-mostly
+  # reference data and non-venv tool dependencies, identical across prod/test —
+  # galaxy-user owned, root_squash OK
+  - "/data/share/shared_data/tool_data                  *(rw,sync,root_squash,no_subtree_check)"
+  - "/data/share/shared_data/dependencies               *(rw,sync,root_squash,no_subtree_check)"
+  - "/data/share/shared_data/dm_data                    *(rw,sync,root_squash,no_subtree_check)"
+  # shared_data/local_tools: common tool pool used by both envs; Ansible writes as galaxy_master
+  - "/data/share/shared_data/local_tools                *(rw,sync,no_root_squash,no_subtree_check)"
+
+  # --- Test environment ---
+  # galaxy_dirs (galaxy-user owned) — root_squash OK
+  - "/data/share/test_share/database                   *(rw,sync,root_squash,no_subtree_check)"
+  # galaxy_privsep_dirs (root/privsep owned) — no_root_squash required for Ansible writes
+  - "/data/share/test_share/server                     *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/test_share/venv                       *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/test_share/local_tools                *(rw,sync,no_root_squash,no_subtree_check)"
+  # galaxy_job_working_directory — Docker daemon (root) bind-mounts job dirs from here
+  - "/data/share/test_share/tmp                        *(rw,sync,no_root_squash,no_subtree_check)"
+
+  # --- Prod environment ---
+  # galaxy_dirs (galaxy-user owned) — root_squash OK
+  - "/data/share/prod_duplicate/database               *(rw,sync,root_squash,no_subtree_check)"
+  # galaxy_privsep_dirs (root/privsep owned) — no_root_squash required
+  - "/data/share/prod_duplicate/server                 *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/prod_duplicate/venv                   *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/prod_duplicate/local_tools            *(rw,sync,no_root_squash,no_subtree_check)"
+  # galaxy_job_working_directory — Docker daemon (root) bind-mounts job dirs from here.
+  # prod_duplicate/tmp is a dedicated mount for job working dirs + scratch, matching test_share/tmp.
+  # Galaxy job_working_directory, new_file_path, and tmp_dir point here (not inside database/).
+  - "/data/share/prod_duplicate/tmp                    *(rw,sync,no_root_squash,no_subtree_check)"
