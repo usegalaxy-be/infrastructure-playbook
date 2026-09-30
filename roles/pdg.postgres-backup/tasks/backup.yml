@@ -113,7 +113,7 @@
    user: "{{ galaxy_user_name }}"
    hour: "1"
    minute: "0" 
-   job: "{{ backup_path }}/scripts/handle_db_backups.sh --daily-months {{ keep_daily_months_backups }}--recent {{ keep_recent_db_backups }} --oldest {{keep_oldest_db_backups}} {{ backup_path }}"
+   job: "{{ backup_path }}/scripts/handle_db_backups.sh --daily-months {{ keep_daily_months_backups }} --recent {{ keep_recent_db_backups }} --oldest {{keep_oldest_db_backups}} {{ backup_path }}"
 
 
 
