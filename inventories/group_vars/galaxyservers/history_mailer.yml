@@ -1,0 +1,52 @@
+---
+# usegalaxy_au.history_mailer wiring (see 10-history-mailer.yml).
+# Runs on each Galaxy host, acting on that host's own instance with its own admin key.
+# RFC00248: sitewide inactive-history warn/delete/purge policy.
+#
+# Sourced from our fork (requirements.yml), pinned until usegalaxy-au/ansible-history-mailer
+# #5 and #6 merge upstream: alembic migrations on every deploy (not just first install),
+# a plain-SMTP mail backend (we don't use smtp2go), and configurable cron job flags (needed
+# for the staged rollout below). Switch requirements.yml back to usegalaxy-au's repo once
+# both land.
+
+history_mailer_user: galaxy_master
+history_mailer_dir: /home/galaxy_master/.local/history-mailer
+
+history_mailer_galaxy_url: "https://{{ inventory_hostname }}"
+history_mailer_galaxy_api_key: "{{ vault_tool_admin_api_key }}"
+history_mailer_galaxy_keeplist_group: "History Retention Keeplist"
+
+# Matches RFC00248 (same thresholds as Galaxy Australia's own defaults).
+history_mailer_warn_days: 365
+history_mailer_delete_days: 379
+history_mailer_email_days_threshold: 14
+history_mailer_purge_days_threshold: 6
+
+history_mailer_mail_backend: smtp
+history_mailer_smtp_server: "smtp.eu.mailgun.org"
+history_mailer_smtp_port: 465
+history_mailer_smtp_username: "noreply.datacore.galaxy@notifications.vib.be"
+history_mailer_smtp_password: "{{ vault_smtp_password }}"
+history_mailer_mail_from: "Galaxy Belgium <noreply.datacore.galaxy@notifications.vib.be>"
+history_mailer_mail_replyto: "{{ history_mailer_mail_from }}"
+
+# Staged rollout (RFC00248): dry-run first, then warn-only, then add delete, then
+# purge - each stage reviewed before enabling the next. Cron entries are written
+# disabled until history_mailer_enable_cron_jobs is true; --dryrun stays on the
+# warn_and_delete job until history_mailer_warn_and_delete_flags is overridden
+# without it.
+#
+# No --notify: that flag posts to Slack (notify_slack() call is unguarded, no
+# try/except), and we don't have Slack configured - it would throw and crash
+# the run before it does anything. We alert via Grafana instead (see #610).
+history_mailer_enable_cron_jobs: false
+history_mailer_warn_and_delete_flags: "--dryrun --production --warn --delete"
+history_mailer_purge_flags: "--dryrun --production --purge"
+
+history_mailer_cron_jobs:
+  warn_and_delete:
+    weekday: "3"
+    hour: "3"
+  purge_histories:
+    weekday: "2"
+    hour: "4"
