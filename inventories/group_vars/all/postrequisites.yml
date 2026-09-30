@@ -10,6 +10,7 @@ backup_path: "{{ galaxy_mutable_data_dir }}/backup" #"{{ galaxy_server_scratch_d
 keep_recent_db_backups: 30
 keep_oldest_db_backups: 0
 keep_daily_months_backups: 1
+keep_monthly_months_backups: 12
 
 # Minio vars for external backup duplication
 minio_client_release: "20240731155833.0.0-1"
