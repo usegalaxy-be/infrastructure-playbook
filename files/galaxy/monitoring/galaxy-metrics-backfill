@@ -20,6 +20,11 @@ Usage (from usegalaxy.be):
     # Dry-run first to inspect output:
     ... --dry-run 2>&1 | head -40
 
+    # Fill only some measurements, without duplicating the others:
+    ... --list-measurements
+    ... --measurement 'newly_active_users_-_flemish_institutions' \
+        --measurement 'newly_active_users_-_vib_centers'
+
 --end is exclusive: the last day backfilled is end - 1 day.
 Set --end to the date of the first timestamp already in InfluxDB to avoid duplicates.
 """
@@ -63,6 +68,11 @@ def load_queries(path):
     return queries
 
 
+def measurement_name(category):
+    """InfluxDB measurement for a '-- CATEGORY:' query, same rule as galaxy-metrics-internal."""
+    return category.replace(' ', '_').lower()
+
+
 def parameterize_query(query, data_date):
     """Replace current_date references with a fixed date for backfill."""
     next_date = data_date + timedelta(days=1)
@@ -98,16 +108,38 @@ def write_to_influxdb(lines, url, db, user, password):
 
 def main():
     parser = argparse.ArgumentParser(description='Backfill internal_metrics InfluxDB database')
-    parser.add_argument('--start', required=True, help='First data day YYYY-MM-DD (inclusive)')
-    parser.add_argument('--end', required=True,
+    parser.add_argument('--start', help='First data day YYYY-MM-DD (inclusive)')
+    parser.add_argument('--end',
                         help='Last data day YYYY-MM-DD (exclusive — set to earliest date already in InfluxDB)')
     parser.add_argument('--influxdb-url', default='http://monitoring.usegalaxy.be:8086')
     parser.add_argument('--influxdb-db', default='internal_metrics')
     parser.add_argument('--influxdb-user', default=os.environ.get('INFLUXDB_USER', ''))
     parser.add_argument('--influxdb-password', default=os.environ.get('INFLUXDB_PASSWORD', ''))
+    parser.add_argument('--measurement', action='append', default=[],
+                        help='Only backfill this InfluxDB measurement (repeatable); default is all. '
+                             'See --list-measurements for the allowed values')
+    parser.add_argument('--list-measurements', action='store_true',
+                        help='Print the measurements defined in the queries file and exit')
     parser.add_argument('--dry-run', action='store_true',
                         help='Print line protocol to stdout instead of writing to InfluxDB')
     args = parser.parse_args()
+
+    queries = {measurement_name(c): q for c, q in load_queries(QUERIES_FILE).items()}
+    if args.list_measurements:
+        print(f'Measurements defined in {QUERIES_FILE}:')
+        for m in queries:
+            print(f'  {m}')
+        sys.exit(0)
+    if args.measurement:
+        unknown = set(args.measurement) - set(queries)
+        if unknown:
+            print(f'ERROR: unknown measurement: {", ".join(sorted(unknown))} '
+                  f'(see --list-measurements, defined in {QUERIES_FILE})', file=sys.stderr)
+            sys.exit(1)
+        queries = {m: q for m, q in queries.items() if m in args.measurement}
+
+    if not (args.start and args.end):
+        parser.error('--start and --end are required')
 
     if not args.dry_run and not (args.influxdb_user and args.influxdb_password):
         print('ERROR: --influxdb-user and --influxdb-password required (or set INFLUXDB_USER/INFLUXDB_PASSWORD)',
@@ -116,18 +148,19 @@ def main():
 
     start = date.fromisoformat(args.start)
     end = date.fromisoformat(args.end)
+    if end <= start:
+        print(f'ERROR: --end ({end}) must be after --start ({start})', file=sys.stderr)
+        sys.exit(1)
 
     conn = psycopg2.connect('')
     try:
-        queries = load_queries(QUERIES_FILE)
         d = start
         while d < end:
             # Timestamp written to InfluxDB: the day Telegraf *would* have run (next day at 00:00:01 UTC)
             timestamp = day_to_timestamp(d + timedelta(days=1))
             lines = []
             with conn.cursor() as cur:
-                for category, (_, query) in queries.items():
-                    measurement = category.replace(' ', '_').lower()
+                for measurement, (_, query) in queries.items():
                     cur.execute(parameterize_query(query, d))
                     col_names = [desc[0] for desc in cur.description]
                     for row in cur.fetchall():
