@@ -2385,7 +2385,7 @@
         "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
-            "lastNotNull"
+            "max"
           ],
           "fields": "",
           "values": false
@@ -2404,22 +2404,22 @@
           "groupBy": [
             {
               "params": [
-                "$__interval"
+                "1d"
               ],
               "type": "time"
             },
             {
               "params": [
-                "null"
+                "none"
               ],
               "type": "fill"
             }
           ],
           "hide": false,
-          "measurement": "jobs_submitted_-_flemish_institutions",
+          "measurement": "active_users_-_flemish_institutions",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT \"active_users_count\" FROM \"active_users_-_vib_centers\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/)) GROUP BY \"vib_domain\"::tag\n",
+          "query": "SELECT sum(\"active_users_count\") FROM \"active_users_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY time(1d) fill(none)",
           "rawQuery": true,
           "refId": "A",
           "resultFormat": "table",
@@ -2441,21 +2441,9 @@
         }
       ],
       "title": "Peak daily active users",
-      "transformations": [
-        {
-          "id": "reduce",
-          "options": {
-            "includeTimeField": false,
-            "labelsToFields": false,
-            "mode": "seriesToRows",
-            "reducers": [
-              "max"
-            ]
-          }
-        }
-      ],
       "transparent": true,
-      "type": "stat"
+      "type": "stat",
+      "description": "Highest number of active users (activated accounts that submitted a job) on a single day in the selected time range."
     },
     {
       "datasource": {
