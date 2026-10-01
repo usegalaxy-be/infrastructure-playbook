@@ -54,27 +54,38 @@
   ansible.builtin.setup:
     filter: ansible_kernel
 
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Pick the CVE minimum for this OS"
+  ansible.builtin.set_fact:
+    os_update_kernel_minimum: >-
+      {{ {'9': kernel_cve_minimum, '8': kernel_cve_minimum_el8}.get(ansible_distribution_major_version, '') }}
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Fail if a non-vendor kernel is running"
+  ansible.builtin.fail:
+    msg: "{{ ansible_kernel }} is not a stock Rocky kernel, so the CVE minimum cannot be checked."
+  when:
+    - os_update_kernel_minimum | length > 0
+    - "'elrepo' in ansible_kernel"
+
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Assert the running kernel carries the 2026 CVE fixes"
   ansible.builtin.shell: |
     set -o pipefail
     running=$(uname -r | sed 's/\.x86_64$//')
-    oldest=$(printf '%s\n%s\n' "{{ kernel_cve_minimum }}" "$running" | sort -V | head -1)
-    test "$oldest" = "{{ kernel_cve_minimum }}"
+    oldest=$(printf '%s\n%s\n' "{{ os_update_kernel_minimum }}" "$running" | sort -V | head -1)
+    test "$oldest" = "{{ os_update_kernel_minimum }}"
   args:
     executable: /bin/bash
   register: os_update_kernel_ok
   changed_when: false
   failed_when: os_update_kernel_ok.rc != 0
-  # The minimum is an el9 build, so the comparison is meaningless elsewhere.
-  when: "'.el9_' in ansible_kernel"
+  when: os_update_kernel_minimum | length > 0
 
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Report running kernel"
   ansible.builtin.debug:
     msg: >-
       {{ inventory_hostname }}: running {{ ansible_kernel }},
-      {{ 'minimum ' ~ kernel_cve_minimum
-         if '.el9_' in ansible_kernel
-         else 'not an el9 kernel, CVE minimum not applicable, assess separately' }}
+      {{ 'minimum ' ~ os_update_kernel_minimum
+         if os_update_kernel_minimum | length > 0
+         else 'not Rocky 8 or 9, CVE minimum not applicable, assess separately' }}
 
 # Retire the rfc00196 and rfc00197 workarounds, only once the kernel assertion
 # above has passed. Opt in with -e remove_cve_workarounds=true.
@@ -84,7 +95,7 @@
   changed_when: os_update_grubby.rc == 0
   when:
     - remove_cve_workarounds | default(false) | bool
-    - "'.el9_' in ansible_kernel"
+    - os_update_kernel_minimum | length > 0
 
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Remove the CVE-2026-43284 modprobe rule"
   ansible.builtin.file:
@@ -92,7 +103,7 @@
     state: absent
   when:
     - remove_cve_workarounds | default(false) | bool
-    - "'.el9_' in ansible_kernel"
+    - os_update_kernel_minimum | length > 0
 
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Note the lingering boot parameter"
   ansible.builtin.debug:
@@ -101,4 +112,4 @@
       stays on the running kernel until the next reboot. It is harmless.
   when:
     - remove_cve_workarounds | default(false) | bool
-    - "'.el9_' in ansible_kernel"
+    - os_update_kernel_minimum | length > 0

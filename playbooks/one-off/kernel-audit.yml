@@ -17,11 +17,12 @@
 #   # Also write the report to a file tracked in the repo:
 #   ansible-playbook playbooks/one-off/kernel-audit.yml -e save_report=true
 #
-# Covers every host including the loginnode, proxy (el7) and db (el8 with an
-# ELRepo kernel). The CVE verdict only applies to el9 kernels; the other two
-# are reported as out of scope rather than passed or failed.
+# Covers every host including the loginnode, proxy (el7) and db (el8). The CVE
+# verdict applies to stock Rocky 8 and 9 kernels; anything else is reported as
+# out of scope rather than passed or failed.
 #
-# kernel_cve_minimum is defined in inventories/group_vars/all/security.yml.
+# kernel_cve_minimum and kernel_cve_minimum_el8 are defined in
+# inventories/group_vars/all/security.yml.
 # ============================================================================
 
 - name: Audit fleet kernel versions
@@ -56,12 +57,18 @@
       changed_when: false
       failed_when: false
 
+    - name: Pick the CVE minimum for this OS
+      ansible.builtin.set_fact:
+        kernel_audit_minimum: >-
+          {{ {'9': kernel_cve_minimum, '8': kernel_cve_minimum_el8}.get(ansible_distribution_major_version, '')
+             if 'elrepo' not in ansible_kernel else '' }}
+
     - name: Check whether the running kernel meets the CVE minimum
       ansible.builtin.shell: |
         set -o pipefail
         running=$(uname -r | sed 's/\.x86_64$//')
-        oldest=$(printf '%s\n%s\n' "{{ kernel_cve_minimum }}" "$running" | sort -V | head -1)
-        test "$oldest" = "{{ kernel_cve_minimum }}"
+        oldest=$(printf '%s\n%s\n' "{{ kernel_audit_minimum }}" "$running" | sort -V | head -1)
+        test "$oldest" = "{{ kernel_audit_minimum }}"
       args:
         executable: /bin/bash
       register: kernel_audit_meets_minimum
@@ -106,7 +113,7 @@
           {{ (kernel_audit_osrelease.content | b64decode).split('VERSION="')[1].split('"')[0]
              if 'VERSION="' in (kernel_audit_osrelease.content | b64decode) else 'unknown' }}
         kernel_audit_verdict: >-
-          {{ 'not-el9-assess-separately' if '.el9_' not in ansible_kernel
+          {{ 'not-stock-rocky-assess-separately' if kernel_audit_minimum | length == 0
              else ('fixed' if kernel_audit_meets_minimum.rc == 0 else 'VULNERABLE') }}
 
     - name: Build the per-host verdict

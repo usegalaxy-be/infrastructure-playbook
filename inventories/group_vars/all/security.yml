@@ -70,10 +70,12 @@ au_emit_via: "motd"
 # skipped, so the first Rocky build with all three is 687.24.1.
 kernel_cve_minimum: "5.14.0-687.24.1.el9_8"
 
+# Rocky 8 equivalent: Copy Fail fixed in 553.123.1, Dirty Frag in 553.124.1,
+# Bad Epoll does not affect el8.
+kernel_cve_minimum_el8: "4.18.0-553.124.1.el8_10"
+
 # Update scope: 'kernel' for the CVE catch-up, 'security' for advisories only, 'baseline' for all packages.
 update_scope: kernel
 
-# PostgreSQL unit name on the db host. Unverified: the repo installs via
-# galaxyproject.postgresql and hxr.postgres-connection refers to "postgresql".
-# Confirm on the host before running update.yml --tags db.
+# PostgreSQL unit name on the db host.
 postgresql_service_name: postgresql-15

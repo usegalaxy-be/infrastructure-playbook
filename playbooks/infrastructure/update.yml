@@ -376,14 +376,11 @@
           hosts BOTH the test and production Galaxy databases on one PostgreSQL
           instance.
 
-          It also runs an ELRepo mainline kernel (5.19) on el8, not the stock
-          el8 kernel. A dnf update here does not follow the fleet's Rocky 9
-          path and needs its own change. Do not run this as part of the kernel
-          catch-up.
-
           Updating it will:
-            1. Apply updates to the DB server
-            2. Reboot if needed
+            1. Stop PostgreSQL
+            2. Apply updates and reboot into the stock el8 kernel
+            3. Remove the ELRepo mainline kernel and disable the elrepo repo
+            4. Start PostgreSQL
           Galaxy stays up on both environments and reconnects afterwards.
 
           Only proceed if:
@@ -424,6 +421,17 @@
       vars:
         os_update_label: DB
         os_update_post_reboot_delay: 30
+
+    # The kernel assertion above has passed, so the stock kernel is running.
+    - name: "[DB] Remove the ELRepo mainline kernel"
+      ansible.builtin.dnf:
+        name: kernel-ml*
+        state: absent
+
+    - name: "[DB] Disable the elrepo repository"
+      ansible.builtin.command: dnf config-manager --set-disabled elrepo
+      register: db_elrepo_disable
+      changed_when: db_elrepo_disable.rc == 0
 
     - name: "[DB] Ensure PostgreSQL is running"
       ansible.builtin.service:
