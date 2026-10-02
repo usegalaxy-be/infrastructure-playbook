@@ -1,0 +1,83 @@
+---
+# Update packages, reboot if needs-restarting asks for it, then check the
+# running kernel against kernel_minimum. Included by update.yml.
+# update_scope: kernel (default), security, or baseline (all packages).
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Default the update scope"
+  ansible.builtin.set_fact:
+    update_scope: "{{ update_scope | default('kernel') }}"
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Ensure needs-restarting is available"
+  ansible.builtin.dnf:
+    name: dnf-utils
+    state: present
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Remove the openssh and openssl dnf exclude"
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/dnf.conf
+    regexp: '^exclude=openssh openssh-server openssh-clients openssl openssl-libs$'
+    state: absent
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Apply updates ({{ update_scope }})"
+  ansible.builtin.dnf:
+    name: "{{ ['kernel'] if update_scope == 'kernel' else ['*'] }}"
+    state: latest
+    # security scope: security and bugfix advisories only.
+    security: "{{ update_scope == 'security' }}"
+    bugfix: "{{ update_scope == 'security' }}"
+    update_cache: true
+  register: os_update_result
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Show updated packages"
+  ansible.builtin.debug:
+    msg: "{{ os_update_result.results | default(['no changes']) }}"
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Check if a reboot is required"
+  ansible.builtin.command: needs-restarting -r
+  register: os_update_reboot_needed
+  changed_when: false
+  failed_when: false
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Reboot"
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ os_update_reboot_timeout | default(600) }}"
+    post_reboot_delay: "{{ os_update_post_reboot_delay | default(15) }}"
+    msg: "Rebooting for OS updates (scope: {{ update_scope }})"
+  when: os_update_reboot_needed.rc == 1
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Refresh facts after reboot"
+  ansible.builtin.setup:
+    filter: ansible_kernel
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Pick the kernel minimum for this OS"
+  ansible.builtin.set_fact:
+    os_update_kernel_minimum: >-
+      {{ {'9': kernel_minimum, '8': kernel_minimum_el8}.get(ansible_distribution_major_version, '') }}
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Fail if a non-vendor kernel is running"
+  ansible.builtin.fail:
+    msg: "{{ ansible_kernel }} is not a stock Rocky kernel, so the kernel minimum cannot be checked."
+  when:
+    - os_update_kernel_minimum | length > 0
+    - "'elrepo' in ansible_kernel"
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Assert the running kernel meets the minimum"
+  ansible.builtin.shell: |
+    set -o pipefail
+    running=$(uname -r | sed 's/\.x86_64$//')
+    oldest=$(printf '%s\n%s\n' "{{ os_update_kernel_minimum }}" "$running" | sort -V | head -1)
+    test "$oldest" = "{{ os_update_kernel_minimum }}"
+  args:
+    executable: /bin/bash
+  register: os_update_kernel_ok
+  changed_when: false
+  failed_when: os_update_kernel_ok.rc != 0
+  when: os_update_kernel_minimum | length > 0
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Report running kernel"
+  ansible.builtin.debug:
+    msg: >-
+      {{ inventory_hostname }}: running {{ ansible_kernel }},
+      {{ 'minimum ' ~ os_update_kernel_minimum
+         if os_update_kernel_minimum | length > 0
+         else 'not Rocky 8 or 9, no kernel minimum' }}

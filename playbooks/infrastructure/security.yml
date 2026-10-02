@@ -1,0 +1,141 @@
+---
+# ============================================================================
+# Security Hardening Playbook
+# ============================================================================
+#
+# Purpose: Apply baseline security hardening to ALL managed hosts.
+#          Run this independently of the numbered deployment playbooks —
+#          it is safe to re-run at any time.
+#
+# What it does:
+#   1. iptables  — restricts SSH (port 22) to the jumphost IP only;
+#                  all other SSH connections are dropped.
+#                  Does NOT touch other ports (nginx 80/443 etc. unaffected).
+#   2. fail2ban  — bans IPs that repeatedly hit SSH (catches anything that
+#                  somehow reaches sshd despite the iptables rule, e.g. from
+#                  within the internal network).
+#   3. SSH hardening (devsec.hardening.ssh_hardening) — disables password
+#                  auth, root login, weak algorithms, etc.
+#
+# Variables: inventories/group_vars/all/security.yml
+#
+# Prerequisites:
+#   - ansible-galaxy collection install -r requirements.yml
+#     (devsec.hardening must be installed)
+#   - EPEL must be available (geerlingguy.repo-epel already handles this on
+#     dbservers; for other hosts ensure it is enabled or run repo-epel first)
+#
+# Usage:
+#   ansible-playbook playbooks/infrastructure/security.yml
+#   ansible-playbook playbooks/infrastructure/security.yml --limit dbservers
+#
+# Safety:
+#   - Idempotent; safe to re-run
+#   - ESTABLISHED connections are always accepted first so running this
+#     playbook will NOT drop the current Ansible SSH session
+#   - The jumphost IP (ssh_jumphost_ip) is defined in group_vars/all/security.yml
+# ============================================================================
+
+- hosts: all
+  become: true
+  become_user: root
+
+  vars_files:
+    - "{{ playbook_dir }}/../../inventories/group_vars/all/security.yml"
+
+  handlers:
+    - name: Restart fail2ban
+      ansible.builtin.service:
+        name: fail2ban
+        state: restarted
+
+    - name: Reload iptables
+      ansible.builtin.service:
+        name: iptables
+        state: restarted
+
+  pre_tasks:
+    # ------------------------------------------------------------------
+    # EPEL — required for fail2ban on RHEL/Rocky
+    # ------------------------------------------------------------------
+    - name: Enable EPEL repository
+      ansible.builtin.include_role:
+        name: geerlingguy.repo-epel
+
+  tasks:
+    # ==================================================================
+    # 1. iptables — SSH restricted to jumphost only
+    # ==================================================================
+
+    - name: Install iptables-services
+      ansible.builtin.package:
+        name: iptables-services
+        state: present
+
+    # Write the full filter table in one shot so rule ordering is guaranteed.
+    # Using a template keeps it readable and version-controllable.
+    - name: Write iptables rules
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/iptables.j2"
+        dest: /etc/sysconfig/iptables
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Reload iptables
+
+    - name: Enable and start iptables service
+      ansible.builtin.service:
+        name: iptables
+        state: started
+        enabled: true
+
+    # Ensure firewalld stays off (it conflicts with iptables-services)
+    - name: Ensure firewalld is disabled
+      ansible.builtin.service:
+        name: firewalld
+        state: stopped
+        enabled: false
+      ignore_errors: true   # not installed on all hosts
+
+    # ==================================================================
+    # 2. fail2ban
+    # ==================================================================
+
+    - name: Install fail2ban
+      ansible.builtin.package:
+        name: fail2ban
+        state: present
+
+    - name: Configure fail2ban sshd jail
+      ansible.builtin.copy:
+        dest: /etc/fail2ban/jail.d/sshd.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [sshd]
+          enabled   = true
+          port      = ssh
+          filter    = sshd
+          backend   = systemd
+          maxretry  = {{ fail2ban_maxretry }}
+          findtime  = {{ fail2ban_findtime }}
+          bantime   = {{ fail2ban_bantime }}
+          ignoreip  = 127.0.0.1/8 {{ ssh_jumphost_ip }}
+      notify: Restart fail2ban
+
+    - name: Enable and start fail2ban
+      ansible.builtin.service:
+        name: fail2ban
+        state: started
+        enabled: true
+
+  # ==================================================================
+  # 3. SSH hardening via devsec.hardening
+  # ==================================================================
+  # ==================================================================
+  # 4. Automatic security updates via dnf-automatic
+  # ==================================================================
+  roles:
+    - role: devsec.hardening.ssh_hardening
+    - role: usegalaxy-eu.autoupdates

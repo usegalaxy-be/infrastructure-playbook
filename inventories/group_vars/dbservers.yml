@@ -187,3 +187,6 @@ postgresql_backup_rsync_connect_opts: >-
 # Scripts (archive_wal.sh, backup.py) are installed here, local to the DB server.
 # Note: "'~postgres' | expanduser" was not being processed as /var/lib/pgsql for some reason
 postgresql_backup_local_dir: /var/lib/pgsql/backups
+
+# PostgreSQL systemd unit, stopped and started by playbooks/infrastructure/update.yml.
+postgresql_service_name: postgresql-15

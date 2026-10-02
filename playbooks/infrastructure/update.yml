@@ -1,0 +1,420 @@
+---
+# Ordered OS update: preview, test Galaxy, workers (drained, one at a time),
+# prod Galaxy, nfs and monitoring. proxy and db only run with --tags proxy/db.
+# Run one group at a time with --limit. Scope: -e update_scope=kernel (default),
+# security, or baseline. The loginnode is updated by hand.
+
+# ============================================================================
+# PLAY 0 — Preview: show pending updates (no changes)
+# ============================================================================
+- name: Preview pending updates
+  hosts: all:!proxyservers
+  gather_facts: true
+  tags: [preview, always]
+  tasks:
+    - name: Check pending security updates
+      ansible.builtin.command: dnf --security check-update
+      register: security_updates
+      changed_when: false
+      # rc 0 = up to date, rc 100 = updates available, rc 1 = error
+      failed_when: security_updates.rc not in [0, 100]
+
+    - name: Check ALL pending updates
+      ansible.builtin.command: dnf check-update
+      register: all_updates
+      changed_when: false
+      failed_when: all_updates.rc not in [0, 100]
+
+    - name: Check the newest kernel the repos offer
+      ansible.builtin.shell: |
+        set -o pipefail
+        dnf -q list --showduplicates kernel | awk '{print $2}' | sort -V | tail -1
+      args:
+        executable: /bin/bash
+      register: kernel_available
+      changed_when: false
+      failed_when: false
+
+    - name: Show update summary for {{ inventory_hostname }}
+      ansible.builtin.debug:
+        msg: |
+          === {{ inventory_hostname }} ===
+          Running kernel:           {{ ansible_kernel | default('facts not gathered') }}
+          Newest kernel in repos:   {{ kernel_available.stdout | default('unknown') }}
+          Kernel minimum:           {{ kernel_minimum }}
+          Security updates pending: {{ 'YES' if security_updates.rc == 100 else 'none' }}
+          All updates pending:      {{ 'YES' if all_updates.rc == 100 else 'none' }}
+          {% if all_updates.rc == 100 %}
+          {{ all_updates.stdout }}
+          {% endif %}
+
+
+# ============================================================================
+# PLAY 1 — Test Galaxy server
+# ============================================================================
+- name: Update test Galaxy server
+  hosts: testgalaxyservers
+  become: true
+  any_errors_fatal: true
+  tags: [test]
+  tasks:
+    - name: Check running HTCondor jobs on test
+      ansible.builtin.command: condor_q -totals
+      register: condor_jobs_test
+      changed_when: false
+      failed_when: false
+
+    - name: Show running jobs on test
+      ansible.builtin.debug:
+        msg: "{{ condor_jobs_test.stdout_lines | default(['condor_q unavailable']) }}"
+
+    - name: "[TEST] Update and reboot"
+      ansible.builtin.include_tasks: tasks/os_update.yml
+      vars:
+        os_update_label: TEST
+
+    - name: "[TEST] Wait for Galaxy API to respond"
+      ansible.builtin.uri:
+        url: "https://{{ inventory_hostname }}/api/version"
+        validate_certs: true
+        status_code: 200
+      register: galaxy_api
+      retries: 20
+      delay: 15
+      until: galaxy_api.status == 200
+
+
+# ============================================================================
+# PLAY 2 — Human checkpoint: confirm test is healthy
+# ============================================================================
+- name: Confirm test environment before proceeding
+  hosts: localhost
+  gather_facts: false
+  tags: [test, checkpoint]
+  tasks:
+    - name: "[CHECKPOINT] Verify test before continuing"
+      ansible.builtin.pause:
+        prompt: |
+
+          Test Galaxy has been updated and restarted.
+
+          Please check:
+            - https://test.usegalaxy.be works in your browser
+            - A test job runs successfully
+            - condor_status shows workers
+
+          Press Enter to continue to compute workers, or Ctrl-C then A to abort.
+
+
+# ============================================================================
+# PLAY 3 — Compute workers (one at a time, with HTCondor drain)
+# ============================================================================
+# Covers prodcomputeservers and vibcomputeservers. The central manager is
+# usegalaxy.be for both, per htcondor_server in their group_vars.
+- name: Update compute workers
+  hosts: computeservers
+  become: true
+  serial: 1
+  tags: [workers]
+  tasks:
+    # The HTCondor machine name can differ from the inventory name
+    # (worker4x0.usegalaxy.be is vgcn-condor-worker-4x-0.usegalaxy.be).
+    - name: "[WORKER] Read the HTCondor machine name"
+      ansible.builtin.command: condor_config_val FULL_HOSTNAME
+      register: worker_condor_name
+      changed_when: false
+
+    # usegalaxy.be is the only central manager; test.usegalaxy.be is a schedd in the same pool.
+    - name: "[WORKER] Fail if the central manager does not know this worker"
+      ansible.builtin.command: >-
+        condor_status -af Name -constraint 'Machine == "{{ worker_condor_name.stdout }}"'
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
+      register: worker_condor_slots
+      changed_when: false
+      failed_when: worker_condor_slots.stdout | length == 0
+
+    - name: "[WORKER] Drain {{ worker_condor_name.stdout }}"
+      ansible.builtin.command: "condor_drain {{ worker_condor_name.stdout }}"
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
+      changed_when: true
+
+    - name: "[WORKER] Wait for HTCondor jobs to finish (max 30 min)"
+      ansible.builtin.command: >-
+        condor_status -af Activity -constraint 'Machine == "{{ worker_condor_name.stdout }}"'
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
+      register: condor_activity
+      retries: 60
+      delay: 30
+      until: "'Busy' not in condor_activity.stdout"
+      changed_when: false
+
+    - name: "[WORKER] Update and reboot"
+      ansible.builtin.include_tasks: tasks/os_update.yml
+      vars:
+        os_update_label: WORKER
+
+    - name: "[WORKER] Verify HTCondor daemon is running"
+      ansible.builtin.service:
+        name: condor
+        state: started
+
+    # A reboot clears the drain, but a run with nothing to update does not reboot.
+    - name: "[WORKER] Cancel the drain on {{ worker_condor_name.stdout }}"
+      ansible.builtin.command: "condor_drain -cancel {{ worker_condor_name.stdout }}"
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
+      register: worker_drain_cancel
+      changed_when: worker_drain_cancel.rc == 0
+      failed_when: false
+
+
+# ============================================================================
+# PLAY 4 — Human checkpoint: confirm before prod Galaxy
+# ============================================================================
+- name: Confirm before updating production Galaxy
+  hosts: localhost
+  gather_facts: false
+  tags: [prod, checkpoint]
+  tasks:
+    - name: "[CHECKPOINT] Production Galaxy update"
+      ansible.builtin.pause:
+        prompt: |
+
+          About to update the PRODUCTION Galaxy server (usegalaxy.be).
+
+          This will:
+            1. Apply updates (scope: {{ update_scope | default('kernel') }})
+            2. Reboot if needed, which restarts Galaxy with the host
+
+          usegalaxy.be is also the HTCondor central manager, so jobs cannot be
+          scheduled while it is down. Jobs already running on workers survive.
+
+          Press Enter to proceed, or Ctrl-C then A to abort.
+
+
+# ============================================================================
+# PLAY 5 — Production Galaxy server
+# ============================================================================
+- name: Update production Galaxy server
+  hosts: prodgalaxyservers
+  become: true
+  any_errors_fatal: true
+  tags: [prod]
+  tasks:
+    - name: "[PROD] Show running jobs before the reboot"
+      ansible.builtin.command: condor_q -totals
+      register: condor_q_prod
+      changed_when: false
+      failed_when: false
+
+    - name: "[PROD] Running job count"
+      ansible.builtin.debug:
+        msg: "{{ condor_q_prod.stdout_lines | default(['condor_q unavailable']) }}"
+
+    - name: "[PROD] Update and reboot"
+      ansible.builtin.include_tasks: tasks/os_update.yml
+      vars:
+        os_update_label: PROD
+        os_update_post_reboot_delay: 20
+
+    - name: "[PROD] Wait for Galaxy API to respond"
+      ansible.builtin.uri:
+        url: "https://{{ inventory_hostname }}/api/version"
+        validate_certs: true
+        status_code: 200
+      register: galaxy_api
+      retries: 20
+      delay: 15
+      until: galaxy_api.status == 200
+
+
+# ============================================================================
+# PLAY 6 — Infrastructure servers: NFS and monitoring
+# ============================================================================
+# Rebooting the NFS server stalls every running Galaxy job on both environments
+# until it returns. Galaxy is left running and recovers by itself.
+- name: Update infrastructure servers
+  hosts: nfsservers:monitoringservers
+  become: true
+  serial: 1
+  tags: [infra]
+  tasks:
+    - name: "[INFRA] Confirm before rebooting the NFS server"
+      ansible.builtin.pause:
+        prompt: |
+
+          About to update {{ inventory_hostname }}.
+
+          This host exports the shared filesystem used by test and production
+          Galaxy. Running jobs stall for the length of the reboot and resume
+          afterwards. Galaxy is not stopped.
+
+          Press Enter to proceed, or Ctrl-C then A to abort.
+      when: inventory_hostname in groups['nfsservers']
+
+    - name: "[INFRA] Update and reboot"
+      ansible.builtin.include_tasks: tasks/os_update.yml
+      vars:
+        os_update_label: INFRA
+
+    - name: "[INFRA] Verify the NFS exports are served"
+      ansible.builtin.command: exportfs -v
+      register: infra_exportfs
+      changed_when: false
+      when: inventory_hostname in groups['nfsservers']
+
+    - name: "[INFRA] Show the exports"
+      ansible.builtin.debug:
+        msg: "{{ infra_exportfs.stdout_lines | default(['not an NFS server']) }}"
+      when: inventory_hostname in groups['nfsservers']
+
+
+# ============================================================================
+# PLAY 7 — Proxy server (opt-in, will fail as-is)
+# ============================================================================
+# proxy.usegalaxy.be runs CentOS 7.7 with no dnf and dead repos, so this play
+# fails until it is rebuilt.
+- name: Update proxy server
+  hosts: proxyservers
+  become: true
+  tags: [proxy, never]
+  tasks:
+    - name: "[PROXY] Update and reboot"
+      ansible.builtin.include_tasks: tasks/os_update.yml
+      vars:
+        os_update_label: PROXY
+        os_update_reboot_timeout: 300
+        os_update_post_reboot_delay: 10
+
+    - name: "[PROXY] Verify the site is served"
+      ansible.builtin.uri:
+        url: "https://usegalaxy.be"
+        validate_certs: true
+        status_code: [200, 301, 302]
+      retries: 10
+      delay: 5
+      register: nginx_check
+      until: nginx_check.status in [200, 301, 302]
+
+
+# ============================================================================
+# PLAY 8 — Human checkpoint: database server (opt-in)
+# ============================================================================
+- name: Final confirmation before database server update
+  hosts: localhost
+  gather_facts: false
+  tags: [db, never]
+  tasks:
+    - name: "[CHECKPOINT — DB] The DB serves BOTH test and prod"
+      ansible.builtin.pause:
+        prompt: |
+
+          *** DATABASE SERVER UPDATE ***
+
+          The instance is vgcn-test-db-server.usegalaxy.be despite the name: it
+          hosts BOTH the test and production Galaxy databases on one PostgreSQL
+          instance.
+
+          Updating it will:
+            1. Stop PostgreSQL
+            2. Apply updates and reboot into the stock el8 kernel
+            3. Remove the ELRepo mainline kernel and disable the elrepo repo
+            4. Start PostgreSQL
+          Galaxy stays up on both environments and reconnects afterwards.
+
+          Only proceed if:
+            - You are in a scheduled maintenance window
+            - You have verified a recent database backup exists
+
+          Press Enter to proceed, or Ctrl-C then A to abort.
+
+
+# ============================================================================
+# PLAY 9 — Database server (opt-in)
+# ============================================================================
+- name: Update database server
+  hosts: dbservers
+  become: true
+  any_errors_fatal: true
+  tags: [db, never]
+  tasks:
+    - name: "[DB] Report connections still open before stopping PostgreSQL"
+      ansible.builtin.command: >-
+        psql -tAc "select count(*) from pg_stat_activity where backend_type = 'client backend'"
+      become_user: postgres
+      register: db_connections
+      changed_when: false
+      failed_when: false
+
+    - name: "[DB] Open client connections"
+      ansible.builtin.debug:
+        msg: "{{ db_connections.stdout | default('unknown') }} client connections still open"
+
+    - name: "[DB] Stop PostgreSQL cleanly before updating"
+      ansible.builtin.service:
+        name: "{{ postgresql_service_name }}"
+        state: stopped
+
+    - name: "[DB] Update and reboot"
+      ansible.builtin.include_tasks: tasks/os_update.yml
+      vars:
+        os_update_label: DB
+        os_update_post_reboot_delay: 30
+
+    # The kernel assertion above has passed, so the stock kernel is running.
+    - name: "[DB] Remove the ELRepo mainline kernel"
+      ansible.builtin.dnf:
+        name: kernel-ml*
+        state: absent
+
+    - name: "[DB] Disable the elrepo repository"
+      ansible.builtin.command: dnf config-manager --set-disabled elrepo
+      register: db_elrepo_disable
+      changed_when: db_elrepo_disable.rc == 0
+
+    - name: "[DB] Ensure PostgreSQL is running"
+      ansible.builtin.service:
+        name: "{{ postgresql_service_name }}"
+        state: started
+
+    - name: "[DB] Verify PostgreSQL is accepting connections"
+      ansible.builtin.wait_for:
+        port: 5432
+        host: 127.0.0.1
+        timeout: 60
+
+
+# ============================================================================
+# PLAY 10 — Final health check
+# ============================================================================
+- name: Post-update health check
+  hosts: all:!proxyservers
+  become: true
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Check for failed systemd services
+      ansible.builtin.command: systemctl --failed --no-legend
+      register: failed_services
+      changed_when: false
+      failed_when: false
+
+    - name: Report failed services on {{ inventory_hostname }}
+      ansible.builtin.debug:
+        msg: "{{ 'No failed services.' if failed_services.stdout == '' else 'FAILED SERVICES:\n' + failed_services.stdout }}"
+
+    - name: Check if a reboot is still needed
+      ansible.builtin.command: needs-restarting -r
+      register: reboot_still_needed
+      changed_when: false
+      failed_when: false
+
+    - name: Report reboot status on {{ inventory_hostname }}
+      ansible.builtin.debug:
+        msg: "{{ 'No reboot needed.' if reboot_still_needed.rc == 0 else 'REBOOT STILL NEEDED (was not rebooted, check manually)' }}"
+
+    - name: Remind about the loginnode
+      ansible.builtin.debug:
+        msg: >-
+          The loginnode (vgcn-controller) is never updated by this playbook.
+          Update it by hand once the fleet is done.
+      run_once: true
