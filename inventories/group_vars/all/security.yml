@@ -62,20 +62,7 @@ au_system_name: "{{ inventory_hostname }}"
 # Write what was updated to /etc/motd (visible on next SSH login).
 au_emit_via: "motd"
 
-# -----------------------------------------------------------------------
-# playbooks/infrastructure/update.yml
-# -----------------------------------------------------------------------
-# Oldest Rocky 9 kernel carrying CVE-2026-31431, CVE-2026-43284 and
-# CVE-2026-46242. RHEL fixed the last of these in 687.23.1, a build Rocky
-# skipped, so the first Rocky build with all three is 687.24.1.
-kernel_cve_minimum: "5.14.0-687.24.1.el9_8"
-
-# Rocky 8 equivalent: Copy Fail fixed in 553.123.1, Dirty Frag in 553.124.1,
-# Bad Epoll does not affect el8.
-kernel_cve_minimum_el8: "4.18.0-553.124.1.el8_10"
-
-# Update scope: 'kernel' for the CVE catch-up, 'security' for advisories only, 'baseline' for all packages.
-update_scope: kernel
-
-# PostgreSQL unit name on the db host.
-postgresql_service_name: postgresql-15
+# Oldest kernel allowed on Rocky 9 and Rocky 8. update.yml fails a host that
+# boots below it. Raise it when a kernel fix must be in place fleet-wide.
+kernel_minimum: "5.14.0-687.24.1.el9_8"
+kernel_minimum_el8: "4.18.0-553.124.1.el8_10"

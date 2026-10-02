@@ -1,80 +1,8 @@
 ---
-# ============================================================================
-# Controlled System Update Playbook
-# ============================================================================
-#
-# Purpose: Apply OS updates to managed hosts in a safe, ordered sequence that
-#          protects running Galaxy jobs and the shared database.
-#
-# Three scopes, set with -e update_scope=...
-#   kernel    (default) — only the kernel package. Closes CVE-2026-31431,
-#                         CVE-2026-43284 and CVE-2026-46242.
-#   baseline            — all packages. Several hosts are five minor versions
-#                         behind, so this moves glibc, systemd and condor too.
-#   security            : security and bugfix advisories only, no general
-#                         version bumps.
-#
-# Run order is test first, then prod, for each scope in turn:
-#   1. kernel   on test.usegalaxy.be         --limit testgalaxyservers
-#   2. kernel   on workers                   --limit computeservers
-#   3. kernel   on prod                      --limit prodgalaxyservers
-#   4. baseline on test, then workers, then prod, same three commands
-#
-# Order of operations within a full run (do NOT reorder):
-#   1. Preview      — show pending updates, no changes made
-#   2. Test Galaxy  — update, reboot if needed, verify the API responds
-#   3. [pause]      — human confirms test is healthy
-#   4. Workers      — drain HTCondor per worker (serial), update, reboot
-#   5. [pause]      — human confirms before prod Galaxy
-#   6. Prod Galaxy  — update, reboot if needed, verify the API responds
-#
-# Usage:
-#   # Preview only, no changes, safe any time:
-#   ansible-playbook playbooks/infrastructure/update.yml --tags preview
-#
-#   # Kernel catch-up, one group at a time:
-#   ansible-playbook playbooks/infrastructure/update.yml --limit testgalaxyservers
-#   ansible-playbook playbooks/infrastructure/update.yml --limit computeservers
-#   ansible-playbook playbooks/infrastructure/update.yml --limit prodgalaxyservers
-#   ansible-playbook playbooks/infrastructure/update.yml --limit nfsservers,monitoringservers
-#
-#   # Retire the rfc00196 and rfc00197 workarounds, once a group is on a
-#   # fixed kernel (only acts after the kernel assertion passes):
-#   ansible-playbook playbooks/infrastructure/update.yml \
-#     --limit testgalaxyservers -e remove_cve_workarounds=true
-#
-#   # Later, the full baseline:
-#   ansible-playbook playbooks/infrastructure/update.yml \
-#     --limit testgalaxyservers -e update_scope=baseline
-#
-# The checkpoint plays target localhost, so --limit skips them. Running one
-# group per command means you are the checkpoint. A full run with no --limit
-# stops at each pause instead.
-#
-# Out of scope, both opt-in via --tags because neither is safe by default:
-#   proxyservers — CentOS 7.7, no dnf, EOL. Rebuild under rfc00199 instead.
-#   dbservers    — el8 running an ELRepo mainline kernel, and it carries both
-#                  the prod and test databases. Needs its own change.
-#
-# Not covered at all: the loginnode (vgcn-controller). It is the Ansible
-# controller, so rebooting it from here would kill the run. Update it by hand
-# after the fleet is done:
-#   sudo dnf update kernel && sudo reboot
-#
-# Safety mechanisms:
-#   - needs-restarting -r gates every reboot
-#   - the running kernel is asserted against kernel_cve_minimum after reboot
-#   - human confirmation pauses before workers and before prod Galaxy
-#   - workers updated one at a time (serial: 1), drained first, drain wait is fatal
-#   - Galaxy is never stopped. Services come back with the host, and anything
-#     degraded during a reboot recovers once the host is back
-#   - wait_for_connection handled by the reboot module before continuing
-#   - failed systemd services reported at the end
-#
-# Variables live in inventories/group_vars/all/security.yml
-# (kernel_cve_minimum, update_scope).
-# ============================================================================
-
+# Ordered OS update: preview, test Galaxy, workers (drained, one at a time),
+# prod Galaxy, nfs and monitoring. proxy and db only run with --tags proxy/db.
+# Run one group at a time with --limit. Scope: -e update_scope=kernel (default),
+# security, or baseline. The loginnode is updated by hand.
 
 # ============================================================================
 # PLAY 0 — Preview: show pending updates (no changes)
@@ -113,7 +41,7 @@
           === {{ inventory_hostname }} ===
           Running kernel:           {{ ansible_kernel | default('facts not gathered') }}
           Newest kernel in repos:   {{ kernel_available.stdout | default('unknown') }}
-          CVE minimum:              {{ kernel_cve_minimum }}
+          Kernel minimum:           {{ kernel_minimum }}
           Security updates pending: {{ 'YES' if security_updates.rc == 100 else 'none' }}
           All updates pending:      {{ 'YES' if all_updates.rc == 100 else 'none' }}
           {% if all_updates.rc == 100 %}
@@ -254,7 +182,7 @@
           About to update the PRODUCTION Galaxy server (usegalaxy.be).
 
           This will:
-            1. Apply updates (scope: {{ update_scope }})
+            1. Apply updates (scope: {{ update_scope | default('kernel') }})
             2. Reboot if needed, which restarts Galaxy with the host
 
           usegalaxy.be is also the HTCondor central manager, so jobs cannot be
@@ -343,9 +271,8 @@
 # ============================================================================
 # PLAY 7 — Proxy server (opt-in, will fail as-is)
 # ============================================================================
-# proxy.usegalaxy.be runs CentOS 7.7 with no dnf and dead repos. Red Hat marks
-# the el7 kernel as not affected by the three 2026 CVEs, so it is not part of
-# the catch-up. Rebuild under rfc00199. Kept here for when it is Rocky 9.
+# proxy.usegalaxy.be runs CentOS 7.7 with no dnf and dead repos, so this play
+# fails until it is rebuilt.
 - name: Update proxy server
   hosts: proxyservers
   become: true

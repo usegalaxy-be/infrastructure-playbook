@@ -1,16 +1,11 @@
 ---
-# ============================================================================
-# Shared OS update block — included by playbooks/infrastructure/update.yml
-# ============================================================================
-#
-# Applies package updates, reboots only when needed, then asserts the running
-# kernel is new enough to carry the three 2026 kernel CVEs.
-#
-# Caller may override:
-#   os_update_reboot_timeout     (default 600)
-#   os_update_post_reboot_delay  (default 15)
-#   os_update_label              (default inventory_hostname, used in task names)
-# ============================================================================
+# Update packages, reboot if needs-restarting asks for it, then check the
+# running kernel against kernel_minimum. Included by update.yml.
+# update_scope: kernel (default), security, or baseline (all packages).
+
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Default the update scope"
+  ansible.builtin.set_fact:
+    update_scope: "{{ update_scope | default('kernel') }}"
 
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Ensure needs-restarting is available"
   ansible.builtin.dnf:
@@ -54,19 +49,19 @@
   ansible.builtin.setup:
     filter: ansible_kernel
 
-- name: "[{{ os_update_label | default(inventory_hostname) }}] Pick the CVE minimum for this OS"
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Pick the kernel minimum for this OS"
   ansible.builtin.set_fact:
     os_update_kernel_minimum: >-
-      {{ {'9': kernel_cve_minimum, '8': kernel_cve_minimum_el8}.get(ansible_distribution_major_version, '') }}
+      {{ {'9': kernel_minimum, '8': kernel_minimum_el8}.get(ansible_distribution_major_version, '') }}
 
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Fail if a non-vendor kernel is running"
   ansible.builtin.fail:
-    msg: "{{ ansible_kernel }} is not a stock Rocky kernel, so the CVE minimum cannot be checked."
+    msg: "{{ ansible_kernel }} is not a stock Rocky kernel, so the kernel minimum cannot be checked."
   when:
     - os_update_kernel_minimum | length > 0
     - "'elrepo' in ansible_kernel"
 
-- name: "[{{ os_update_label | default(inventory_hostname) }}] Assert the running kernel carries the 2026 CVE fixes"
+- name: "[{{ os_update_label | default(inventory_hostname) }}] Assert the running kernel meets the minimum"
   ansible.builtin.shell: |
     set -o pipefail
     running=$(uname -r | sed 's/\.x86_64$//')
@@ -85,31 +80,4 @@
       {{ inventory_hostname }}: running {{ ansible_kernel }},
       {{ 'minimum ' ~ os_update_kernel_minimum
          if os_update_kernel_minimum | length > 0
-         else 'not Rocky 8 or 9, CVE minimum not applicable, assess separately' }}
-
-# Retire the rfc00196 and rfc00197 workarounds, only once the kernel assertion
-# above has passed. Opt in with -e remove_cve_workarounds=true.
-- name: "[{{ os_update_label | default(inventory_hostname) }}] Remove the CVE-2026-31431 boot parameter"
-  ansible.builtin.command: grubby --update-kernel=ALL --remove-args="initcall_blacklist=algif_aead_init"
-  register: os_update_grubby
-  changed_when: os_update_grubby.rc == 0
-  when:
-    - remove_cve_workarounds | default(false) | bool
-    - os_update_kernel_minimum | length > 0
-
-- name: "[{{ os_update_label | default(inventory_hostname) }}] Remove the CVE-2026-43284 modprobe rule"
-  ansible.builtin.file:
-    path: /etc/modprobe.d/dirtyfrag.conf
-    state: absent
-  when:
-    - remove_cve_workarounds | default(false) | bool
-    - os_update_kernel_minimum | length > 0
-
-- name: "[{{ os_update_label | default(inventory_hostname) }}] Note the lingering boot parameter"
-  ansible.builtin.debug:
-    msg: >-
-      initcall_blacklist=algif_aead_init is removed from the boot config but
-      stays on the running kernel until the next reboot. It is harmless.
-  when:
-    - remove_cve_workarounds | default(false) | bool
-    - os_update_kernel_minimum | length > 0
+         else 'not Rocky 8 or 9, no kernel minimum' }}
