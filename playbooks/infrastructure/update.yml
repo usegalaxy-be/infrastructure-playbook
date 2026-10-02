@@ -189,32 +189,36 @@
   serial: 1
   tags: [workers]
   tasks:
-    # Both head nodes run a central manager, so drain on each of them.
-    # A head that does not know this worker returns nothing, which is harmless.
-    - name: "[WORKER] Drain HTCondor slot on {{ inventory_hostname }}"
-      ansible.builtin.command: "condor_drain {{ inventory_hostname }}"
-      delegate_to: "{{ item }}"
-      loop: "{{ groups['galaxyservers'] }}"
-      changed_when: true
-      failed_when: false
+    # The HTCondor machine name can differ from the inventory name
+    # (worker4x0.usegalaxy.be is vgcn-condor-worker-4x-0.usegalaxy.be).
+    - name: "[WORKER] Read the HTCondor machine name"
+      ansible.builtin.command: condor_config_val FULL_HOSTNAME
+      register: worker_condor_name
+      changed_when: false
 
-    - name: "[WORKER] Wait for HTCondor jobs to finish (max 30 min per head)"
-      ansible.builtin.command: "condor_status {{ inventory_hostname }} -format '%s\\n' Activity"
-      delegate_to: "{{ item }}"
-      loop: "{{ groups['galaxyservers'] }}"
+    # usegalaxy.be is the only central manager; test.usegalaxy.be is a schedd in the same pool.
+    - name: "[WORKER] Fail if the central manager does not know this worker"
+      ansible.builtin.command: >-
+        condor_status -af Name -constraint 'Machine == "{{ worker_condor_name.stdout }}"'
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
+      register: worker_condor_slots
+      changed_when: false
+      failed_when: worker_condor_slots.stdout | length == 0
+
+    - name: "[WORKER] Drain {{ worker_condor_name.stdout }}"
+      ansible.builtin.command: "condor_drain {{ worker_condor_name.stdout }}"
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
+      changed_when: true
+
+    - name: "[WORKER] Wait for HTCondor jobs to finish (max 30 min)"
+      ansible.builtin.command: >-
+        condor_status -af Activity -constraint 'Machine == "{{ worker_condor_name.stdout }}"'
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
       register: condor_activity
       retries: 60
       delay: 30
       until: "'Busy' not in condor_activity.stdout"
       changed_when: false
-
-    - name: "[WORKER] Show condor activity at drain time"
-      ansible.builtin.debug:
-        msg: >-
-          {{ item.item }}: {{ item.stdout | default('no output') | trim | default('slot not known to this head', true) }}
-      loop: "{{ condor_activity.results }}"
-      loop_control:
-        label: "{{ item.item }}"
 
     - name: "[WORKER] Update and reboot"
       ansible.builtin.include_tasks: tasks/os_update.yml
@@ -225,7 +229,14 @@
       ansible.builtin.service:
         name: condor
         state: started
-      # condor cancels drain automatically on restart; the slot returns to the pool
+
+    # A reboot clears the drain, but a run with nothing to update does not reboot.
+    - name: "[WORKER] Cancel the drain on {{ worker_condor_name.stdout }}"
+      ansible.builtin.command: "condor_drain -cancel {{ worker_condor_name.stdout }}"
+      delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
+      register: worker_drain_cancel
+      changed_when: worker_drain_cancel.rc == 0
+      failed_when: false
 
 
 # ============================================================================
