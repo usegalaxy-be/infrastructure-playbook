@@ -11,6 +11,9 @@ os_update_kernel_minimum:
 os_update_kernel_packages: [kernel, kernel-core, kernel-modules, kernel-modules-core, kernel-modules-extra,
                             kernel-devel, kernel-devel-matched, kernel-headers, kernel-tools, kernel-tools-libs]
 
+# List every pending package in the preview.
+os_update_preview_packages: true
+
 # Ask for confirmation before updating the host.
 os_update_confirm: false
 
