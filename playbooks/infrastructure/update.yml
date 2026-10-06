@@ -134,8 +134,9 @@
       changed_when: false
       failed_when: worker_condor_slots.stdout | length == 0
 
+    # Drain by slot name: condor_drain resolves a bare machine name in DNS, which fails for VIB workers.
     - name: "[WORKER] Drain {{ worker_condor_name.stdout }}"
-      ansible.builtin.command: "condor_drain {{ worker_condor_name.stdout }}"
+      ansible.builtin.command: "condor_drain {{ worker_condor_slots.stdout_lines[0] }}"
       delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
       changed_when: true
 
@@ -161,7 +162,7 @@
 
     # A reboot clears the drain, but a run with nothing to update does not reboot.
     - name: "[WORKER] Cancel the drain on {{ worker_condor_name.stdout }}"
-      ansible.builtin.command: "condor_drain -cancel {{ worker_condor_name.stdout }}"
+      ansible.builtin.command: "condor_drain -cancel {{ worker_condor_slots.stdout_lines[0] }}"
       delegate_to: "{{ groups['prodgalaxyservers'][0] }}"
       register: worker_drain_cancel
       changed_when: worker_drain_cancel.rc == 0
