@@ -18,14 +18,24 @@
     regexp: '^exclude=openssh openssh-server openssh-clients openssl openssl-libs$'
     state: absent
 
+- name: "[{{ os_update_label | default(inventory_hostname) }}] List the installed kernel packages"
+  ansible.builtin.command: rpm -qa --qf '%{NAME}\n' 'kernel*'
+  register: os_update_kernel_packages
+  changed_when: false
+  when: update_scope == 'kernel'
+
+# kernel-devel is included so DKMS modules (nvidia) build for the new kernel.
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Apply updates ({{ update_scope }})"
   ansible.builtin.dnf:
-    name: "{{ ['kernel'] if update_scope == 'kernel' else ['*'] }}"
+    name: "{{ os_update_kernel_packages.stdout_lines | unique | intersect(os_update_kernel_family) if update_scope == 'kernel' else ['*'] }}"
     state: latest
     # security scope: security and bugfix advisories only.
     security: "{{ update_scope == 'security' }}"
     bugfix: "{{ update_scope == 'security' }}"
     update_cache: true
+  vars:
+    os_update_kernel_family: [kernel, kernel-core, kernel-modules, kernel-modules-core, kernel-modules-extra,
+                              kernel-devel, kernel-devel-matched, kernel-headers, kernel-tools, kernel-tools-libs]
   register: os_update_result
 
 - name: "[{{ os_update_label | default(inventory_hostname) }}] Show updated packages"
