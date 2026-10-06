@@ -80,9 +80,11 @@
         validate_certs: true
         status_code: 200
       register: galaxy_api
-      retries: 20
+      # Read-only, so it also runs in --check. Startup takes several minutes after a reboot.
+      check_mode: false
+      retries: 40
       delay: 15
-      until: galaxy_api.status == 200
+      until: galaxy_api.status | default(0) == 200
 
 
 # ============================================================================
@@ -224,9 +226,11 @@
         validate_certs: true
         status_code: 200
       register: galaxy_api
-      retries: 20
+      # Read-only, so it also runs in --check. Startup takes several minutes after a reboot.
+      check_mode: false
+      retries: 40
       delay: 15
-      until: galaxy_api.status == 200
+      until: galaxy_api.status | default(0) == 200
 
 
 # ============================================================================
