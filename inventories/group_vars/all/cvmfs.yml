@@ -26,3 +26,15 @@ galaxy_cvmfs_repos_enabled: true
 # Worker nodes pull singularity images and need a larger quota.
 # Override this in group_vars for worker node groups.
 cvmfs_quota_limit: 2000
+
+# Stratum 1 servers, fastest first. ufr0 does not carry main.galaxyproject.org,
+# so that repo falls through to tacc0.
+galaxy_cvmfs_server_urls:
+  - domain: galaxyproject.org
+    use_geoapi: false
+    urls:
+      - http://cvmfs1-ufr0.galaxyproject.eu/cvmfs/@fqrn@
+      - http://cvmfs1-tacc0.galaxyproject.org/cvmfs/@fqrn@
+      - http://cvmfs1-psu0.galaxyproject.org/cvmfs/@fqrn@
+      - http://cvmfs1-iu0.galaxyproject.org/cvmfs/@fqrn@
+      - http://cvmfs1-mel0.gvl.org.au/cvmfs/@fqrn@
