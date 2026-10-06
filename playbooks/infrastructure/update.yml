@@ -9,6 +9,7 @@
 # ============================================================================
 - name: Preview pending updates
   hosts: all:!proxyservers
+  become: true
   gather_facts: true
   tags: [preview, always]
   tasks:
