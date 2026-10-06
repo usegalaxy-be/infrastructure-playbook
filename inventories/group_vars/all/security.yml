@@ -1,0 +1,43 @@
+---
+# ============================================================================
+# Security hardening variables — applies to all hosts
+# Playbook: playbooks/infrastructure/security.yml
+# ============================================================================
+
+# IP of the jumphost (this machine). SSH is ONLY allowed from this IP.
+# All other inbound SSH connections are dropped by iptables.
+ssh_jumphost_ip: "10.113.3.15"
+
+# -----------------------------------------------------------------------
+# fail2ban
+# -----------------------------------------------------------------------
+fail2ban_maxretry: 5       # ban after this many failures
+fail2ban_findtime: "10m"   # within this window
+fail2ban_bantime: "1h"     # ban duration (use -1 for permanent)
+
+# -----------------------------------------------------------------------
+# devsec.hardening — ssh_hardening role variables
+# Full list: https://github.com/dev-sec/ansible-collection-hardening
+# -----------------------------------------------------------------------
+
+# Users permitted to log in via SSH.
+# galaxy_master: used by all infra hosts
+# test: used by compute workers (see inventory)
+ssh_allow_users: "galaxy_master test"
+
+# Disable password and root login
+ssh_permit_root_login: "no"
+ssh_password_authentication: "no"
+ssh_challenge_response_authentication: "no"
+
+# Limit auth attempts and login grace time
+ssh_max_auth_tries: 3
+ssh_login_grace_time: "30s"
+
+# Keep PAM enabled (needed for sudo/pam_systemd on RHEL)
+ssh_use_pam: true
+
+# Keep X11 and agent forwarding off
+ssh_x11_forwarding: false
+ssh_allow_agent_forwarding: false
+ssh_allow_tcp_forwarding: "no"
