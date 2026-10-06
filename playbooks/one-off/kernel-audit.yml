@@ -28,7 +28,7 @@
     - name: Find the newest kernel the repos offer
       ansible.builtin.shell: |
         set -o pipefail
-        dnf -q list --showduplicates kernel 2>/dev/null | awk '/^kernel/ {print $2}' | sort -V | tail -1
+        dnf -q repoquery --latest-limit 1 --qf '%{version}-%{release}' kernel 2>/dev/null
       args:
         executable: /bin/bash
       register: kernel_audit_available

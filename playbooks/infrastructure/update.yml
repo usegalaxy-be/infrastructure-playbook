@@ -29,7 +29,7 @@
     - name: Check the newest kernel the repos offer
       ansible.builtin.shell: |
         set -o pipefail
-        dnf -q list --showduplicates kernel | awk '$1 ~ /^kernel\./ {print $2}' | sort -V | tail -1
+        dnf -q repoquery --latest-limit 1 --qf '%{version}-%{release}' kernel
       args:
         executable: /bin/bash
       register: kernel_available
@@ -42,7 +42,7 @@
           === {{ inventory_hostname }} ===
           Running kernel:           {{ ansible_kernel | default('facts not gathered') }}
           Newest kernel in repos:   {{ kernel_available.stdout | default('unknown') }}
-          Kernel minimum:           {{ kernel_minimum }}
+          Kernel minimum:           {{ {'9': kernel_minimum, '8': kernel_minimum_el8}.get(ansible_distribution_major_version, 'none') }}
           Security updates pending: {{ 'YES' if security_updates.rc == 100 else 'none' }}
           All updates pending:      {{ 'YES' if all_updates.rc == 100 else 'none' }}
           {% if all_updates.rc == 100 %}
