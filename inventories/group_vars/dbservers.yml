@@ -190,3 +190,11 @@ postgresql_backup_local_dir: /var/lib/pgsql/backups
 
 # PostgreSQL systemd unit, stopped and started by playbooks/infrastructure/update.yml.
 postgresql_service_name: postgresql-15
+
+# pdg.os_update: one PostgreSQL serves both test and prod Galaxy.
+os_update_confirm: true
+os_update_stop_services: ["{{ postgresql_service_name }}"]
+os_update_post_reboot_delay: 30
+# Left over from the ELRepo mainline kernel.
+os_update_remove_packages: ["kernel-ml*"]
+os_update_disable_repos: [elrepo]

@@ -1,0 +1,29 @@
+---
+- name: Check pending security updates
+  ansible.builtin.command: dnf --security check-update
+  register: os_update_pending_security
+  changed_when: false
+  # rc 0 = up to date, rc 100 = updates available
+  failed_when: os_update_pending_security.rc not in [0, 100]
+
+- name: Check all pending updates
+  ansible.builtin.command: dnf check-update
+  register: os_update_pending_all
+  changed_when: false
+  failed_when: os_update_pending_all.rc not in [0, 100]
+
+- name: Find the newest kernel the repos offer
+  ansible.builtin.command: dnf -q repoquery --latest-limit 1 --qf '%{version}-%{release}' kernel
+  register: os_update_kernel_available
+  changed_when: false
+  failed_when: false
+
+- name: Show the update summary
+  ansible.builtin.debug:
+    msg: |
+      Running kernel:           {{ ansible_kernel }}
+      Newest kernel in repos:   {{ os_update_kernel_available.stdout | default('unknown') }}
+      Kernel minimum:           {{ os_update_kernel_minimum[ansible_distribution_major_version] | default('none') }}
+      Security updates pending: {{ 'yes' if os_update_pending_security.rc == 100 else 'no' }}
+      All updates pending:      {{ 'yes' if os_update_pending_all.rc == 100 else 'no' }}
+      {{ os_update_pending_all.stdout_lines | select('match', '^\\S+\\.(x86_64|noarch|i686) ') | join('\n') }}

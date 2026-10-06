@@ -1,0 +1,4 @@
+---
+# pdg.os_update: Galaxy must answer again after the update.
+os_update_wait_url: "https://{{ inventory_hostname }}/api/version"
+os_update_post_reboot_delay: 20
