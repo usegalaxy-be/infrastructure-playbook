@@ -28,7 +28,7 @@
     - name: Check the newest kernel the repos offer
       ansible.builtin.shell: |
         set -o pipefail
-        dnf -q list --showduplicates kernel | awk '{print $2}' | sort -V | tail -1
+        dnf -q list --showduplicates kernel | awk '$1 ~ /^kernel\./ {print $2}' | sort -V | tail -1
       args:
         executable: /bin/bash
       register: kernel_available
@@ -45,7 +45,7 @@
           Security updates pending: {{ 'YES' if security_updates.rc == 100 else 'none' }}
           All updates pending:      {{ 'YES' if all_updates.rc == 100 else 'none' }}
           {% if all_updates.rc == 100 %}
-          {{ all_updates.stdout }}
+          {{ all_updates.stdout_lines | select('match', '^\\S+\\.(x86_64|noarch|i686) ') | join('\n') }}
           {% endif %}
 
 
