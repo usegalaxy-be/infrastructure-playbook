@@ -12,6 +12,11 @@ influxdb_databases:
   - notifications
   - internal_metrics
 
+# Service accounts left out of the tool usage counts (galaxy-tool-usage)
+galaxy_tool_usage_excluded_users:
+  - tool_admin
+  - tool-tests
+
 # Role: dj-wasabi.telegraf
 
 telegraf_agent_output:
@@ -244,6 +249,17 @@ telegraf_plugins_extra:
       - timeout = "15s"
       - data_format = "influx"
       - interval = "5m"
+
+  # Per-tool jobs, users and errors; internal_metrics for its unlimited retention
+  galaxy_tool_usage:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} {{ galaxy_venv_dir }}/bin/python3 /usr/bin/galaxy-tool-usage {{ galaxy_tool_usage_excluded_users | join(' ') }}"]
+      - timeout = "120s"
+      - data_format = "influx"
+      - interval = "6h"
+    tags:
+      - dest = "internal_metrics"
 
   # Tool test status from the usegalaxy-be-tools "Tool tests" workflow
   galaxy_tool_tests:

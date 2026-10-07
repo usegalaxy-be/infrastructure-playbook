@@ -47,24 +47,29 @@ def main():
         raise
 
     tools = status.get("tools", {})
-    counts = {"passed": 0, "failed": 0, "skipped": 0, "potentially_broken": 0, "expected_failures": 0}
+    counts = {"passed": 0, "partial": 0, "broken": 0, "infra": 0, "untestable": 0,
+              "potentially_broken": 0, "regressions": 0, "expected_failures": 0}
     for tool_id, tool in sorted(tools.items()):
         tests = tool.get("tests", {})
+        state = tool.get("status", "untestable")
         broken = int(bool(tool.get("potentially_broken")))
+        regression = int(bool(tool.get("regression")))
         expected = int(bool(tool.get("expected_failure")))
-        counts[tool.get("status", "skipped")] = counts.get(tool.get("status", "skipped"), 0) + 1
+        counts[state] = counts.get(state, 0) + 1
         counts["potentially_broken"] += broken
+        counts["regressions"] += regression
         counts["expected_failures"] += expected
         fields = [
             f"version={string_field(tool.get('version', ''))}",
-            f"status={string_field(tool.get('status', ''))}",
-            f"success={int(tests.get('success', 0))}i",
-            f"failure={int(tests.get('failure', 0))}i",
-            f"error={int(tests.get('error', 0))}i",
-            f"skip={int(tests.get('skip', 0))}i",
+            f"status={string_field(state)}",
+            *(f"tests_{kind}={int(tests.get(kind, 0))}i" for kind in ("pass", "tool", "setup", "infra", "skip")),
             f"potentially_broken={broken}i",
+            f"regression={regression}i",
+            f"regression_from={string_field(tool.get('regression_from', ''))}",
             f"expected_failure={expected}i",
             f"expected_reason={string_field(tool.get('expected_reason', ''))}",
+            f"runs={int(tool.get('runs', 0))}i",
+            f"failed_runs={int(tool.get('failed_runs', 0))}i",
             f"tested_at={epoch(tool.get('tested_at'))}i",
             f"run={string_field(tool.get('run', ''))}",
         ]
@@ -73,7 +78,6 @@ def main():
     summary = [f"{key}={value}i" for key, value in sorted(counts.items())]
     summary += [f"tools={len(tools)}i", f"updated_at={epoch(status.get('updated_at'))}i"]
     print(f"tool_test_summary {','.join(summary)}")
-
 
 if __name__ == "__main__":
     main()

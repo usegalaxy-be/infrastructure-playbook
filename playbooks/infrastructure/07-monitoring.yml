@@ -408,6 +408,16 @@
         mode: '0755'
       tags: [telegraf, monitoring-scripts]
 
+    - name: Deploy galaxy-tool-usage script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-tool-usage"
+        dest: /usr/bin/galaxy-tool-usage
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
     - name: Deploy galaxy-tool-tests-status script
       become: true
       copy:
