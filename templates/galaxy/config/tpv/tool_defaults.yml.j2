@@ -40,15 +40,9 @@ tools:
       tmp_dir: true
       # Capped to our largest worker (350GB/20 cores, matching condor_tpv's max_accepted_*).
       request_cpus: "{min(cores, 20)}"
-{% if galaxy_htcondor_runner %}
       # Counts attempts; Galaxy carries it over to the next attempt when it resubmits after an OOM.
       SCALING_FACTOR: "{int(job.destination_params.get('SCALING_FACTOR', 0)) + 1 if job.destination_params else 1}"
       request_memory: "{min(int(mem * 1024) * (int(job.destination_params.get('SCALING_FACTOR', 0)) + 1 if job.destination_params else 1), 358400)}"
-{% else %}
-      # Escalates with NumJobStarts so periodic_release retries get more memory (HoldReasonCode 34 = cgroup OOM).
-      # {{ '{{' }}/{{ '}}' }} escape TPV's literal-brace syntax past Ansible's own Jinja2 templating.
-      request_memory: "min({{ '{{' }}ifthenelse(NumJobStarts =?= undefined, {int(mem*1024)}, {int(mem*1024)} * (NumJobStarts + 1)), 358400{{ '}}' }})"
-{% endif %}
       request_gpus: "{gpus or 0}"
       singularity_enabled: true
       singularity_volumes: "{{ galaxy_container_volumes.local | join(',') }}"
@@ -62,28 +56,15 @@ tools:
       rank: "(TotalGPUs > 0 ? -1000 : 1)"
       # walltime settings
       # NOTE: EU also has a 2 day hold period before jobs are purged
-{% if galaxy_htcondor_runner %}
       # The htcondor runner holds the job at this limit and fails it with a walltime message.
       request_walltime: "{{ galaxy_job_max_walltime_days * 24 * 60 * 60 }}"
       # Purge jobs held >1h that Galaxy did not remove, e.g. while handlers were down.
       periodic_remove: "(JobStatus == 5) && ((CurrentTime - EnteredCurrentStatus) > 3600)"
-{% else %}
-      # No 'submit_' prefix - see periodic_remove note below, same bug applied here too.
-      +MaxWallTimeSeconds: "{{ galaxy_job_max_walltime_days * 24 * 60 * 60 }}"
-      +MaxWallTime: "{{ galaxy_job_max_walltime_days * 24 * 60 * 60 }}"
-      # Purge: held >1h (OOM retries exhausted, etc.) or running past MaxWallTimeSeconds.
-      # No 'submit_' prefix - condor runner's submission_params(prefix="") never strips it.
-      periodic_remove: "((JobStatus == 5) && ((CurrentTime - EnteredCurrentStatus) > 3600)) || ((JobStatus == 2) && ((CurrentTime - JobStartDate) > MaxWallTimeSeconds))"
-      # Retry a cgroup-OOM hold (code 34) with more memory, up to 5 attempts.
-      periodic_release: "(HoldReasonCode == 34) && (NumJobStarts < 5)"
-{% endif %}
-{% if galaxy_htcondor_runner %}
     # The htcondor runner reports OOM holds as memory_limit_reached; retry with more memory, up to 5 runs in total.
     resubmit:
       on_out_of_memory:
         condition: memory_limit_reached and attempt <= 4
         destination: tpv_dispatcher
-{% endif %}
     # tags are used to do the actual matching of the tool to the destination. 
     # No other settings are considered for matching, besides the ranking of the matched destinations
     # by default we want to use singularity for all tools whether locally or on a remote Pulsar node
