@@ -666,7 +666,8 @@ galaxy: &GALAXY
 
   # Override the Conda executable to use, it will default to the one on
   # the PATH (if available) and then to <conda_prefix>/bin/conda
-  #conda_exec: null
+  # Points at a memory-capped wrapper, see templates/galaxy/config/conda-memlimited.sh.j2.
+  conda_exec: "{{ galaxy_dependency_dir }}/conda-memlimited"
 
   # Pass debug flag to conda commands.
   #conda_debug: false
