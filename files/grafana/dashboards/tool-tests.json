@@ -1,0 +1,834 @@
+{
+  "title": "Tool Tests",
+  "uid": "be-tool-tests",
+  "description": "Tool test results from the usegalaxy-be-tools Tool tests workflow (newly installed tools after each install, full sweep on demand). Collected hourly by telegraf from tool-tests/status.json on the tool-test-results branch.",
+  "tags": [
+    "galaxy",
+    "tools",
+    "testing"
+  ],
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Tool tests workflow",
+      "type": "link",
+      "url": "https://github.com/usegalaxy-be/usegalaxy-be-tools/actions/workflows/tool-tests.yml",
+      "targetBlank": true,
+      "icon": "external link"
+    }
+  ],
+  "refresh": "30m",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "weekStart": "",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Tools tested",
+      "description": "Tool versions with a test result.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"tools\") FROM \"tool_test_summary\" WHERE $timeFilter",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short",
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Passed",
+      "description": "Tool versions whose tests all passed.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 5,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"passed\") FROM \"tool_test_summary\" WHERE $timeFilter",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short",
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Potentially broken",
+      "description": "Tool versions with a failing or erroring test that are not listed as expected failures.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 10,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"potentially_broken\") FROM \"tool_test_summary\" WHERE $timeFilter",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short",
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Expected failures",
+      "description": "Failing tool versions listed in tool-tests/expected-failures.yaml.",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 15,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"expected_failures\") FROM \"tool_test_summary\" WHERE $timeFilter",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short",
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Results updated",
+      "description": "When the Tool tests workflow last wrote its results.",
+      "gridPos": {
+        "h": 4,
+        "w": 5,
+        "x": 19,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"updated_at\") * 1000 FROM \"tool_test_summary\" WHERE $timeFilter",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "unit": "dateTimeFromNow",
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Potentially broken tools",
+      "description": "Latest result per tool version, only tools with a failing or erroring test that is not an expected failure. 'open run' links to the workflow run with the test output.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"success\") AS \"passed\", last(\"failure\") AS \"failed\", last(\"error\") AS \"errored\", last(\"skip\") AS \"skipped\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected_reason\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\", \"repository\"",
+          "refId": "A",
+          "resultFormat": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "filterByValue",
+          "options": {
+            "type": "include",
+            "match": "any",
+            "filters": [
+              {
+                "fieldName": "potentially_broken",
+                "config": {
+                  "id": "equal",
+                  "options": {
+                    "value": 1
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "potentially_broken": true,
+              "expected_failure": true,
+              "expected_reason": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "tested",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": true
+          },
+          "noValue": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "passed": {
+                        "color": "green",
+                        "text": "passed",
+                        "index": 0
+                      },
+                      "failed": {
+                        "color": "red",
+                        "text": "failed",
+                        "index": 1
+                      },
+                      "skipped": {
+                        "color": "text",
+                        "text": "skipped",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tested"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              },
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Workflow run",
+                    "url": "${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".+",
+                      "result": {
+                        "text": "open run",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tool_id"
+            },
+            "properties": [
+              {
+                "id": "custom.minWidth",
+                "value": 420
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "All tested tools",
+      "description": "Latest result per tool version.",
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"success\") AS \"passed\", last(\"failure\") AS \"failed\", last(\"error\") AS \"errored\", last(\"skip\") AS \"skipped\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected_reason\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\", \"repository\"",
+          "refId": "A",
+          "resultFormat": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "potentially_broken": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "tested",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": true
+          },
+          "noValue": "none"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "passed": {
+                        "color": "green",
+                        "text": "passed",
+                        "index": 0
+                      },
+                      "failed": {
+                        "color": "red",
+                        "text": "failed",
+                        "index": 1
+                      },
+                      "skipped": {
+                        "color": "text",
+                        "text": "skipped",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tested"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              },
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Workflow run",
+                    "url": "${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 120
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".+",
+                      "result": {
+                        "text": "open run",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tool_id"
+            },
+            "properties": [
+              {
+                "id": "custom.minWidth",
+                "value": 420
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Results over time",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 28
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"passed\") AS \"passed\", last(\"potentially_broken\") AS \"potentially broken\", last(\"expected_failures\") AS \"expected failures\" FROM \"tool_test_summary\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 0,
+            "spanNulls": true
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "passed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "potentially broken"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "expected failures"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

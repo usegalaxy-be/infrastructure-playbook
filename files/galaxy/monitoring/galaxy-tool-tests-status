@@ -1,0 +1,79 @@
+#!/usr/bin/python3
+# galaxy-tool-tests-status
+# Reports the tool test status written by the usegalaxy-be-tools "Tool tests"
+# workflow (tool-tests/status.json on its tool-test-results branch).
+# One tool_test point per tool version, plus a tool_test_summary point.
+# Outputs InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/galaxy-tool-tests-status
+# Telegraf exec plugin interval: 1h
+#
+# Usage: galaxy-tool-tests-status [status_url]
+
+import json
+import sys
+import urllib.error
+import urllib.request
+from datetime import datetime
+
+DEFAULT_URL = ("https://raw.githubusercontent.com/usegalaxy-be/usegalaxy-be-tools/"
+               "tool-test-results/tool-tests/status.json")
+
+
+def tag(value):
+    return str(value).replace("\\", "\\\\").replace(",", "\\,").replace(" ", "\\ ").replace("=", "\\=") or "none"
+
+
+def string_field(value):
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def epoch(iso):
+    try:
+        return int(datetime.fromisoformat(iso).timestamp())
+    except (TypeError, ValueError):
+        return 0
+
+
+def main():
+    url = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_URL
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            status = json.load(response)
+    except urllib.error.HTTPError as e:
+        # No status branch until the workflow has run once.
+        if e.code == 404:
+            return
+        raise
+
+    tools = status.get("tools", {})
+    counts = {"passed": 0, "failed": 0, "skipped": 0, "potentially_broken": 0, "expected_failures": 0}
+    for tool_id, tool in sorted(tools.items()):
+        tests = tool.get("tests", {})
+        broken = int(bool(tool.get("potentially_broken")))
+        expected = int(bool(tool.get("expected_failure")))
+        counts[tool.get("status", "skipped")] = counts.get(tool.get("status", "skipped"), 0) + 1
+        counts["potentially_broken"] += broken
+        counts["expected_failures"] += expected
+        fields = [
+            f"version={string_field(tool.get('version', ''))}",
+            f"status={string_field(tool.get('status', ''))}",
+            f"success={int(tests.get('success', 0))}i",
+            f"failure={int(tests.get('failure', 0))}i",
+            f"error={int(tests.get('error', 0))}i",
+            f"skip={int(tests.get('skip', 0))}i",
+            f"potentially_broken={broken}i",
+            f"expected_failure={expected}i",
+            f"expected_reason={string_field(tool.get('expected_reason', ''))}",
+            f"tested_at={epoch(tool.get('tested_at'))}i",
+            f"run={string_field(tool.get('run', ''))}",
+        ]
+        print(f"tool_test,tool_id={tag(tool_id)},repository={tag(tool.get('repository', ''))} {','.join(fields)}")
+
+    summary = [f"{key}={value}i" for key, value in sorted(counts.items())]
+    summary += [f"tools={len(tools)}i", f"updated_at={epoch(status.get('updated_at'))}i"]
+    print(f"tool_test_summary {','.join(summary)}")
+
+
+if __name__ == "__main__":
+    main()
