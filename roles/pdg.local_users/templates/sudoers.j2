@@ -1,0 +1,2 @@
+# {{ ansible_managed }}
+{{ item.name }} ALL=(ALL) {% if item.sudo_expires is defined %}NOTAFTER={{ item.sudo_expires | replace('-', '') }}000000Z {% endif %}{% if local_users_sudo_nopasswd %}NOPASSWD: {% endif %}ALL

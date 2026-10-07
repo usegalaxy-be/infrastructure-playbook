@@ -1,0 +1,73 @@
+---
+- name: Validate local_users entries
+  ansible.builtin.assert:
+    that:
+      - item.name is defined
+      - item.expires is not defined or item.expires is match('^\d{4}-\d{2}-\d{2}$')
+      - item.sudo_expires is not defined or item.sudo_expires is match('^\d{4}-\d{2}-\d{2}$')
+      - item.state | default('present') in ['present', 'absent']
+    fail_msg: "Invalid local_users entry: {{ item.name | default('(no name)') }}"
+    quiet: true
+  loop: "{{ local_users }}"
+  loop_control:
+    label: "{{ item.name | default('(no name)') }}"
+
+- name: Manage local user accounts
+  ansible.builtin.user:
+    name: "{{ item.name }}"
+    comment: "{{ item.comment | default(omit) }}"
+    uid: "{{ item.uid | default(omit) }}"
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    groups: "{{ item.groups | default(omit) }}"
+    append: "{{ item.groups is defined }}"
+    # -1 clears an expiry date that was removed from the entry
+    expires: >-
+      {{ ((item.expires | to_datetime('%Y-%m-%d')) - ('1970-01-01' | to_datetime('%Y-%m-%d'))).total_seconds()
+         if item.expires is defined else -1 }}
+    state: "{{ item.state | default('present') }}"
+    remove: "{{ local_users_remove_home }}"
+  loop: "{{ local_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Read the passwd database
+  ansible.builtin.getent:
+    database: passwd
+
+# In check mode a new account does not exist yet, so its keys cannot be checked.
+- name: Manage authorized SSH keys
+  ansible.posix.authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ item.ssh_keys | default([]) | join('\n') }}"
+    exclusive: true
+  loop: "{{ local_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.state | default('present') == 'present'
+    - item.name in ansible_facts.getent_passwd
+
+# sudo ignores files in sudoers.d whose name contains a dot.
+- name: Manage sudo rules
+  ansible.builtin.template:
+    src: sudoers.j2
+    dest: "/etc/sudoers.d/local_users_{{ item.name | replace('.', '_') }}"
+    owner: root
+    group: root
+    mode: '0440'
+    validate: visudo -cf %s
+  loop: "{{ local_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when:
+    - item.state | default('present') == 'present'
+    - item.sudo | default(false) | bool
+
+- name: Remove sudo rules that are no longer wanted
+  ansible.builtin.file:
+    path: "/etc/sudoers.d/local_users_{{ item.name | replace('.', '_') }}"
+    state: absent
+  loop: "{{ local_users }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.state | default('present') == 'absent' or not (item.sudo | default(false) | bool)
