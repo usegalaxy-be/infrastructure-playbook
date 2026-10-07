@@ -21,7 +21,8 @@ group_vars/var_templates/*
 
 # These are from requirements.yml and upstream
 # roles/
-logs/
+logs/*
+!logs/.gitkeep
 collections/
 .ansible/
 roles/cloudalchemy.grafana/
