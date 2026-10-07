@@ -7,6 +7,7 @@ galaxy_instance_hostname: test.usegalaxy.be
 galaxy_instance_codename: test
 galaxy_base_dir: /srv/galaxy_test
 galaxy_commit_id: release_26.1 # advance stepwise: 25.0 → 25.1 → 26.0 → 26.1
+galaxy_htcondor_runner: true
 galaxy_brand: "Belgium Test"
 server_hostname: "{{ galaxy_instance_hostname }}"
 
