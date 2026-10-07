@@ -6,7 +6,10 @@
   when: install_galaxy_tool_util
 
 - include: install_tool_list.yml
-  when: install_tools
+  when: install_tools and galaxy_tools_install_state == 'present'
+
+- include: remove_tool_install.yml
+  when: galaxy_tools_install_state == 'absent'
 
 - include: test_tool_list.yml
   when: test_tools

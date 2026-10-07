@@ -1,0 +1,39 @@
+---
+# Remove the host-side tool installation (galaxy_tools_install_state: absent).
+
+- name: Find deployed install timers
+  ansible.builtin.find:
+    paths: /etc/systemd/system
+    patterns: "galaxy-tool-shed-install@*.timer"
+  register: shed_install_timer_files
+
+- name: Stop and disable the install timers
+  ansible.builtin.systemd:
+    name: "{{ item.path | basename }}"
+    state: stopped
+    enabled: false
+  loop: "{{ shed_install_timer_files.files }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Stop the install service if running
+  ansible.builtin.systemd:
+    name: galaxy-tool-install.service
+    state: stopped
+  failed_when: false
+
+- name: Remove the install units and scripts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ shed_install_timer_files.files | map(attribute='path') | list + [
+      '/etc/systemd/system/galaxy-tool-shed-install@.service',
+      '/etc/systemd/system/galaxy-tool-install.service',
+      tool_install_dir ~ '/tool_install.py',
+      tool_install_dir ~ '/tool-install.sh'] }}"
+  register: removed_install_units
+
+- name: Reload systemd after removing the install units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: removed_install_units.changed

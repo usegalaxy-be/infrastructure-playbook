@@ -185,5 +185,3 @@ tpv_dry_run_tools:
   - toolshed.g2.bx.psu.edu/repos/nml/spades/spades/.*                              # _spades: only the base require/inherits is meaningfully checked, not the input_size scaling rule
 tpv_dry_run_ignore_errors: false
 
-# Test consumes prod's synced tool state, it must not run its own bulk installs.
-galaxy_tools_install_schedule: []
