@@ -38,6 +38,9 @@ given part of the role should be executed:
 
  - `galaxy_tools_install_tools`: (default: `yes`) whether or not to run the
    tools installation script
+ - `galaxy_tools_install_state`: (default: `present`) set to `absent` to remove the
+   install timers, units and scripts from the host, e.g. when tools are installed
+   from CI instead
  - `galaxy_tools_create_bootstrap_user`: (default: `no`) whether or not to
    create a bootstrap Galaxy admin user
  - `galaxy_tools_delete_bootstrap_user`: (default: `no`) whether or not to
