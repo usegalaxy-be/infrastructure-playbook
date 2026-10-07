@@ -47,6 +47,8 @@ galaxy_admin_cache_dirs:
   - "{{ galaxy_user_home }}/.npm/_cacache"
   - "{{ galaxy_user_home }}/.apptainer/cache"
 galaxy_admin_cache_max_age_days: 90
+# HTCondor removes running jobs after this many days; job dirs are kept one day longer.
+galaxy_job_max_walltime_days: 15
 # NOTE: we could enable these for additional cleanup
 # galaxy_tmpclean_dirs:
 #   - "{{ galaxy_new_file_path }}"

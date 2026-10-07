@@ -5,7 +5,7 @@ galaxy_job_config:
       load: galaxy.jobs.runners.local:LocalJobRunner
       workers: 4
     condor:
-      load: galaxy.jobs.runners.condor:CondorJobRunner
+      load: galaxy.jobs.runners.htcondor:HTCondorJobRunner
     pulsar_embedded:
       load: galaxy.jobs.runners.pulsar:PulsarEmbeddedJobRunner
       pulsar_config: "{{ galaxy_config_dir }}/pulsar_app.yml"
