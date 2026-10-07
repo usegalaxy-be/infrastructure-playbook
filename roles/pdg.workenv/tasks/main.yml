@@ -142,6 +142,16 @@
   loop: "{{ workenv_users }}"
   when: workenv_deploy_session_script
 
+- name: Deploy wt-clean script
+  ansible.builtin.copy:
+    src: wt-clean
+    dest: "{{ item.uhome }}/bin/wt-clean"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0755'
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
 - name: Configure .zshrc on login node (aliases + SSH agent fix)
   ansible.builtin.blockinfile:
     path: "{{ item.uhome }}/.zshrc"
