@@ -1,0 +1,123 @@
+---
+# Galaxy Directory Structure Discovery
+# =====================================
+# Maps the actual on-disk directory layout under /srv (Galaxy data) and
+# /data/share (NFS server) across all relevant hosts.
+#
+# Purpose:
+#   - Document actual vs expected directory structure on each host
+#   - Identify what NFS paths are used, and by which hosts
+#   - Inform unification of prod/test NFS exports and directory naming
+#   - Prerequisite for updating group_vars/nfsservers/nfs.yml with correct
+#     per-directory prod exports and no_root_squash settings
+#
+# Usage:
+#   ansible-playbook playbooks/infrastructure/info-galaxy-dirs.yml
+#   ansible-playbook playbooks/infrastructure/info-galaxy-dirs.yml --limit testgalaxyservers
+#   ansible-playbook playbooks/infrastructure/info-galaxy-dirs.yml --limit nfsservers
+#
+# Output is saved to: inventories/host_files/galaxy_dirs_<hostname>.txt
+#
+# NOTE: Conda environments and tool shed installations are very deep and large.
+# The find commands prune known heavy paths to keep output manageable and fast.
+
+- name: Discover Galaxy directory structure
+  hosts: "galaxyservers:nfsservers:computeservers:!loginnode"
+  become: true
+  gather_facts: false
+
+  vars:
+    output_dir: "{{ playbook_dir }}/../../inventories/host_files"
+    output_file: "{{ output_dir }}/galaxy_dirs_{{ inventory_hostname }}.txt"
+
+  tasks:
+    - name: Check /srv exists
+      stat:
+        path: /srv
+      register: srv_stat
+
+    - name: Check /data/share exists (NFS server only)
+      stat:
+        path: /data/share
+      register: data_share_stat
+
+    - name: Find directories under /srv (depth ≤ 5, prune heavy subtrees)
+      shell: |
+        find /srv -maxdepth 5 -type d \
+          \( \
+            -path "*/envs/*"              -o \
+            -path "*/pkgs"                -o \
+            -path "*/node_modules"        -o \
+            -path "*/.git"                -o \
+            -path "*/shed_tools/*/repos"  -o \
+            -path "*/tool_dependencies/*" \
+          \) -prune \
+          -o -type d -print 2>/dev/null | sort
+      register: srv_dirs
+      changed_when: false
+      failed_when: false
+      when: srv_stat.stat.exists | default(false)
+
+    - name: Find NFS mounts on this host (from /proc/mounts)
+      shell: |
+        grep -E 'nfs[4]? ' /proc/mounts | awk '{print $1, "->", $2}' | sort
+      register: nfs_mounts
+      changed_when: false
+      failed_when: false
+
+    - name: Find directories under /data/share (NFS server, depth ≤ 4, prune heavy subtrees)
+      shell: |
+        find /data/share -maxdepth 4 -type d \
+          \( \
+            -path "*/envs/*"  -o \
+            -path "*/pkgs"    -o \
+            -path "*/.git"    -o \
+            -path "*/repos"   \
+          \) -prune \
+          -o -type d -print 2>/dev/null | sort
+      register: data_share_dirs
+      changed_when: false
+      failed_when: false
+      when: data_share_stat.stat.exists | default(false)
+
+    - name: Show results for {{ inventory_hostname }}
+      debug:
+        msg: |
+          ========== {{ inventory_hostname }} ==========
+
+          --- NFS mounts (client) ---
+          {{ nfs_mounts.stdout | default('(none)') }}
+
+          --- /srv directory tree (depth <= 5, heavy subtrees pruned) ---
+          {{ srv_dirs.stdout | default('(not present or empty)') }}
+
+          --- /data/share directory tree (depth <= 4, NFS server only) ---
+          {{ data_share_dirs.stdout | default('(not present)') }}
+
+    - name: Ensure output directory exists
+      local_action:
+        module: file
+        path: "{{ output_dir }}"
+        state: directory
+        mode: "0755"
+      run_once: true
+      become: false
+
+    - name: Save results to file
+      local_action:
+        module: copy
+        content: |
+          ========== {{ inventory_hostname }} ==========
+
+          --- NFS mounts (client) ---
+          {{ nfs_mounts.stdout | default('(none)') }}
+
+          --- /srv directory tree (depth <= 5, heavy subtrees pruned) ---
+          {{ srv_dirs.stdout | default('(not present or empty)') }}
+
+          --- /data/share directory tree (depth <= 4, NFS server only) ---
+          {{ data_share_dirs.stdout | default('(not present)') }}
+
+        dest: "{{ output_file }}"
+      become: false
+      delegate_to: localhost

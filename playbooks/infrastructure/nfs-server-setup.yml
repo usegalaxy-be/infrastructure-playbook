@@ -1,6 +1,35 @@
 ---
-# NFS Server Setup: block device mount, directory structure, NFS exports.
-# Exports managed by geerlingguy.nfs via nfs_exports in group_vars/nfsservers/nfs.yml.
+# NFS Server Setup
+# ================
+# Configures the NFS server: block device mount, directory structure,
+# permissions, and NFS exports.
+#
+# NFS export structure on /data/share:
+#   Shared across both environments (root_squash unless noted):
+#     /data/share                          — parent (required for NFS)
+#     /data/share/data_stage               — staging area
+#     /data/share/shared_certs             — shared TLS certs (no_root_squash: certbot)
+#     /data/share/shared_data              — shared reference data
+#     /data/share/shared_data/tool_data    — shared tool_data_path
+#     /data/share/shared_data/dependencies — shared non-venv tool dependencies
+#     /data/share/shared_data/dm_data      — shared Data Manager reference data
+#     /data/share/shared_data/local_tools  — shared local_tools pool (no_root_squash)
+#
+#   Per environment, identical subdirectory names under test_share/ and
+#   prod_duplicate/ (root_squash unless noted):
+#     database     — Galaxy mutable data dir
+#     server       — Galaxy server code (no_root_squash: Ansible privsep writes)
+#     venv         — Galaxy virtualenv (no_root_squash: Ansible privsep writes)
+#     local_tools  — env-only local tools (no_root_squash)
+#     tmp          — job working dirs (no_root_squash: Docker daemon root bind-mounts these)
+#
+# The shared_data/* and per-env server/venv/local_tools/tmp directories are
+# additive relative to the exports already live in production (RFC00236) —
+# existing paths (etc/, src/, database/tool-dependencies/, etc.) keep working
+# unchanged through the parent /data/share export until their data migration
+# actually runs.
+#
+# Exports are managed by geerlingguy.nfs via nfs_exports in group_vars/nfsservers/nfs.yml.
 #
 # Usage:
 #   ansible-playbook playbooks/infrastructure/nfs-server-setup.yml
@@ -46,17 +75,40 @@
         opts: defaults,nofail
         state: mounted
 
-    # Only other export root besides /data/share itself (see nfs_exports).
-    - name: Ensure data_stage export root exists
+    - name: Create NFS directory structure
       file:
-        path: /data/share/data_stage
+        path: "{{ item }}"
         state: directory
         mode: "0755"
+      loop:
+        - /data/share/data_stage
+        - /data/share/shared_certs
+        - /data/share/shared_data
+        - /data/share/shared_data/tool_data
+        - /data/share/shared_data/dependencies
+        - /data/share/shared_data/dm_data
+        - /data/share/shared_data/local_tools
+        # Test environment
+        - /data/share/test_share
+        - /data/share/test_share/database
+        - /data/share/test_share/tmp
+        - /data/share/test_share/server
+        - /data/share/test_share/venv
+        - /data/share/test_share/local_tools
+        # Prod environment
+        - /data/share/prod_duplicate
+        - /data/share/prod_duplicate/database
+        - /data/share/prod_duplicate/server
+        - /data/share/prod_duplicate/venv
+        - /data/share/prod_duplicate/local_tools
+        - /data/share/prod_duplicate/tmp
 
   roles:
     - role: geerlingguy.nfs
 
-    # System metrics -> InfluxDB, output config inherited from telegrafservers group.
+    # System metrics (CPU/mem/disk/net) -> InfluxDB. Output config
+    # (telegraf_agent_output etc.) inherited from the telegrafservers group
+    # (nfsservers is a member, see inventories/hosts).
     - role: dj-wasabi.telegraf
 
   tasks:
@@ -78,7 +130,9 @@
         immediate: true
       ignore_errors: true  # firewalld may not be running
 
-    # Historical CPU/IO/network/load metrics (sar).
+    # Historical CPU/IO/network/load metrics (sar), so a future NFS-server
+    # slowdown leaves a trace. The old EOL CentOS 7 box had neither sysstat nor
+    # working telegraf, which is why the 2026-07-14 incident could not be pinned.
     - name: Install sysstat (sar)
       package:
         name: sysstat

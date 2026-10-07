@@ -13,13 +13,12 @@ galaxy_install_database_connection: "sqlite:///{{ galaxy_mutable_data_dir }}/she
 galaxy_root: /srv/galaxy
 
 # Filesystem path where the Galaxy server code will be installed (cloned)
-# TODO: rename to /server
-galaxy_server_dir: "{{ galaxy_shared_root }}/src"
+galaxy_server_dir: "{{ galaxy_shared_root }}/server"
 
 # Galaxy's virtualenv directory. Versioned by Python version so a new venv is only
 # created when the Python interpreter changes — old Galaxy keeps serving while the new
 # venv is built alongside it, then galaxyctl graceful switches over with no downtime.
-galaxy_venv_dir: "{{ galaxy_shared_root }}/etc/venv-py{{ galaxy_python_version }}"
+galaxy_venv_dir: "{{ galaxy_shared_root }}/venv/venv-py{{ galaxy_python_version }}"
 
 # Node-local RAM (tmpfs) copy of this env's Galaxy lib+venv on the condor workers
 # (see roles/pdg.galaxy_code_tmpfs). Per-env mount so test/prod stay isolated on
@@ -28,25 +27,28 @@ galaxy_venv_dir: "{{ galaxy_shared_root }}/etc/venv-py{{ galaxy_python_version }
 galaxy_code_tmpfs_mount: /opt/galaxy_prod
 galaxy_code_tmpfs_enabled: true
 
-# TODO: any tool dependencies that are not the venv could be shared between prod and test
-galaxy_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies"
-galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies/tool-dependencies"
+# Non-venv tool dependencies, shared between prod and test (see shared_deps mount)
+galaxy_dependency_dir: "{{ galaxy_shared_root }}/shared_deps"
+galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/shared_deps/tool-dependencies"
 
 # List of tool configs to load
 galaxy_tool_config_files:
   - "{{ galaxy_config_dir }}/tool_conf.xml"
   - "{{ galaxy_shed_tool_conf_file }}"
+  - "{{ galaxy_config_dir }}/shared_local_tool_conf.xml"
   # - "{{ shared_tool_conf_file | default('') }}"
   # - "{{ galaxy_server_dir }}/config/tool_conf.xml.sample"
   # - "{{ galaxy_config_dir }}/interactive_tools_conf.xml"
 
-# Directory on the Galaxy server where local tools will be installed.
-# TODO: change this to be within the shared nfs directory and shared between prod and test
-galaxy_local_tools_dir: "{{ galaxy_mutable_data_dir }}/local_tools"
+# Directory on the Galaxy server where env-only local tools will be installed
+# (the common tool pool lives separately, see galaxy_shared_local_tools_dir).
+# Nothing prod-only right now.
+galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
+galaxy_local_tools: []
 
-# Directory to store Data Manager based tool-data. Defaults to the value of the <tool_data_path> option.
-# TODO: This should probably be within the shared nfs directory and shared between prod and test
-galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_data"
+# Directory to store Data Manager based tool-data. Shared between prod and test
+# (see shared_dm_data mount) — reference data, not env-specific state.
+galaxy_data_manager_data_path: "{{ galaxy_shared_root }}/shared_dm_data"
 
 # TODO: can be shared between prod and test
 galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"
@@ -57,20 +59,21 @@ galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"
 # TODO: unify between test and prod
 old_galaxy_file_path: "{{ galaxy_mutable_data_dir }}/files"
 galaxy_file_path: "{{ galaxy_mutable_data_dir }}/objects"
-galaxy_tmp_dir: "{{ galaxy_mutable_data_dir }}/tmp/temp"
+# tmp/* paths live on a dedicated NFS mount (prod_duplicate/tmp, no_root_squash) separate
+# from the database mount. This allows Docker daemon (root) to bind-mount job working dirs
+# into containers without NFS root_squash blocking it. Mirrors test layout.
+galaxy_tmp_dir: "{{ galaxy_shared_root }}/tmp/temp"
 
 # Where temporary files are stored. It must be accessible at the same
 # path on any cluster nodes that will run Galaxy jobs
-# TODO: unify between test and prod
-galaxy_new_file_path: "{{ galaxy_mutable_data_dir }}/tmp/scratch"
+galaxy_new_file_path: "{{ galaxy_shared_root }}/tmp/scratch"
 
 # Each job is given a unique empty directory as its current working
 # directory. This option defines in what parent directory those
 # directories will be created.
-# TODO: unify between test and prod
-galaxy_job_working_directory: "{{ galaxy_mutable_data_dir }}/tmp/jobs"
+galaxy_job_working_directory: "{{ galaxy_shared_root }}/tmp/jobs"
 # NOTE: unused
-# galaxy_cluster_files_directory: "{{ galaxy_mutable_data_dir }}/tmp/pbs"
+# galaxy_cluster_files_directory: "{{ galaxy_shared_root }}/tmp/pbs"
 
 # Top level cache directory. Any other cache directories (tool_cache_data_dir, template_cache_path, etc.)
 # should be subdirectories.

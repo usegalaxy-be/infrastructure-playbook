@@ -1,0 +1,31 @@
+---
+# Deploys the tool pool common to both prod and test (galaxy_shared_local_tools,
+# see inventories/group_vars/galaxyservers/galaxy.yml) to the shared NFS export
+# (shared_tools mount), and generates shared_local_tool_conf.xml so Galaxy loads
+# them from there. Env-only tools stay on galaxyproject.galaxy's own
+# galaxy_local_tools mechanism (per-host galaxy_local_tools list).
+#
+# Included from both 04-galaxy.yml (full provisioning) and daily-galaxy-config.yml
+# (config-only). galaxy_tool_config_files must already list
+# "{{ galaxy_config_dir }}/shared_local_tool_conf.xml" (set per host in
+# inventories/host_vars/*/galaxy.yml) — this task only writes the file, it does
+# not register it.
+- name: Install shared local tools
+  ansible.builtin.copy:
+    src: "{{ galaxy_local_tools_src_dir }}/{{ item.file | default(item) }}"
+    dest: "{{ galaxy_shared_local_tools_dir }}/{{ item.file | default(item) }}"
+    mode: preserve
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+  loop: "{{ galaxy_shared_local_tools | default([]) }}"
+  when: galaxy_shared_local_tools is defined
+
+- name: Install shared_local_tool_conf.xml
+  ansible.builtin.template:
+    src: "{{ galaxy_config_template_src_dir }}/shared_local_tool_conf.xml.j2"
+    dest: "{{ galaxy_config_dir }}/shared_local_tool_conf.xml"
+    mode: "{{ galaxy_config_perms }}"
+    group: "{{ galaxy_user_name }}"
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+  when: galaxy_shared_local_tools is defined

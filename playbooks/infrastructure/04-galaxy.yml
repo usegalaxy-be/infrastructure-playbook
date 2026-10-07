@@ -21,7 +21,7 @@
   pre_tasks:
     - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/assert-tmpfs-venv.yml"
 
-    - name: Ensure local_tools subdirectories exist
+    - name: Ensure per-env local_tools subdirectories exist
       ansible.builtin.file:
         path: "{{ galaxy_local_tools_dir }}/{{ item }}"
         state: directory
@@ -31,8 +31,21 @@
       become: true
       become_user: "{{ galaxy_user_name }}"
       loop:
-        - interactive
         - tpv_test
+
+    - name: Ensure shared local_tools subdirectories exist
+      ansible.builtin.file:
+        path: "{{ galaxy_shared_local_tools_dir }}/{{ item }}"
+        state: directory
+        owner: "{{ galaxy_user_name }}"
+        group: "{{ galaxy_user_name }}"
+        mode: "0755"
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      loop:
+        - interactive
+
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/deploy-shared-local-tools.yml"
       tags:
         - local_tools
 
