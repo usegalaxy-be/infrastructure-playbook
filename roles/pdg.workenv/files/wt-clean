@@ -1,0 +1,51 @@
+#!/bin/bash
+# wt-clean — remove git worktrees whose GitHub PR is merged
+#
+# Usage (from the main clone, not from inside a worktree):
+#   wt-clean            # dry run: list what would be removed
+#   wt-clean --apply    # remove those worktrees and their local branches
+#
+# Skips a worktree if its branch moved on after the merge or if it has
+# uncommitted changes. Requires: gh CLI, authenticated.
+
+set -euo pipefail
+
+APPLY="${1:-}"
+
+if [[ -n "$APPLY" && "$APPLY" != "--apply" ]]; then
+    echo "Usage: wt-clean [--apply]" >&2
+    exit 1
+fi
+
+if ! command -v gh >/dev/null 2>&1; then
+    echo "gh CLI not found on PATH" >&2
+    exit 1
+fi
+
+TOP=$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)
+
+git fetch --prune --quiet origin
+
+while IFS=$'\t' read -r path branch; do
+    [[ "$path" == "$TOP" ]] && continue
+    head=$(git rev-parse "$branch")
+    pr=$(gh pr list --state merged --head "$branch" --json number,headRefOid \
+        --jq ".[] | select(.headRefOid == \"$head\") | .number" </dev/null | head -1)
+    if [[ -z "$pr" ]]; then
+        echo "keep    $branch"
+        continue
+    fi
+    if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
+        echo "DIRTY   $branch (PR #$pr merged, has uncommitted changes, skipped)"
+        continue
+    fi
+    if [[ "$APPLY" == "--apply" ]]; then
+        git worktree remove "$path" && git branch -D "$branch" >/dev/null && echo "removed $branch (PR #$pr)"
+    else
+        echo "remove  $branch (PR #$pr)  $path"
+    fi
+done < <(git worktree list --porcelain | awk '/^worktree /{p=substr($0,10)} /^branch /{sub("refs/heads/","",$2); print p "\t" $2}')
+
+if [[ "$APPLY" == "--apply" ]]; then
+    git worktree prune
+fi
