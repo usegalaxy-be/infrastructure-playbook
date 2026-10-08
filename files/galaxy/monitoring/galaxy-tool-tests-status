@@ -48,7 +48,7 @@ def main():
 
     tools = status.get("tools", {})
     counts = {"passed": 0, "partial": 0, "broken": 0, "infra": 0, "untestable": 0,
-              "potentially_broken": 0, "regressions": 0, "expected_failures": 0}
+              "potentially_broken": 0, "regressions": 0, "expected_failures": 0, "old_versions_broken": 0}
     for tool_id, tool in sorted(tools.items()):
         tests = tool.get("tests", {})
         state = tool.get("status", "untestable")
@@ -59,12 +59,18 @@ def main():
         counts["potentially_broken"] += broken
         counts["regressions"] += regression
         counts["expected_failures"] += expected
+        old_broken = int(bool(tool.get("old_version_broken")))
+        counts["old_versions_broken"] += old_broken
         fields = [
             f"version={string_field(tool.get('version', ''))}",
             f"status={string_field(state)}",
             *(f"tests_{kind}={int(tests.get(kind, 0))}i" for kind in ("pass", "tool", "setup", "infra", "skip")),
             f"potentially_broken={broken}i",
             f"regression={regression}i",
+            f"latest={int(bool(tool.get('latest', True)))}i",
+            f"latest_version={string_field(tool.get('latest_version', tool.get('version', '')))}",
+            f"latest_status={string_field(tool.get('latest_status', state))}",
+            f"old_version_broken={old_broken}i",
             f"regression_from={string_field(tool.get('regression_from', ''))}",
             f"expected_failure={expected}i",
             f"expected_reason={string_field(tool.get('expected_reason', ''))}",

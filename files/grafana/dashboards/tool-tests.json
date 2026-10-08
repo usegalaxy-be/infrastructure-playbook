@@ -62,7 +62,7 @@
       "description": "Tool versions with a test result.",
       "gridPos": {
         "h": 4,
-        "w": 4,
+        "w": 3,
         "x": 0,
         "y": 0
       },
@@ -123,7 +123,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 4,
+        "x": 3,
         "y": 0
       },
       "datasource": {
@@ -183,7 +183,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 7,
+        "x": 6,
         "y": 0
       },
       "datasource": {
@@ -243,11 +243,11 @@
       "id": 4,
       "type": "stat",
       "title": "Potentially broken",
-      "description": "Every test that ran failed, or a regression, and not an expected failure.",
+      "description": "The latest tested version of the tool is broken (every test that ran failed) or a regression, and not an expected failure.",
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 10,
+        "w": 3,
+        "x": 9,
         "y": 0
       },
       "datasource": {
@@ -311,7 +311,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 14,
+        "x": 12,
         "y": 0
       },
       "datasource": {
@@ -375,7 +375,7 @@
       "gridPos": {
         "h": 4,
         "w": 3,
-        "x": 17,
+        "x": 15,
         "y": 0
       },
       "datasource": {
@@ -432,14 +432,78 @@
       }
     },
     {
+      "id": 12,
+      "type": "stat",
+      "title": "Old versions failing",
+      "description": "Older versions that fail while the latest version of the tool passes. Reachable from workflows that pin them; candidates to hide.",
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-galaxy-new"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"old_versions_broken\") FROM \"tool_test_summary\" WHERE $timeFilter",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              }
+            ]
+          },
+          "unit": "short",
+          "noValue": "NO DATA"
+        },
+        "overrides": []
+      }
+    },
+    {
       "id": 7,
       "type": "stat",
       "title": "Results updated",
       "description": "When the Tool tests workflow last wrote its results.",
       "gridPos": {
         "h": 4,
-        "w": 4,
-        "x": 20,
+        "w": 3,
+        "x": 21,
         "y": 0
       },
       "datasource": {
@@ -513,7 +577,7 @@
             "uid": "be-galaxy-new"
           },
           "rawQuery": true,
-          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"latest_version\") AS \"latest version\", last(\"latest_status\") AS \"latest status\", last(\"old_version_broken\") AS \"old_version_broken\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
           "refId": "A",
           "resultFormat": "table"
         },
@@ -564,7 +628,8 @@
               "potentially_broken": true,
               "expected_failure": true,
               "expected reason": true,
-              "details": true
+              "details": true,
+              "old_version_broken": true
             },
             "indexByName": {},
             "renameByName": {}
@@ -805,17 +870,70 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latest status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "passed": {
+                        "color": "green",
+                        "text": "passed",
+                        "index": 0
+                      },
+                      "partial": {
+                        "color": "orange",
+                        "text": "partial",
+                        "index": 1
+                      },
+                      "broken": {
+                        "color": "red",
+                        "text": "broken",
+                        "index": 2
+                      },
+                      "infra": {
+                        "color": "purple",
+                        "text": "infra error",
+                        "index": 3
+                      },
+                      "untestable": {
+                        "color": "text",
+                        "text": "untestable",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
           }
         ]
       }
     },
     {
-      "id": 9,
+      "id": 13,
       "type": "table",
-      "title": "Failing in production, most errors first",
-      "description": "Tools whose jobs ended in error in the last 90 days, with their test result if they have one. Many errors with passing tests usually points at user input or resources rather than a broken tool. Click a tool_id for the errors of its failed tests.",
+      "title": "Failing in older versions only, most used first",
+      "description": "Older tool versions that fail while the latest version passes. Users and jobs are for that old version: unused ones can be hidden or uninstalled. Click a tool_id for the errors.",
       "gridPos": {
-        "h": 10,
+        "h": 8,
         "w": 24,
         "x": 0,
         "y": 14
@@ -831,7 +949,379 @@
             "uid": "be-galaxy-new"
           },
           "rawQuery": true,
-          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"latest_version\") AS \"latest version\", last(\"latest_status\") AS \"latest status\", last(\"old_version_broken\") AS \"old_version_broken\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
+          "refId": "A",
+          "resultFormat": "table"
+        },
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"users_90d\") AS \"users 90d\", last(\"jobs_90d\") AS \"jobs 90d\", last(\"errors_90d\") AS \"errors 90d\", last(\"error_rate_90d\") AS \"error rate 90d\", last(\"users_30d\") AS \"users 30d\", last(\"jobs_30d\") AS \"jobs 30d\" FROM \"tool_usage\" WHERE time > now() - 13h GROUP BY \"tool_id\"",
+          "refId": "B",
+          "resultFormat": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "tool_id",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "type": "include",
+            "match": "all",
+            "filters": [
+              {
+                "fieldName": "old_version_broken",
+                "config": {
+                  "id": "equal",
+                  "options": {
+                    "value": 1
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "potentially_broken": true,
+              "expected_failure": true,
+              "expected reason": true,
+              "details": true,
+              "old_version_broken": true
+            },
+            "indexByName": {},
+            "renameByName": {}
+          }
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "fields": ""
+        },
+        "sortBy": [
+          {
+            "displayName": "users 90d",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": true
+          },
+          "noValue": "-"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "passed": {
+                        "color": "green",
+                        "text": "passed",
+                        "index": 0
+                      },
+                      "partial": {
+                        "color": "orange",
+                        "text": "partial",
+                        "index": 1
+                      },
+                      "broken": {
+                        "color": "red",
+                        "text": "broken",
+                        "index": 2
+                      },
+                      "infra": {
+                        "color": "purple",
+                        "text": "infra error",
+                        "index": 3
+                      },
+                      "untestable": {
+                        "color": "text",
+                        "text": "untestable",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tested"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsIso"
+              },
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "run"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Workflow run",
+                    "url": "${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".+",
+                      "result": {
+                        "text": "open run",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "tool_id"
+            },
+            "properties": [
+              {
+                "id": "custom.minWidth",
+                "value": 380
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Failed tests of this tool",
+                    "url": "${__data.fields.details}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "regression"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": {
+                        "text": ""
+                      },
+                      "1": {
+                        "text": "yes",
+                        "color": "orange"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "error rate 90d"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 0.1
+                    },
+                    {
+                      "color": "red",
+                      "value": 0.3
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latest status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "passed": {
+                        "color": "green",
+                        "text": "passed",
+                        "index": 0
+                      },
+                      "partial": {
+                        "color": "orange",
+                        "text": "partial",
+                        "index": 1
+                      },
+                      "broken": {
+                        "color": "red",
+                        "text": "broken",
+                        "index": 2
+                      },
+                      "infra": {
+                        "color": "purple",
+                        "text": "infra error",
+                        "index": 3
+                      },
+                      "untestable": {
+                        "color": "text",
+                        "text": "untestable",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Failing in production, most errors first",
+      "description": "Tools whose jobs ended in error in the last 90 days, with their test result if they have one. Many errors with passing tests usually points at user input or resources rather than a broken tool. Click a tool_id for the errors of its failed tests.",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-galaxy-new"
+          },
+          "rawQuery": true,
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"latest_version\") AS \"latest version\", last(\"latest_status\") AS \"latest status\", last(\"old_version_broken\") AS \"old_version_broken\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
           "refId": "A",
           "resultFormat": "table"
         },
@@ -883,7 +1373,8 @@
               "expected_failure": true,
               "expected reason": true,
               "passes in": true,
-              "details": true
+              "details": true,
+              "old_version_broken": true
             },
             "indexByName": {},
             "renameByName": {}
@@ -1124,6 +1615,59 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latest status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "passed": {
+                        "color": "green",
+                        "text": "passed",
+                        "index": 0
+                      },
+                      "partial": {
+                        "color": "orange",
+                        "text": "partial",
+                        "index": 1
+                      },
+                      "broken": {
+                        "color": "red",
+                        "text": "broken",
+                        "index": 2
+                      },
+                      "infra": {
+                        "color": "purple",
+                        "text": "infra error",
+                        "index": 3
+                      },
+                      "untestable": {
+                        "color": "text",
+                        "text": "untestable",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
           }
         ]
       }
@@ -1137,7 +1681,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 24
+        "y": 32
       },
       "datasource": {
         "type": "datasource",
@@ -1150,7 +1694,7 @@
             "uid": "be-galaxy-new"
           },
           "rawQuery": true,
-          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"latest_version\") AS \"latest version\", last(\"latest_status\") AS \"latest status\", last(\"old_version_broken\") AS \"old_version_broken\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
           "refId": "A",
           "resultFormat": "table"
         },
@@ -1198,7 +1742,8 @@
               "Time 2": true,
               "potentially_broken": true,
               "expected_failure": true,
-              "details": true
+              "details": true,
+              "old_version_broken": true
             },
             "indexByName": {},
             "renameByName": {}
@@ -1439,6 +1984,59 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "latest status"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "passed": {
+                        "color": "green",
+                        "text": "passed",
+                        "index": 0
+                      },
+                      "partial": {
+                        "color": "orange",
+                        "text": "partial",
+                        "index": 1
+                      },
+                      "broken": {
+                        "color": "red",
+                        "text": "broken",
+                        "index": 2
+                      },
+                      "infra": {
+                        "color": "purple",
+                        "text": "infra error",
+                        "index": 3
+                      },
+                      "untestable": {
+                        "color": "text",
+                        "text": "untestable",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
           }
         ]
       }
@@ -1451,7 +2049,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 46
       },
       "datasource": {
         "type": "influxdb",
