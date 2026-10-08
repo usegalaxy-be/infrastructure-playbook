@@ -495,7 +495,7 @@
       "id": 8,
       "type": "table",
       "title": "Potentially broken tools, most used first",
-      "description": "Broken (every test that ran failed) or a regression. Users and jobs are from the last 90 days without service accounts. 'open run' links to the test output.",
+      "description": "Broken (every test that ran failed) or a regression. Users and jobs are from the last 90 days without service accounts. 'open run' links to the test output. Click a tool_id for the errors of its failed tests.",
       "gridPos": {
         "h": 10,
         "w": 24,
@@ -513,7 +513,7 @@
             "uid": "be-galaxy-new"
           },
           "rawQuery": true,
-          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
           "refId": "A",
           "resultFormat": "table"
         },
@@ -563,7 +563,8 @@
               "Time 2": true,
               "potentially_broken": true,
               "expected_failure": true,
-              "expected reason": true
+              "expected reason": true,
+              "details": true
             },
             "indexByName": {},
             "renameByName": {}
@@ -715,6 +716,16 @@
               {
                 "id": "custom.minWidth",
                 "value": 380
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Failed tests of this tool",
+                    "url": "${__data.fields.details}",
+                    "targetBlank": true
+                  }
+                ]
               }
             ]
           },
@@ -802,7 +813,7 @@
       "id": 9,
       "type": "table",
       "title": "Failing in production, most errors first",
-      "description": "Tools whose jobs ended in error in the last 90 days, with their test result if they have one. Many errors with passing tests usually points at user input or resources rather than a broken tool.",
+      "description": "Tools whose jobs ended in error in the last 90 days, with their test result if they have one. Many errors with passing tests usually points at user input or resources rather than a broken tool. Click a tool_id for the errors of its failed tests.",
       "gridPos": {
         "h": 10,
         "w": 24,
@@ -820,7 +831,7 @@
             "uid": "be-galaxy-new"
           },
           "rawQuery": true,
-          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
           "refId": "A",
           "resultFormat": "table"
         },
@@ -871,7 +882,8 @@
               "potentially_broken": true,
               "expected_failure": true,
               "expected reason": true,
-              "passes in": true
+              "passes in": true,
+              "details": true
             },
             "indexByName": {},
             "renameByName": {}
@@ -1023,6 +1035,16 @@
               {
                 "id": "custom.minWidth",
                 "value": 380
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Failed tests of this tool",
+                    "url": "${__data.fields.details}",
+                    "targetBlank": true
+                  }
+                ]
               }
             ]
           },
@@ -1110,7 +1132,7 @@
       "id": 10,
       "type": "table",
       "title": "All tested tools",
-      "description": "Latest test result per tool version, with usage. Use the column filters and sort by any column.",
+      "description": "Latest test result per tool version, with usage. Use the column filters and sort by any column. Click a tool_id for the errors of its failed tests.",
       "gridPos": {
         "h": 14,
         "w": 24,
@@ -1128,7 +1150,7 @@
             "uid": "be-galaxy-new"
           },
           "rawQuery": true,
-          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
+          "query": "SELECT last(\"version\") AS \"version\", last(\"status\") AS \"status\", last(\"tests_pass\") AS \"tests passed\", last(\"tests_tool\") AS \"tests failed\", last(\"tests_infra\") AS \"infra errors\", last(\"tests_setup\") AS \"setup problems\", last(\"potentially_broken\") AS \"potentially_broken\", last(\"regression\") AS \"regression\", last(\"regression_from\") AS \"passes in\", last(\"expected_failure\") AS \"expected_failure\", last(\"expected_reason\") AS \"expected reason\", last(\"failed_runs\") AS \"failed runs\", last(\"runs\") AS \"runs\", last(\"tested_at\") * 1000 AS \"tested\", last(\"run\") AS \"run\", last(\"details\") AS \"details\" FROM \"tool_test\" WHERE time > now() - 2h GROUP BY \"tool_id\"",
           "refId": "A",
           "resultFormat": "table"
         },
@@ -1175,7 +1197,8 @@
               "Time 1": true,
               "Time 2": true,
               "potentially_broken": true,
-              "expected_failure": true
+              "expected_failure": true,
+              "details": true
             },
             "indexByName": {},
             "renameByName": {}
@@ -1327,6 +1350,16 @@
               {
                 "id": "custom.minWidth",
                 "value": 380
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Failed tests of this tool",
+                    "url": "${__data.fields.details}",
+                    "targetBlank": true
+                  }
+                ]
               }
             ]
           },

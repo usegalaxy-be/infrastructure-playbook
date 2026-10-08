@@ -72,6 +72,7 @@ def main():
             f"failed_runs={int(tool.get('failed_runs', 0))}i",
             f"tested_at={epoch(tool.get('tested_at'))}i",
             f"run={string_field(tool.get('run', ''))}",
+            f"details={string_field(tool.get('details') or tool.get('run', ''))}",
         ]
         print(f"tool_test,tool_id={tag(tool_id)},repository={tag(tool.get('repository', ''))} {','.join(fields)}")
 
