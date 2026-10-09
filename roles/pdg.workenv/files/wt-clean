@@ -25,11 +25,13 @@ fi
 TOP=$(cd "$(git rev-parse --path-format=absolute --git-common-dir)/.." && pwd)
 
 git fetch --prune --quiet origin
+# PRs live on origin; gh's own default repo can point at an upstream fork parent.
+REPO=$(git remote get-url origin | sed -E 's#^(https://github.com/|git@github.com:)##; s#\.git$##')
 
 while IFS=$'\t' read -r path branch; do
     [[ "$path" == "$TOP" ]] && continue
     head=$(git rev-parse "$branch")
-    pr=$(gh pr list --state merged --head "$branch" --json number,headRefOid \
+    pr=$(gh pr list -R "$REPO" --state merged --head "$branch" --json number,headRefOid \
         --jq ".[] | select(.headRefOid == \"$head\") | .number" </dev/null | head -1)
     if [[ -z "$pr" ]]; then
         echo "keep    $branch"
