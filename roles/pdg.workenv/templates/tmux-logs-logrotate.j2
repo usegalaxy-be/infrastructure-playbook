@@ -6,7 +6,10 @@
 # without it logrotate would rotate the inode but tmux would keep writing
 # to the old (now unlinked) file.
 
-/home/galaxy_master/tmux-logs/*.log {
+{% for user in workenv_users %}
+{{ user.uhome }}/tmux-logs/*.log
+{% endfor %}
+{
     daily
     rotate 7
     compress

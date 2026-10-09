@@ -4,7 +4,8 @@ Deploys a consistent admin working environment (vim, tmux, aliases) for the
 `galaxy_master` user across all managed hosts. Also deploys the tmux session
 init script and vault password helper on the login node (`vgcn-controller`).
 
-This role targets the **admin user** (`galaxy_master`). The Galaxy application
+This role targets the **admin users** in `workenv_users` (`galaxy_master` by
+default, personal accounts on the login node). The Galaxy application
 user's shell environment is managed separately by `usegalaxy-eu.bashrc`.
 
 ## What it deploys
@@ -37,6 +38,7 @@ workenv_users:
 workenv_vim_install: true            # ensure vim package is present
 workenv_tmux_install: false          # tmux — enabled for loginnode via group_vars
 workenv_deploy_session_script: false # session script + vault helper — loginnode only
+workenv_venv: ""                     # venv auto-activated in .zshrc, relative to each user's home
 ```
 
 ## Usage

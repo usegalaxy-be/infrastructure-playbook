@@ -13,6 +13,10 @@ workenv_tools_install: true
 # Only meaningful on the login/proxy node — enable via group_vars/proxyservers/.
 workenv_deploy_session_script: false
 
+# Python venv auto-activated in the session script's .zshrc block,
+# relative to each user's home (e.g. "venvs/admin"). Empty disables it.
+workenv_venv: ""
+
 # Deploy condor_q.sh and condor_history.sh helper scripts.
 # Only meaningful on Galaxy servers (HTCondor head nodes).
 workenv_deploy_condor_scripts: false
