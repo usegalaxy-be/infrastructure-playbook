@@ -1,0 +1,20 @@
+---
+# Accounts to manage. Accounts not in this list are never touched.
+# Each entry:
+#   name:          login name (required)
+#   comment:       full name (GECOS)
+#   uid:           fixed UID
+#   shell:         login shell (default /bin/bash)
+#   groups:        supplementary groups, added to existing ones
+#   ssh_keys:      public keys; this list replaces the user's authorized_keys
+#   expires:       "YYYY-MM-DD", the account is locked from 00:00 UTC on that date
+#   sudo:          true for full root via sudo (default false)
+#   sudo_expires:  "YYYY-MM-DD", the sudo rule stops working from 00:00 UTC on that date
+#   state:         present (default) or absent
+local_users: []
+
+# Accounts are key-only, so a password prompt for sudo would never succeed.
+local_users_sudo_nopasswd: true
+
+# Delete the home directory when an account is set to state: absent.
+local_users_remove_home: false

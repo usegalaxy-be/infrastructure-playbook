@@ -1,7 +1,7 @@
 ---
 # Deploy admin working environment (pdg.workenv) to all managed hosts.
 # All hosts: vim, tmux, SSH keys, console password (galaxy_master user only, not the galaxy app user).
-# Loginnode extras: galaxy-session.sh, tmux log rotation.
+# Loginnode extras: galaxy-session.sh, tmux log rotation, personal and guest accounts.
 # Galaxyservers extras: condor_q.sh, condor_history.sh.
 
 - name: Deploy standard admin working environment
@@ -13,6 +13,9 @@
     # EPEL is enabled in 00-init.yml, which imports this playbook — a standalone run
     # against a host that skipped 00-init.yml (e.g. a plain-image host) will fail here.
     - role: pdg.workenv
+    # Personal and guest accounts, only where local_users is set (loginnode).
+    - role: pdg.local_users
+      tags: users
 
   tasks:
     - name: Manage authorized SSH keys
