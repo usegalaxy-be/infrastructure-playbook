@@ -11,7 +11,7 @@
     fail_msg: >-
       galaxy_code_tmpfs_enabled is true but no vibcomputeservers are in inventory
       (the OpenStack dynamic inventory did not load). Activate the venv and re-run:
-        source /home/galaxy_master/usegalaxy-be-admin/.openstack/bin/activate
+        source ~/usegalaxy-be-admin/.openstack/bin/activate
       Otherwise only the vgcn workers refresh and the VIB workers' tmpfs goes stale,
       breaking metadata on VIB jobs.
     quiet: true

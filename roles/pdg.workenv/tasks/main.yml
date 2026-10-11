@@ -114,8 +114,8 @@
   when: workenv_deploy_session_script
 
 - name: Deploy tmux-logs logrotate config
-  ansible.builtin.copy:
-    src: tmux-logs-logrotate
+  ansible.builtin.template:
+    src: tmux-logs-logrotate.j2
     dest: /etc/logrotate.d/tmux-logs
     owner: root
     group: root
@@ -156,6 +156,10 @@
   ansible.builtin.blockinfile:
     path: "{{ item.uhome }}/.zshrc"
     marker: "# {mark} ANSIBLE MANAGED — pdg.workenv"
+    create: true
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0644'
     block: |
       # Ensure system paths are always present — guards against venv activation clobbering PATH
       typeset -U path
@@ -175,9 +179,11 @@
       eval "$(keychain --eval --quiet --agents ssh id_infra)"
       ln -sf "$SSH_AUTH_SOCK" ~/.ssh/agent.sock
       export SSH_AUTH_SOCK=~/.ssh/agent.sock
+      {% if workenv_venv %}
 
-      # Auto-activate openstack venv — guard prevents double-activation on re-source
-      [[ -z "$VIRTUAL_ENV" ]] && source /home/galaxy_master/usegalaxy-be-admin/.openstack/bin/activate
+      # Auto-activate a Python venv, skipped if one is already active
+      [[ -z "$VIRTUAL_ENV" && -f {{ item.uhome }}/{{ workenv_venv }}/bin/activate ]] && source {{ item.uhome }}/{{ workenv_venv }}/bin/activate
+      {% endif %}
     backup: true
   loop: "{{ workenv_users }}"
   when: workenv_deploy_session_script

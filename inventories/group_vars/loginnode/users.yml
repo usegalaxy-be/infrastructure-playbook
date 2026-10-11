@@ -4,6 +4,8 @@
 local_users:
   - name: paul
     uid: 2001
+    shell: /bin/zsh
+    groups: [docker]
     sudo: true
     ssh_keys:
       - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJcsN/tuCA6hyV/kUOiakJwp3sQPe7mzEeisP/WDoA4 padge@mac0208"
@@ -11,6 +13,7 @@ local_users:
 
   - name: boris
     uid: 2002
+    groups: [docker]
     sudo: true
     ssh_keys:
       - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHQqWEGEfQp6NNl3WI8jcC3Rp+4Gtspfacu9J74HYN1o boris@laptop"

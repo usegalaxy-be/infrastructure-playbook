@@ -3,3 +3,10 @@
 # and logrotate. Other hosts only get the vim setup (see group_vars/all/workenv.yml).
 workenv_tmux_install: true
 workenv_deploy_session_script: true
+
+# Personal admin accounts (see users.yml). galaxy_master's files here are no longer managed.
+workenv_users:
+  - uname: paul
+    uhome: /home/paul
+
+workenv_venv: usegalaxy-be-admin/.openstack
