@@ -76,3 +76,22 @@ grafana_server:
 
 # Grafana datasource: InfluxDB is on the same machine → use localhost
 grafana_influx_url: "http://localhost:8086"
+
+# External URL checks of both Galaxy sites, alerted on by be-galaxy-url-down(-test)
+telegraf_plugins_extra:
+  galaxy_url_prod:
+    plugin: "http_response"
+    config:
+      - urls = ["https://usegalaxy.be/api/version"]
+      - response_timeout = "10s"
+      - interval = "1m"
+    tags:
+      - env = "prod"
+  galaxy_url_test:
+    plugin: "http_response"
+    config:
+      - urls = ["https://test.usegalaxy.be/api/version"]
+      - response_timeout = "10s"
+      - interval = "1m"
+    tags:
+      - env = "test"
