@@ -223,6 +223,24 @@
       #       minute: 0
       #       job: "/usr/bin/condor_token_request_auto_approve -netblock {{ condor_ip_range }} -lifetime 3660"
 
+      - name: Ensure galaxy_master config directory exists
+        ansible.builtin.file:
+            path: /home/galaxy_master/.config
+            state: directory
+            owner: galaxy_master
+            group: galaxy_master
+            mode: "0755"
+        tags: gxadmin
+
+      - name: Deploy gxadmin local functions for galaxy_master
+        ansible.builtin.copy:
+            src: "{{ playbook_dir }}/../../files/galaxy/gxadmin/gxadmin-local.sh"
+            dest: /home/galaxy_master/.config/gxadmin-local.sh
+            owner: galaxy_master
+            group: galaxy_master
+            mode: "0755"
+        tags: gxadmin
+
       - name: Setup gxadmin cleanup task
         ansible.builtin.cron:
             name: "Cleanup Old User Data"

@@ -135,5 +135,11 @@ roles:
     version: master
   - name: usegalaxy_eu.tpv_broker
     src: https://github.com/usegalaxy-eu/ansible-tpv-broker.git
+  # Pinned to our fork/branch until usegalaxy-au/ansible-history-mailer#5 and #6
+  # merge upstream (alembic migrations on every deploy, SMTP backend config).
+  # Switch back to usegalaxy-au/ansible-history-mailer once both land.
+  - name: usegalaxy_au.history_mailer
+    src: https://github.com/usegalaxy-be/ansible-history-mailer.git
+    version: main
   - name: geerlingguy.nfs
     version: 2.1.1

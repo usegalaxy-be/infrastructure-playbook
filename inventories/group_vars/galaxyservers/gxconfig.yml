@@ -3214,7 +3214,7 @@ galaxy: &GALAXY
   # to all users, including special server-wide announcements such as
   # scheduled maintenance, high load warnings, and event announcements,
   # to name a few examples.
-  #enable_notification_system: false
+  enable_notification_system: true
 
   # The interval in seconds between attempts to delete all expired
   # notifications from the database (every 24 hours by default). Runs in
