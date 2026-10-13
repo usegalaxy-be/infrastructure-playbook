@@ -1,32 +1,43 @@
 ---
-# Gracefully restart Galaxy services via galaxyctl without redeploying anything.
-# All restart_* vars default to false — pass whichever you need on the command line:
-#   ansible-playbook daily-galaxy-handlers.yml -e restart_handler=true -e restart_gunicorn=true
-# restart_galaxy: runs galaxyctl update (picks up systemd unit changes)
-# restart_handler: graceful restart of job handler processes
-# restart_gunicorn: graceful restart of gunicorn web workers
+# Update Galaxy's systemd units and gracefully restart Galaxy services via galaxyctl, without redeploying anything.
+# All flags default to false; pass the ones you need:
+#   ansible-playbook daily-galaxy-handlers.yml -e update_units=true -e restart_celery=true
+# update_units: galaxyctl update, rewrites the systemd units from gravity config (restarts nothing)
+# restart_all: graceful restart of every Galaxy service
+# restart_gunicorn, restart_handler, restart_celery (celery + celery-beat),
+# restart_workflow_scheduler, restart_gx_it_proxy, restart_tusd: graceful restart of that service only
 
 - name: Galaxy Service Restart (Handlers Only)
   hosts: galaxyservers
   become: true
   become_user: root
   vars:
-    restart_galaxy: false
-    restart_handler: false
+    galaxy_gravity_command: "{{ galaxy_venv_dir }}/bin/galaxyctl"
+    update_units: false
+    restart_all: false
     restart_gunicorn: false
+    restart_handler: false
+    restart_celery: false
+    restart_workflow_scheduler: false
+    restart_gx_it_proxy: false
+    restart_tusd: false
+    restart_services: >-
+      {{ (['gunicorn'] if restart_gunicorn | bool else [])
+       + (['handler'] if restart_handler | bool else [])
+       + (['celery', 'celery-beat'] if restart_celery | bool else [])
+       + (['workflow-scheduler'] if restart_workflow_scheduler | bool else [])
+       + (['gx-it-proxy'] if restart_gx_it_proxy | bool else [])
+       + (['tusd'] if restart_tusd | bool else []) }}
 
   tasks:
     - name: galaxyctl update
       command: "{{ galaxy_gravity_command }} -d -c {{ galaxy_config_file }} update"
       tags: ["galaxy-core", "galaxy", "update"]
-      when: restart_galaxy | bool
+      when: update_units | bool
 
-    - name: galaxy gravity handler restart
-      command: "{{ galaxy_gravity_command }} -d -c {{ galaxy_config_file }} graceful handler"
+    - name: galaxyctl graceful restart
+      command: >-
+        {{ galaxy_gravity_command }} -d -c {{ galaxy_config_file }} graceful
+        {{ '' if restart_all | bool else restart_services | join(' ') }}
       tags: ["galaxy-core", "galaxy", "restart"]
-      when: restart_handler | bool
-
-    - name: galaxy gravity gunicorn restart
-      command: "{{ galaxy_gravity_command }} -d -c {{ galaxy_config_file }} graceful gunicorn"
-      tags: ["galaxy-core", "galaxy", "restart"]
-      when: restart_gunicorn | bool
+      when: restart_all | bool or restart_services | length > 0
