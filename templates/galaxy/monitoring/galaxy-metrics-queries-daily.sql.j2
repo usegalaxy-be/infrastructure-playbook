@@ -81,6 +81,87 @@ WHERE gu.create_time >= date_trunc('day', current_date - interval '1 day')
 GROUP BY vib_domain, is_vib_data_core
 ORDER BY new_users_count DESC;
 
+-- CATEGORY: Newly active users - Flemish institutions
+-- DESCRIPTION: Users whose first job was submitted yesterday, per Flemish institution.
+SELECT
+    CASE
+        WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%KULEUVEN%' THEN 'KULEUVEN'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UGENT%' THEN 'UGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UHASSELT%' THEN 'UHASSELT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VUB%' THEN 'VUB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%UANTWERP%' THEN 'UANTWERP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%MEISE%' THEN 'MEISE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%' THEN 'INBO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%VLIZ%' THEN 'VLIZ'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%' THEN 'IMEC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%' THEN 'ILVO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%' THEN 'VITO'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%' THEN 'FLANDERSMAKE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%' THEN 'ITG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%' THEN 'HOWEST'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%' THEN 'HOGENT'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%ARTEVELDEHS.%' THEN 'ARTEVELDE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%' THEN 'AP'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%' THEN 'PXL'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%' THEN 'VIVES'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%' THEN 'KDG'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%' THEN 'ODISEE'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%' THEN 'THOMASMORE'
+        ELSE 'Others'
+    END AS institution,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(DISTINCT gu.id) AS newly_active_users_count
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+    AND NOT EXISTS (
+        SELECT 1 FROM job earlier
+        WHERE earlier.user_id = gu.id
+            AND earlier.create_time < date_trunc('day', current_date - interval '1 day')
+    )
+    AND gu.active IS TRUE
+GROUP BY institution, is_vib_data_core
+ORDER BY newly_active_users_count DESC;
+
+-- CATEGORY: Newly active users - VIB Centers
+-- DESCRIPTION: Users whose first job was submitted yesterday, per VIB center.
+SELECT
+    CASE
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%' THEN 'VIB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%' THEN 'PSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%' THEN 'CCB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%' THEN 'CMB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%' THEN 'CSB'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%' THEN 'CBD'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%' THEN 'CFM'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%' THEN 'NERF'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%' THEN 'IRC'
+        WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%' THEN 'CMN'
+        ELSE 'Others'
+    END AS vib_domain,
+    CASE
+        WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+        ELSE 'false'
+    END AS is_vib_data_core,
+    COUNT(DISTINCT gu.id) AS newly_active_users_count
+FROM galaxy_user gu
+JOIN job ON job.user_id = gu.id
+WHERE job.create_time >= date_trunc('day', current_date - interval '1 day')
+    AND job.create_time < date_trunc('day', current_date)
+    AND NOT EXISTS (
+        SELECT 1 FROM job earlier
+        WHERE earlier.user_id = gu.id
+            AND earlier.create_time < date_trunc('day', current_date - interval '1 day')
+    )
+    AND gu.active IS TRUE
+GROUP BY vib_domain, is_vib_data_core
+ORDER BY newly_active_users_count DESC;
+
 -- CATEGORY: Active users - Flemish institutions
 -- DESCRIPTION: Users who submitted at least one job yesterday, per Flemish institution.
 SELECT

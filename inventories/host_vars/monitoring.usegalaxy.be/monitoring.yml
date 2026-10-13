@@ -35,6 +35,15 @@ influxdb_data_dir: /var/lib/influxdb
 influxdb_user: rocky
 influxdb_group: rocky
 
+# InfluxDB keeps every shard's files open; Docker's default limit of 1024 is too low.
+docker_daemon_options:
+  data-root: "/var/lib/docker/"
+  default-ulimits:
+    nofile:
+      Name: nofile
+      Soft: 65536
+      Hard: 65536
+
 # # InfluxDB container: no cert volume mounts (HTTP only)
 # influxdb_container:
 #   name: influxdb_server

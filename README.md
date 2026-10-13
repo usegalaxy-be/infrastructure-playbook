@@ -221,6 +221,16 @@ ansible-playbook playbooks/infrastructure/04-galaxy.yml --limit galaxyservers
 
 `group_vars/` and `host_vars/` live inside `inventories/` so Ansible resolves them automatically regardless of where playbooks are located.
 
+## Git hooks
+
+`scripts/git-hooks/pre-push` refuses a push when a commit does not descend from this repository's first commit (history from elsewhere), or when [gitleaks](https://github.com/gitleaks/gitleaks) finds a secret in the commits being pushed. Git does not install hooks on clone, so enable it once per clone, after installing gitleaks:
+
+```bash
+git config core.hooksPath "$(git rev-parse --show-toplevel)/scripts/git-hooks"
+```
+
+Use the absolute path: worktrees then share this clone's copy of the hook. A relative path would make each worktree look for the hook in its own checkout, and branches without it would push unchecked.
+
 ## Vault password setup
 
 Ansible vault is used to encrypt secrets. The vault password is never stored on

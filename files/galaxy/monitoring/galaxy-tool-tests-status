@@ -1,0 +1,90 @@
+#!/usr/bin/python3
+# galaxy-tool-tests-status
+# Reports the tool test status written by the usegalaxy-be-tools "Tool tests"
+# workflow (tool-tests/status.json on its tool-test-results branch).
+# One tool_test point per tool version, plus a tool_test_summary point.
+# Outputs InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/galaxy-tool-tests-status
+# Telegraf exec plugin interval: 1h
+#
+# Usage: galaxy-tool-tests-status [status_url]
+
+import json
+import sys
+import urllib.error
+import urllib.request
+from datetime import datetime
+
+DEFAULT_URL = ("https://raw.githubusercontent.com/usegalaxy-be/usegalaxy-be-tools/"
+               "tool-test-results/tool-tests/status.json")
+
+
+def tag(value):
+    return str(value).replace("\\", "\\\\").replace(",", "\\,").replace(" ", "\\ ").replace("=", "\\=") or "none"
+
+
+def string_field(value):
+    return '"' + str(value).replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def epoch(iso):
+    try:
+        return int(datetime.fromisoformat(iso).timestamp())
+    except (TypeError, ValueError):
+        return 0
+
+
+def main():
+    url = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_URL
+    try:
+        with urllib.request.urlopen(url, timeout=30) as response:
+            status = json.load(response)
+    except urllib.error.HTTPError as e:
+        # No status branch until the workflow has run once.
+        if e.code == 404:
+            return
+        raise
+
+    tools = status.get("tools", {})
+    counts = {"passed": 0, "partial": 0, "broken": 0, "infra": 0, "untestable": 0,
+              "potentially_broken": 0, "regressions": 0, "expected_failures": 0, "old_versions_broken": 0}
+    for tool_id, tool in sorted(tools.items()):
+        tests = tool.get("tests", {})
+        state = tool.get("status", "untestable")
+        broken = int(bool(tool.get("potentially_broken")))
+        regression = int(bool(tool.get("regression")))
+        expected = int(bool(tool.get("expected_failure")))
+        counts[state] = counts.get(state, 0) + 1
+        counts["potentially_broken"] += broken
+        counts["regressions"] += regression
+        counts["expected_failures"] += expected
+        old_broken = int(bool(tool.get("old_version_broken")))
+        counts["old_versions_broken"] += old_broken
+        fields = [
+            f"version={string_field(tool.get('version', ''))}",
+            f"status={string_field(state)}",
+            *(f"tests_{kind}={int(tests.get(kind, 0))}i" for kind in ("pass", "tool", "setup", "infra", "skip")),
+            f"potentially_broken={broken}i",
+            f"regression={regression}i",
+            f"latest={int(bool(tool.get('latest', True)))}i",
+            f"latest_version={string_field(tool.get('latest_version', tool.get('version', '')))}",
+            f"latest_status={string_field(tool.get('latest_status', state))}",
+            f"old_version_broken={old_broken}i",
+            f"regression_from={string_field(tool.get('regression_from', ''))}",
+            f"expected_failure={expected}i",
+            f"expected_reason={string_field(tool.get('expected_reason', ''))}",
+            f"runs={int(tool.get('runs', 0))}i",
+            f"failed_runs={int(tool.get('failed_runs', 0))}i",
+            f"tested_at={epoch(tool.get('tested_at'))}i",
+            f"run={string_field(tool.get('run', ''))}",
+            f"details={string_field(tool.get('details') or tool.get('run', ''))}",
+        ]
+        print(f"tool_test,tool_id={tag(tool_id)},repository={tag(tool.get('repository', ''))} {','.join(fields)}")
+
+    summary = [f"{key}={value}i" for key, value in sorted(counts.items())]
+    summary += [f"tools={len(tools)}i", f"updated_at={epoch(status.get('updated_at'))}i"]
+    print(f"tool_test_summary {','.join(summary)}")
+
+if __name__ == "__main__":
+    main()

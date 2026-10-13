@@ -250,13 +250,14 @@
             job: "/bin/find {{ galaxy_new_file_path }} -mindepth 1 -maxdepth 1 -mtime +5 ! -name '.nfs*' -exec rm -rf {} +"
         tags: cron
 
+      # Must outlive the HTCondor walltime, or running jobs lose their directory.
       - name: Cleanup job working directory (stale job dirs)
         ansible.builtin.cron:
             name: "Cleanup Galaxy job working directory"
             user: galaxy_master
             minute: "0"
             hour: "0"
-            job: "/bin/find {{ galaxy_job_working_directory }}/*/* -mindepth 1 -maxdepth 1 -type d -mtime +7 -exec rm -rf {} + ; /bin/find {{ galaxy_job_working_directory }}/* -mindepth 0 -maxdepth 1 -type d -empty ! -name '_interactive' -exec rmdir {} +"
+            job: "/bin/find {{ galaxy_job_working_directory }}/*/* -mindepth 1 -maxdepth 1 -type d -mtime +{{ galaxy_job_max_walltime_days }} -exec rm -rf {} + ; /bin/find {{ galaxy_job_working_directory }}/* -mindepth 0 -maxdepth 1 -type d -empty ! -name '_interactive' -exec rmdir {} +"
         tags: cron
 
       # Without this, cron pipes every job's output to esmtp, which has no relay

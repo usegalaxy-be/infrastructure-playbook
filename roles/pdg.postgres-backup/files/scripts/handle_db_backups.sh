@@ -4,6 +4,7 @@
 NUM_OLDEST_BACKUPS_TO_KEEP=20
 NUM_RECENT_BACKUPS_TO_KEEP=20
 NUM_MONTHS_TO_KEEP_DAILY_BACKUPS=1
+NUM_MONTHS_TO_KEEP_MONTHLY_BACKUPS=0
 AUTOMATIC_REMOVAL_THRESHOLD=40
 
 # Deletes old DB backup files from the folder specified as an argument.
@@ -11,7 +12,7 @@ AUTOMATIC_REMOVAL_THRESHOLD=40
 # Keeps:
 # * NUM_RECENT_BACKUPS_TO_KEEP most recent backups
 # * one backup per day for the last NUM_MONTHS_TO_KEEP_DAILY_BACKUPS months
-# * one backup per month
+# * one backup per month, for the last NUM_MONTHS_TO_KEEP_MONTHLY_BACKUPS months (0 keeps all)
 # * NUM_OLDEST_BACKUPS_TO_KEEP oldest backups (a safeguard against bugs in the date processing logic)
 #
 # Refuses to run if more than AUTOMATIC_REMOVAL_THRESHOLD files would be removed
@@ -51,6 +52,8 @@ while test -n "$1" && $cont_optparse true; do
             NUM_RECENT_BACKUPS_TO_KEEP=$2; shift; shift;;
         --daily-months) # Set the number of recent months to keep daily backups for
             NUM_MONTHS_TO_KEEP_DAILY_BACKUPS=$2; shift; shift;;
+        --monthly-months) # Set the number of recent months to keep one backup per month for (0 keeps all)
+            NUM_MONTHS_TO_KEEP_MONTHLY_BACKUPS=$2; shift; shift;;
         --automatic-threshold) # Set the maximum number of files that can be removed without --force
             AUTOMATIC_REMOVAL_THRESHOLD=$2; shift; shift;;
         --help) # Display this help message
@@ -91,7 +94,18 @@ all_backups() {
 }
 
 monthly_backups_to_keep() {
-  all_backups | awk -F- '{ period = substr($3, 1, 6); if(!(period in periods)) print; periods[period] = 1 }'
+  all_backups | awk -v MM=$NUM_MONTHS_TO_KEEP_MONTHLY_BACKUPS -F- '
+    {
+        period = substr($3, 1, 6);
+        if (!(period in periods)) monthly[c++] = $0;
+        periods[period] = 1
+    }
+    END {
+        start = (MM > 0 && c > MM) ? c - MM : 0
+        for (m = start; m < c; ++m)
+            print monthly[m]
+    }
+'
 }
 
 daily_backups_to_keep() {

@@ -77,6 +77,10 @@
       # Install and configure CernVM-FS (CVMFS) client.
       # Ensures /etc/cvmfs/default.local and autofs are always in the correct state.
       - role: galaxyproject.cvmfs
+        tags: cvmfs
+
+      - role: pdg.cvmfs_repo_config
+        tags: cvmfs
 
       # HTCondor Cluster setup
 

@@ -1,0 +1,11 @@
+galaxy_info:
+  author: pdg
+  description: Manage local user accounts with SSH keys, optional sudo, and expiry dates for accounts and sudo rules
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags:
+    - users
+    - sudo
+    - ssh
+
+dependencies: []

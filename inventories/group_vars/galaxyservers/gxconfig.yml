@@ -216,7 +216,8 @@ gravity: &GRAVITY
     # Memory limit (in GB). If the service exceeds the limit, it will be killed. Default is no limit or the value of the
     # ``memory_limit`` setting at the top level of the Gravity configuration, if set. Ignored if ``process_manager`` is
     # ``supervisor``.
-    memory_limit: 2
+    # 2 GB was below the ~2.1 GB footprint of the main worker plus its 4 metadata pool processes.
+    memory_limit: 4
 
     # Extra environment variables and their values to set when running the service. A dictionary where keys are the variable
     # names.
