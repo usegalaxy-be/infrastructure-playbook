@@ -27,6 +27,9 @@ autofs_mounts:
       - "venv  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/venv"
       - "local_tools  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/local_tools"
       - "tmp  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/tmp"
+      # Old layout, kept as the rollback path until a later cleanup
+      - "etc  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/etc"
+      - "src  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/prod_duplicate/src"
     mountpoint: "/srv/galaxy/shared"
     conf_location: "/etc/auto.prod"
     map_options: "nfsvers=3 browse"

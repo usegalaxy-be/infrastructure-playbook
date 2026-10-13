@@ -1,15 +1,15 @@
 ---
 # NFS Client Mounts (autofs)
 # ==========================
-# Configures autofs-based NFS mounts on Galaxy and compute nodes.
+# Writes the autofs maps on Galaxy heads and compute workers, then reloads autofs.
+# A reload adds new mount points and entries without touching mounts in use.
 # Maps: autofs_mounts in host_vars/*/nfs_client.yml (heads) and
 # group_vars/{prod,vib}computeservers.yml (workers); the shared map is
 # galaxy_shared_autofs_mount in group_vars/all/nfs_config.yml.
 #
 # Usage:
+#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml
 #   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit testgalaxyservers
-#   # Only the shared map, with an autofs reload (safe while Galaxy and jobs run)
-#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml -e nfs_shared_only=true
 
 - name: Configure NFS client mounts via autofs
   hosts: "galaxyservers:computeservers"
@@ -22,14 +22,9 @@
         path: "{{ item.mountpoint }}"
         state: directory
         mode: "0755"
-      loop: "{{ [galaxy_shared_autofs_mount] if nfs_shared_only | default(false) | bool else autofs_mounts }}"
+      loop: "{{ autofs_mounts }}"
 
   roles:
     - role: pdg.autofs
       vars:
-        autofs_mounts: "{{ [galaxy_shared_autofs_mount] }}"
         autofs_handler_state: reloaded
-      when: nfs_shared_only | default(false) | bool
-
-    - role: pdg.autofs
-      when: not (nfs_shared_only | default(false) | bool)

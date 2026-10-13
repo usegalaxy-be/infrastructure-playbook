@@ -4,7 +4,7 @@
 # Packages come from the old package cache. Environments already copied are skipped, so the run can be repeated.
 #
 # Needs the galaxy_shared autofs map and miniconda at the new path:
-#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit usegalaxy.be -e nfs_shared_only=true
+#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit usegalaxy.be
 #   ansible-playbook playbooks/infrastructure/03-galaxy-prerequisites.yml --limit usegalaxy.be --tags miniconda
 # Usage:
 #   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml

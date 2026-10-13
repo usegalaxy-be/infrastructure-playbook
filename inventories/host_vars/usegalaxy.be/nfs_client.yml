@@ -2,6 +2,7 @@
 # autofs maps for usegalaxy.be (prod), written by nfs-client-mounts.yml.
 # Same per-env names as test; data shared with test is in galaxy_shared_autofs_mount.
 # Map names match the existing files (prod.autofs, staging.autofs), so they are replaced in place.
+# etc and src are the old layout, kept as the rollback path until a later cleanup.
 
 autofs_mounts:
   - name: prod
@@ -16,6 +17,8 @@ autofs_mounts:
       - "tmp           -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/tmp"
       - "shared_certs  -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_certs"
       - "shared_data   -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data"
+      - "etc           -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/etc"
+      - "src           -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod_duplicate/src"
   - name: staging
     mountpoint: "/data_stage"
     conf_location: "/etc/auto.staging"
