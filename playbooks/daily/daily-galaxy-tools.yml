@@ -1,7 +1,9 @@
 ---
-# Deploy the pdg.galaxy-tools tool installation and testing service to galaxyservers.
+# Deploy the pdg.galaxy-tools tool testing service to galaxyservers.
+# Tools are installed by the GitHub workflows in usegalaxy-be/usegalaxy-be-tools, so
+# this run removes the old host-side install timers and units.
 #
-# Default run: (re)applies the weekly `shed-tools install` cron and the tool-test units.
+# Default run: removes the install units and (re)applies the tool-test units.
 #   ansible-playbook playbooks/daily/daily-galaxy-tools.yml --limit prodgalaxyservers --diff
 #
 # ---------------------------------------------------------------------------
@@ -30,14 +32,13 @@
 #
 # Test one specific tool list instead of the host's usual mode:
 #   ansible-playbook playbooks/daily/daily-galaxy-tools.yml --limit test.usegalaxy.be \
-#     -e install_tools=false \
 #     -e galaxy_tools_test_mode=tools_file \
 #     -e galaxy_tools_installed_tool_list=/abs/path/on/controller/my-tools.txt \
 #     -e parallel_tests=4 --diff
 #
 # Rerun since_date from a fixed date instead of the checkpoint (does not advance it):
 #   ansible-playbook playbooks/daily/daily-galaxy-tools.yml --limit prodgalaxyservers \
-#     -e install_tools=false -e test_tools_since_date=2026-09-01 --diff
+#     -e test_tools_since_date=2026-09-01 --diff
 #
 # Avoid --check: the `systemctl is-active` shell task is skipped in check mode, leaving
 # service_status.stdout undefined for the task that reads it.
@@ -61,19 +62,15 @@
 
   roles:
 
-      # Install and/or test tools
+      # Test tools
       - role: pdg.galaxy-tools
         vars:
           install_ephemeris: yes
           install_galaxy_tool_util: yes
 
-          # install_tools: yes deploys the weekly `shed-tools install` cron
-          # (galaxy_tools_install_schedule) that installs new/updated tools.
-          # It also deploys galaxy-tool-install.service (tool_install.py), a
-          # separate, unproven per-revision installer -- keep that from
-          # auto-starting here, this run is only meant to (re)apply the cron.
-          install_tools: yes
-          galaxy_tools_install_service_autostart: no
+          # Tools are installed from usegalaxy-be-tools CI, not from the host.
+          install_tools: no
+          galaxy_tools_install_state: absent
 
           # test_tools: yes deploys the test scripts and starts
           # galaxy-tool-tests.service (only if it is not already running).

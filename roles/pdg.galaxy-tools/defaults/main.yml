@@ -3,6 +3,8 @@
 install_ephemeris: yes
 install_galaxy_tool_util: yes
 install_tools: yes
+# absent: remove the install timers, units and scripts (tools installed elsewhere).
+galaxy_tools_install_state: present
 test_tools: yes
 install_workflows: no
 

@@ -312,7 +312,7 @@ Playbooks in `playbooks/daily/` are lightweight and safe to run frequently witho
 | `daily-galaxy-config.yml` | Push configuration changes (galaxy.yml, job_conf.xml, tool panel) without reinstalling dependencies or restarting services. Use after any config file edit. |
 | `daily-galaxy-handlers.yml` | Restart Galaxy handler processes and reload systemd units only. Use when config has already been pushed and a service reload is all that's needed. |
 | `daily-galaxy-install-deps.yml` | Fetch and install Galaxy Python dependencies (`galaxy_fetch_dependencies: yes`). Use after a Galaxy version bump or when the venv is out of date. |
-| `daily-galaxy-tools.yml` | Install new tools and/or test existing tool environments. Controlled by `install_tools` and `test_tools` vars (defaults: skip install, run tests). |
+| `daily-galaxy-tools.yml` | Test installed tools and remove the old host-side install units. Tools are installed by the usegalaxy-be-tools GitHub workflows. |
 | `daily-galaxy-upgrade.yml` | Apply static config and run `usegalaxy_eu.tpv_auto_lint` to validate TPV routing rules. Use after modifying any TPV YAML files. |
 | `daily-galaxy-healthcheck.yml` | Run the job healthcheck once (every probe tool, end to end) and fail unless all pass. Use as the check after any deploy. |
 | `daily-update-hosts.yml` | Apply `/etc/hosts` customisations to **all hosts** via `pdg.update_hosts`. Also disables cloud-init host management and ensures the standard localhost block. Run after editing any `group_vars/*/vault_hosts.yml`. |

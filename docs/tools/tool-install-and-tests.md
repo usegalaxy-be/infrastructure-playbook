@@ -4,18 +4,17 @@ How tools reach usegalaxy.be, what tests them afterwards, and the two traps that
 make both look like they are working when they are not.
 
 Tool lists live in a separate repo,
-[usegalaxy-be-tools](https://github.com/usegalaxy-be/usegalaxy-be-tools). Only
-the three `.lock` files are deployed. Everything else in that repo supports the
-lists rather than being installed.
+[usegalaxy-be-tools](https://github.com/usegalaxy-be/usegalaxy-be-tools), and its
+GitHub workflows install them. This repo only deploys the tool tests to the Galaxy
+servers.
 
 Files:
 
 | File | Purpose |
 |------|---------|
 | `playbooks/daily/daily-galaxy-tools.yml` | Applies the role, the only entry point |
-| `roles/pdg.galaxy-tools/defaults/main.yml` | `galaxy_tools_tool_list_files`, `galaxy_tools_install_schedule` |
 | `inventories/group_vars/galaxyservers/galaxy-tools.yml` | `tools_user`, test mode, parallelism |
-| `roles/pdg.galaxy-tools/templates/systemd/` | The six unit templates |
+| `roles/pdg.galaxy-tools/templates/systemd/` | The tool-test unit templates |
 | `roles/pdg.galaxy-tools/templates/scripts/tool-tests.sh.j2` | Test entry point, picks the mode |
 | `roles/pdg.galaxy-tools/files/compute_new_synced_tools.py` | `synced_diff` mode, diffs synced tools |
 
@@ -47,26 +46,22 @@ like. This applies to any boolean you override this way, not just `test_tools`.
 
 ## What runs when
 
-Installation is per tool list, one systemd timer each, staggered:
-
-| Unit | Schedule | Does |
-|------|----------|------|
-| `galaxy-tool-shed-install@tools_iuc.timer` | Sat 01:00 | `shed-tools install` from `tools_iuc.yaml.lock` |
-| `galaxy-tool-shed-install@belgium-custom.timer` | Sat 03:00 | same, `belgium-custom.yaml.lock` |
-| `galaxy-tool-shed-install@GTN_tutorials_tools.timer` | Sat 05:00 | same, `GTN_tutorials_tools.yaml.lock` |
+| What | When | Does |
+|------|------|------|
+| `install_latest_tool_version.yml` workflow in usegalaxy-be-tools | Merge to `master` touching a `.lock` file, or after the Monday automerge | `shed-tools install` from the `.lock` files |
 | `galaxy-tool-tests-full.timer` | yearly, 15 Jan | Re-tests everything |
 
-A merged PR in `usegalaxy-be-tools` needs no manual step. The install refreshes
-the repo clone first, so the next scheduled run picks it up.
+The playbook runs the role with `galaxy_tools_install_state: absent`, which
+removes the old host-side install timers (`galaxy-tool-shed-install@*.timer`),
+their units and the install scripts.
 
-`test.usegalaxy.be` sets `galaxy_tools_install_schedule: []` and installs
-nothing. Tools reach it by rsync from prod, which is why it tests with
-`synced_diff`.
+`test.usegalaxy.be` installs nothing. Tools reach it by rsync from prod, which is
+why it tests with `synced_diff`.
 
 **Testing newly installed tools is not scheduled.** The only armed test timer is
 the yearly full sweep. `galaxy-tool-tests.service` is a one-shot that the
 playbook starts when `test_tools` is true, so new tools are tested only when
-somebody applies the playbook. Nothing chains tests to the weekly install.
+somebody applies the playbook. Nothing chains tests to the CI install.
 
 ## Test modes
 
@@ -117,23 +112,6 @@ Stop the service, do not kill the process tree. The process group on a Galaxy
 host can include live Galaxy processes.
 
 ## Troubleshooting
-
-### Timers exist but nothing ever runs
-
-Seen on prod in September 2026: all four timers were present and enabled, and
-none of the `.service` units they activate existed. A timer pointing at a
-missing unit fails silently, and `list-timers` still looks healthy.
-
-```bash
-systemctl list-timers --all | grep galaxy-tool
-sudo systemctl show galaxy-tool-shed-install@tools_iuc.service -p LoadState
-```
-
-`LoadState=not-found` means the units were lost, usually because the timers were
-deployed by a run that predates a later fix to the service templates. Re-apply
-the playbook, which restores all six.
-
-Check `LoadState`, not the timer list, when confirming this works.
 
 ### Tool tests fail immediately on test
 
