@@ -37,6 +37,7 @@ workenv_users:
 workenv_vim_install: true            # ensure vim package is present
 workenv_tmux_install: false          # tmux — enabled for loginnode via group_vars
 workenv_deploy_session_script: false # session script + vault helper — loginnode only
+workenv_extra_packages: []           # extra packages, e.g. pandoc on the loginnode
 ```
 
 ## Usage

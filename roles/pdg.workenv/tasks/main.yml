@@ -52,6 +52,12 @@
     state: present
   when: workenv_tools_install
 
+- name: Ensure extra packages are installed
+  ansible.builtin.package:
+    name: "{{ workenv_extra_packages }}"
+    state: present
+  when: workenv_extra_packages | length > 0
+
 - name: Deploy fzf shell configuration
   ansible.builtin.copy:
     src: workenv-fzf.sh
