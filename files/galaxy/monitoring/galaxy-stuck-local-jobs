@@ -1,7 +1,8 @@
 #!/bin/bash
 # galaxy-stuck-local-jobs
 # Counts jobs on local_runner that have been "queued" for over 30 minutes
-# without ever getting a job_runner_external_id. A local_runner job normally
+# without ever getting a job_runner_external_id (field count), and jobs stuck
+# "running" for over 2 hours (field running). A local_runner job normally
 # gets an external id within seconds, so this is a reliable sign the job
 # was never actually picked up (e.g. a handler-side fork deadlock).
 # Outputs InfluxDB line protocol.
@@ -20,7 +21,16 @@ count=$(psql -t -A -c \
      AND create_time < NOW() - INTERVAL '30 minutes'" \
   2>/dev/null | tr -d '[:space:]')
 
+# Running on local_runner with no state change for 2h; normal runs take at most 30 min.
+running=$(psql -t -A -c \
+  "SELECT COUNT(*) FROM job
+   WHERE state = 'running'
+     AND job_runner_name = 'local_runner'
+     AND update_time < NOW() - INTERVAL '2 hours'" \
+  2>/dev/null | tr -d '[:space:]')
+
 # Default to 0 if psql fails or returns empty
 count=${count:-0}
+running=${running:-0}
 
-printf 'galaxy_stuck_local_jobs count=%si\n' "$count"
+printf 'galaxy_stuck_local_jobs count=%si,running=%si\n' "$count" "$running"

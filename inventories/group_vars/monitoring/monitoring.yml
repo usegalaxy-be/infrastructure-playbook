@@ -64,6 +64,10 @@ telegraf_plugins_default:
   - plugin: swap
   # - plugin: net
   - plugin: netstat
+  # Kernel OOM-kill counter, alerted on by be-oom-kill
+  - plugin: kernel_vmstat
+    config:
+      - fieldpass = ["oom_kill"]
 
 ### This can be useful for debbugging, just dumps the output to a file (can be stdout too)
 #  - type: file
