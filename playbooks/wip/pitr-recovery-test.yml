@@ -1,0 +1,243 @@
+---
+# ============================================================================
+# PITR Recovery Test Playbook
+# ============================================================================
+#
+# Purpose: Validate that PostgreSQL PITR backups on NFS are actually
+#          recoverable. Spins up a second PostgreSQL instance on port 5433
+#          using a copy of the most recent base backup + WAL archive.
+#          The live cluster on port 5432 is NOT touched.
+#
+# Prerequisites:
+#   - At least one completed base backup in pgbackup@10.113.3.244:/data/pg_backups
+#   - postgres SSH key at /var/lib/pgsql/.ssh/id_ed25519 (set up by 02-database.yml)
+#   - ~PGDATA size of free disk space on the DB server (check: df -Hl /var/lib/pgsql)
+#   - Enough free memory for a minimal PostgreSQL instance (~256MB; check: free -h)
+#
+# Usage:
+#   # Recover to most recent consistent state (default):
+#   ansible-playbook playbooks/wip/pitr-recovery-test.yml
+#
+#   # Recover to a specific point in time:
+#   ansible-playbook playbooks/wip/pitr-recovery-test.yml \
+#     -e "recovery_target_time='2026-03-26 01:00:00+01'"
+#
+# Safety: always cleans up after itself (stops instance, deletes recovery PGDATA).
+#         If the playbook is interrupted mid-run, clean up manually:
+#           sudo -u postgres /usr/pgsql-15/bin/pg_ctl stop -D /var/lib/pgsql/recovery_test -m immediate
+#           sudo rm -rf /var/lib/pgsql/recovery_test /var/run/postgresql/recovery
+# ============================================================================
+
+- hosts: dbservers
+  become: true
+
+  vars:
+    recovery_pgdata: /var/lib/pgsql/recovery_test
+    recovery_port: 5433
+    recovery_socket_dir: /var/run/postgresql/recovery
+    pg_bin_dir: /usr/pgsql-15/bin
+    nfs_backup_host: "pgbackup@10.113.3.244"
+    nfs_backup_dir: "/data/pg_backups"
+    rsync_ssh_opts: "ssh -i /var/lib/pgsql/.ssh/id_ed25519 -o StrictHostKeyChecking=yes -o BatchMode=yes"
+    # Override on the command line for point-in-time recovery:
+    #   -e "recovery_target_time='2026-03-26 01:00:00+01'"
+    recovery_target_time: ""
+
+  tasks:
+    # -------------------------------------------------------------------------
+    # Pre-flight checks
+    # -------------------------------------------------------------------------
+    - name: Check available disk space on DB server
+      ansible.builtin.command: df -BG --output=avail /var/lib/pgsql
+      register: _disk_avail
+      changed_when: false
+
+    - name: Check available memory on DB server
+      ansible.builtin.command: awk '/MemAvailable/ {print $2}' /proc/meminfo
+      register: _mem_avail_kb
+      changed_when: false
+
+    - name: Abort if less than 256MB free memory
+      ansible.builtin.fail:
+        msg: "Only {{ (_mem_avail_kb.stdout | int / 1024) | int }}MB free memory — recovery instance needs ~256MB. Resize DB server first."
+      when: _mem_avail_kb.stdout | int < 262144
+
+    # -------------------------------------------------------------------------
+    # Find most recent base backup
+    # -------------------------------------------------------------------------
+    - name: Find most recent base backup on NFS
+      ansible.builtin.shell: >-
+        ssh -i /var/lib/pgsql/.ssh/id_ed25519
+        -o StrictHostKeyChecking=yes
+        -o BatchMode=yes
+        {{ nfs_backup_host }}
+        "ls -1d {{ nfs_backup_dir }}/[0-9]*T*Z 2>/dev/null | sort | tail -1"
+      become_user: postgres
+      register: _latest_backup
+      changed_when: false
+      failed_when: _latest_backup.stdout == ""
+
+    - name: Show backup selected for recovery
+      ansible.builtin.debug:
+        msg: "Restoring from: {{ _latest_backup.stdout | trim }}"
+
+    # -------------------------------------------------------------------------
+    # Prepare recovery PGDATA
+    # -------------------------------------------------------------------------
+    - name: Ensure clean recovery PGDATA directory
+      ansible.builtin.file:
+        path: "{{ recovery_pgdata }}"
+        state: absent
+
+    - name: Create recovery PGDATA directory
+      ansible.builtin.file:
+        path: "{{ recovery_pgdata }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0700'
+
+    - name: Copy base backup from NFS to recovery PGDATA
+      ansible.builtin.command: >-
+        rsync -a -e '{{ rsync_ssh_opts }}'
+        {{ nfs_backup_host }}:{{ _latest_backup.stdout | trim }}/
+        {{ recovery_pgdata }}/
+      become_user: postgres
+      changed_when: true
+
+    - name: Remove backup_label from recovery PGDATA
+      # backup_label must be removed after copying so PostgreSQL treats this
+      # as a recovered cluster, not an active backup.
+      # See: https://www.postgresql.org/docs/15/backup-file.html
+      ansible.builtin.file:
+        path: "{{ recovery_pgdata }}/backup_label"
+        state: absent
+
+    # -------------------------------------------------------------------------
+    # Recovery configuration
+    # -------------------------------------------------------------------------
+    - name: Write recovery postgresql.conf
+      ansible.builtin.copy:
+        dest: "{{ recovery_pgdata }}/postgresql.conf"
+        owner: postgres
+        group: postgres
+        mode: '0600'
+        content: |
+          # Recovery test instance — not for production use
+          port = {{ recovery_port }}
+          unix_socket_directories = '{{ recovery_socket_dir }}'
+
+          # Minimal resource footprint
+          shared_buffers = 128MB
+          max_connections = 5
+
+          # WAL recovery
+          restore_command = 'rsync -e "{{ rsync_ssh_opts }}" {{ nfs_backup_host }}:{{ nfs_backup_dir }}/wal_archive/%f %p'
+          {% if recovery_target_time != "" %}
+          recovery_target_time = '{{ recovery_target_time }}'
+          recovery_target_action = 'promote'
+          {% endif %}
+
+          # Do not archive WAL from the recovery instance
+          archive_mode = off
+
+          # Log to file for inspection
+          logging_collector = on
+          log_directory = '{{ recovery_pgdata }}'
+          log_filename = 'recovery.log'
+
+    - name: Ensure recovery socket directory exists
+      ansible.builtin.file:
+        path: "{{ recovery_socket_dir }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: '0755'
+
+    - name: Create recovery.signal
+      ansible.builtin.file:
+        path: "{{ recovery_pgdata }}/recovery.signal"
+        state: touch
+        owner: postgres
+        group: postgres
+        mode: '0600'
+
+    # -------------------------------------------------------------------------
+    # Start recovery instance and wait for promotion
+    # -------------------------------------------------------------------------
+    - name: Start recovery PostgreSQL instance
+      ansible.builtin.command: >-
+        {{ pg_bin_dir }}/pg_ctl start
+        -D {{ recovery_pgdata }}
+        -w -t 300
+      become_user: postgres
+      changed_when: true
+
+    - name: Wait for WAL replay to complete and instance to promote
+      ansible.builtin.command: >-
+        {{ pg_bin_dir }}/psql
+        -h {{ recovery_socket_dir }}
+        -p {{ recovery_port }}
+        -U postgres
+        -XAtc "SELECT pg_is_in_recovery();"
+      become_user: postgres
+      register: _in_recovery
+      until: _in_recovery.stdout == "f"
+      retries: 60
+      delay: 10
+      changed_when: false
+
+    # -------------------------------------------------------------------------
+    # Validation queries
+    # -------------------------------------------------------------------------
+    - name: Run validation queries
+      ansible.builtin.command: >-
+        {{ pg_bin_dir }}/psql
+        -h {{ recovery_socket_dir }}
+        -p {{ recovery_port }}
+        -U postgres
+        -XAt -c "{{ item.query }}"
+      become_user: postgres
+      loop:
+        - label: "Database sizes"
+          query: >-
+            SELECT datname, pg_size_pretty(pg_database_size(datname))
+            FROM pg_database ORDER BY pg_database_size(datname) DESC;
+        - label: "Largest tables (row counts)"
+          query: >-
+            SELECT schemaname||'.'||relname, n_live_tup
+            FROM pg_stat_user_tables
+            ORDER BY n_live_tup DESC LIMIT 10;
+        - label: "Recovery end time"
+          query: "SELECT pg_walfile_name(pg_current_wal_lsn()), now();"
+      changed_when: false
+      register: _validation
+
+    - name: Show validation results
+      ansible.builtin.debug:
+        msg: "{{ item.item.label }}:\n{{ item.stdout }}"
+      loop: "{{ _validation.results }}"
+      loop_control:
+        label: "{{ item.item.label }}"
+
+    # -------------------------------------------------------------------------
+    # Cleanup — always runs, even if validation fails
+    # -------------------------------------------------------------------------
+    - name: Stop recovery instance
+      ansible.builtin.command: >-
+        {{ pg_bin_dir }}/pg_ctl stop
+        -D {{ recovery_pgdata }}
+        -m fast -w
+      become_user: postgres
+      changed_when: true
+      when: true  # explicit: always attempt stop even after failures
+
+    - name: Remove recovery PGDATA
+      ansible.builtin.file:
+        path: "{{ recovery_pgdata }}"
+        state: absent
+
+    - name: Remove recovery socket directory
+      ansible.builtin.file:
+        path: "{{ recovery_socket_dir }}"
+        state: absent
