@@ -111,8 +111,15 @@ galaxy_mutable_data_dir: "{{ galaxy_shared_root }}/database"
 
 galaxy_object_store_cache_path: "{{ galaxy_mutable_data_dir }}/object_store_cache"
 
-# Shared between prod and test (see inventories/host_vars/*/nfs_client.yml shared_tool_data mount)
-galaxy_tool_data_path: "{{ galaxy_shared_root }}/shared_tool_data"
+# Shared between prod and test at one path on every host (galaxy_shared_data_dir, nfs_config.yml)
+galaxy_tool_data_path: "{{ galaxy_shared_data_dir }}/tool_data"
+
+# Non-venv tool dependencies (conda), shared between prod and test
+galaxy_dependency_dir: "{{ galaxy_shared_data_dir }}/dependencies"
+galaxy_tool_dependency_dir: "{{ galaxy_shared_data_dir }}/dependencies/tool-dependencies"
+
+# Data Manager reference data, shared between prod and test
+galaxy_data_manager_data_path: "{{ galaxy_shared_data_dir }}/dm_data"
 
 # Where to write Galaxy logs to (same as default)
 # NOTE: needs to be referenced in gxconfig.yml to work
@@ -168,11 +175,10 @@ galaxy_local_tools_src_dir: "{{ inventory_dir }}/../files/galaxy/tools"
 # Local (relative to playbook) path to dynamic job rules
 galaxy_dynamic_job_rules_src_dir: "{{ inventory_dir }}/../files/galaxy/dynamic_job_rules"
 
-# Where the common tool pool is deployed and read from (see shared_tools mount
-# in inventories/host_vars/*/nfs_client.yml). Both envs load the same files
-# from here, generated into shared_local_tool_conf.xml
+# Where the common tool pool is deployed and read from. Both envs load the
+# same files from here, generated into shared_local_tool_conf.xml
 # (see playbooks/tasks/deploy-shared-local-tools.yml).
-galaxy_shared_local_tools_dir: "{{ galaxy_shared_root }}/shared_tools"
+galaxy_shared_local_tools_dir: "{{ galaxy_shared_data_dir }}/local_tools"
 
 # Tools identical on both prod and test. Env-only tools (e.g. test's TPV
 # routing-probe tools, or a tool version only one env is trialling) go in

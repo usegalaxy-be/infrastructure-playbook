@@ -2,4 +2,4 @@
 - name: Restart autofs
   systemd:
     name: autofs
-    state: restarted
+    state: "{{ autofs_handler_state }}"

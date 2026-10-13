@@ -56,10 +56,9 @@ autofs_mounts:
   - name: "prod"
     conf:
       - "database  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/database"
+      - "server  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/server"
+      - "venv  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/venv"
       - "local_tools  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/local_tools"
-      - "etc  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/etc"
-      - "dm-data  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/dm_data"
-      - "src  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/src"
       - "tmp  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/tmp"
     mountpoint: "/srv/galaxy/shared"
     conf_location: "/etc/auto.prod"
@@ -87,6 +86,10 @@ autofs_mounts:
     mountpoint: "/data_stage"
     conf_location: "/etc/auto.staging"
     map_options: "nfsvers=3 browse"
+  - "{{ galaxy_shared_autofs_mount }}"
+
+# VIB workers reach the NFS server on its VSC address
+galaxy_shared_nfs_server: "{{ vib_nfs_server }}"
 
 autofs_cleanup_entries:
   - conf_location: /etc/auto.srv

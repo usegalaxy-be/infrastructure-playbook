@@ -3,6 +3,9 @@ autofs_service:
   install: false
   enable: false
 
+# "reloaded" adds new maps without touching mounts in use
+autofs_handler_state: restarted
+
 # Consuming inventory (group_vars/host_vars) is expected to override this
 # wholesale with its own mounts — see prodcomputeservers.yml/vibcomputeservers.yml
 # for real examples.

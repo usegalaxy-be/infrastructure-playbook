@@ -2,6 +2,21 @@
 # NFS server storage network address — used by all clients for autofs maps.
 nfs_server_address: "{{ vault_nfs_server_address }}"
 
+# Data shared by prod and test, mounted at the same path on every host,
+# because conda environments and .loc files store absolute paths.
+galaxy_shared_data_dir: /srv/galaxy_shared
+galaxy_shared_nfs_server: "{{ nfs_server_address }}"
+galaxy_shared_autofs_mount:
+  name: galaxy_shared
+  mountpoint: "{{ galaxy_shared_data_dir }}"
+  conf_location: /etc/auto.galaxy_shared
+  map_options: "nfsvers=3 browse"
+  conf:
+    - "tool_data     -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/tool_data"
+    - "dependencies  -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/dependencies"
+    - "dm_data       -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/dm_data"
+    - "local_tools   -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/local_tools"
+
 # pdg.autofs — service configuration (shared across all hosts using autofs)
 autofs_service:
   install: true

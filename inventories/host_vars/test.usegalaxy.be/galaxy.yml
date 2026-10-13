@@ -30,9 +30,6 @@ galaxy_venv_dir: "{{ galaxy_shared_root }}/venv/venv-py{{ galaxy_python_version 
 galaxy_code_tmpfs_mount: /opt/galaxy_test
 galaxy_code_tmpfs_enabled: true
 
-# Non-venv tool dependencies, shared between prod and test (see shared_deps mount)
-galaxy_dependency_dir: "{{ galaxy_shared_root }}/shared_deps"
-galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/shared_deps/tool-dependencies"
 
 # rsynced tool dependencies from production
 # this should be done differenly by mounting the same shared directory for both production and test, but this is a quick solution for now
@@ -51,9 +48,9 @@ galaxy_tool_config_files:
 # (the common tool pool lives separately, see galaxy_shared_local_tools_dir).
 galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
 
-# Test-only tools: a version prod isn't on yet, and the TPV routing-probe tools.
+# Test-only tools: a version prod is not on yet, and the TPV test tools (prod has the condor ones too).
 # test tools are deployed to galaxy_local_tools_dir/tpv_test/ and appear in
-# local_tool_conf.xml under a "TPV test Tools" section (test only).
+# local_tool_conf.xml under a "TPV test Tools" section.
 galaxy_local_tools:
   - protein_calculator/v1.1.0+galaxy2/protein_calculator.xml
   # tool script (copied but not registered — the .py rides along so the container
@@ -70,9 +67,6 @@ galaxy_local_tools:
   - {file: tpv_test/test-pulsar-vib.xml,         section_name: "TPV test Tools", section_id: tpv_test}
   - {file: tpv_test/test-pulsar-vib-gpu.xml,     section_name: "TPV test Tools", section_id: tpv_test}
 
-# Directory to store Data Manager based tool-data. Shared between prod and test
-# (see shared_dm_data mount) — reference data, not env-specific state.
-galaxy_data_manager_data_path: "{{ galaxy_shared_root }}/shared_dm_data"
 
 # same as default
 # TODO: can be shared between prod and test

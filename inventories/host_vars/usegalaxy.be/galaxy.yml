@@ -27,9 +27,6 @@ galaxy_venv_dir: "{{ galaxy_shared_root }}/venv/venv-py{{ galaxy_python_version 
 galaxy_code_tmpfs_mount: /opt/galaxy_prod
 galaxy_code_tmpfs_enabled: true
 
-# Non-venv tool dependencies, shared between prod and test (see shared_deps mount)
-galaxy_dependency_dir: "{{ galaxy_shared_root }}/shared_deps"
-galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/shared_deps/tool-dependencies"
 
 # List of tool configs to load
 galaxy_tool_config_files:
@@ -42,13 +39,15 @@ galaxy_tool_config_files:
 
 # Directory on the Galaxy server where env-only local tools will be installed
 # (the common tool pool lives separately, see galaxy_shared_local_tools_dir).
-# Nothing prod-only right now.
 galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
-galaxy_local_tools: []
+# Test tools used by the job healthcheck (test also has the pulsar ones)
+galaxy_local_tools:
+  - {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-conda.xml,       section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-gpu.xml,         section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-gpu-v3.xml,      section_name: "TPV test Tools", section_id: tpv_test}
 
-# Directory to store Data Manager based tool-data. Shared between prod and test
-# (see shared_dm_data mount) — reference data, not env-specific state.
-galaxy_data_manager_data_path: "{{ galaxy_shared_root }}/shared_dm_data"
 
 # TODO: can be shared between prod and test
 galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"

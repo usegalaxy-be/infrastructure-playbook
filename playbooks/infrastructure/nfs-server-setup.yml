@@ -75,11 +75,13 @@
         opts: defaults,nofail
         state: mounted
 
+    # Owner only: existing directories keep their mode
     - name: Create NFS directory structure
       file:
         path: "{{ item }}"
         state: directory
-        mode: "0755"
+        owner: "{{ galaxy_user_name }}"
+        group: "{{ galaxy_user_name }}"
       loop:
         - /data/share/data_stage
         - /data/share/shared_certs
