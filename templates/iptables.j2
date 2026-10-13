@@ -1,0 +1,24 @@
+# Managed by Ansible — do not edit by hand.
+# Playbook: playbooks/infrastructure/security.yml
+#
+# Policy: SSH (port 22) is only accepted from the jumphost.
+#         All other ports are unrestricted at this layer
+#         (nginx 80/443, HTCondor, etc. are not affected).
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Always allow loopback
+-A INPUT -i lo -j ACCEPT
+
+# Allow already-established / related connections (must come before DROP rules)
+-A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+# Allow SSH from jumphost only
+-A INPUT -p tcp --dport 22 -s {{ ssh_jumphost_ip }} -j ACCEPT
+
+# Drop SSH from everywhere else
+-A INPUT -p tcp --dport 22 -j DROP
+
+COMMIT
