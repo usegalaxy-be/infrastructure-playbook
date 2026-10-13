@@ -1,0 +1,12 @@
+---
+# Takes effect on the next mount or reload of the repository, not on a running mount.
+- name: Write per-repository CVMFS client config
+  ansible.builtin.copy:
+    dest: /etc/cvmfs/config.d/{{ item.key }}.local
+    content: "{{ (['# Managed by Ansible (pdg.cvmfs_repo_config)'] + item.value) | join('\n') }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ cvmfs_repo_config | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
