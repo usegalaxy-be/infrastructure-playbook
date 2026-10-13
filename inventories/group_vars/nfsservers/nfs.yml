@@ -23,7 +23,7 @@ nfs_server_threads: 64
 #
 # Prod and test use the identical set of per-env subdirectory names
 # (database, server, venv, local_tools, tmp) under their own tree
-# (prod_duplicate/, test_share/). Anything that doesn't need to differ
+# (prod/, test/). Anything that doesn't need to differ
 # between the two environments (reference tool_data, non-venv tool
 # dependencies, the common local_tools pool) lives once under shared_data
 # instead of being duplicated on both trees.
@@ -48,22 +48,18 @@ nfs_exports:
 
   # --- Test environment ---
   # galaxy_dirs (galaxy-user owned) — root_squash OK
-  - "/data/share/test_share/database                   *(rw,sync,root_squash,no_subtree_check)"
+  - "/data/share/test/database                   *(rw,sync,root_squash,no_subtree_check)"
   # galaxy_privsep_dirs (root/privsep owned) — no_root_squash required for Ansible writes
-  - "/data/share/test_share/server                     *(rw,sync,no_root_squash,no_subtree_check)"
-  - "/data/share/test_share/venv                       *(rw,sync,no_root_squash,no_subtree_check)"
-  - "/data/share/test_share/local_tools                *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/test/server                     *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/test/venv                       *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/test/local_tools                *(rw,sync,no_root_squash,no_subtree_check)"
   # galaxy_job_working_directory — Docker daemon (root) bind-mounts job dirs from here
-  - "/data/share/test_share/tmp                        *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/test/tmp                        *(rw,sync,no_root_squash,no_subtree_check)"
 
   # --- Prod environment ---
   # galaxy_dirs (galaxy-user owned) — root_squash OK
-  - "/data/share/prod_duplicate/database               *(rw,sync,root_squash,no_subtree_check)"
+  - "/data/share/prod/database               *(rw,sync,root_squash,no_subtree_check)"
   # galaxy_privsep_dirs (root/privsep owned) — no_root_squash required
-  - "/data/share/prod_duplicate/server                 *(rw,sync,no_root_squash,no_subtree_check)"
-  - "/data/share/prod_duplicate/venv                   *(rw,sync,no_root_squash,no_subtree_check)"
-  - "/data/share/prod_duplicate/local_tools            *(rw,sync,no_root_squash,no_subtree_check)"
-  # galaxy_job_working_directory — Docker daemon (root) bind-mounts job dirs from here.
-  # prod_duplicate/tmp is a dedicated mount for job working dirs + scratch, matching test_share/tmp.
-  # Galaxy job_working_directory, new_file_path, and tmp_dir point here (not inside database/).
-  - "/data/share/prod_duplicate/tmp                    *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/prod/server                 *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/prod/venv                   *(rw,sync,no_root_squash,no_subtree_check)"
+  - "/data/share/prod/local_tools            *(rw,sync,no_root_squash,no_subtree_check)"

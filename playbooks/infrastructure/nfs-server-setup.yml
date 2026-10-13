@@ -15,8 +15,8 @@
 #     /data/share/shared_data/dm_data      — shared Data Manager reference data
 #     /data/share/shared_data/local_tools  — shared local_tools pool (no_root_squash)
 #
-#   Per environment, identical subdirectory names under test_share/ and
-#   prod_duplicate/ (root_squash unless noted):
+#   Per environment, identical subdirectory names under test/ and
+#   prod/ (root_squash unless noted):
 #     database     — Galaxy mutable data dir
 #     server       — Galaxy server code (no_root_squash: Ansible privsep writes)
 #     venv         — Galaxy virtualenv (no_root_squash: Ansible privsep writes)
@@ -91,19 +91,18 @@
         - /data/share/shared_data/dm_data
         - /data/share/shared_data/local_tools
         # Test environment
-        - /data/share/test_share
-        - /data/share/test_share/database
-        - /data/share/test_share/tmp
-        - /data/share/test_share/server
-        - /data/share/test_share/venv
-        - /data/share/test_share/local_tools
+        - /data/share/test
+        - /data/share/test/database
+        - /data/share/test/tmp
+        - /data/share/test/server
+        - /data/share/test/venv
+        - /data/share/test/local_tools
         # Prod environment
-        - /data/share/prod_duplicate
-        - /data/share/prod_duplicate/database
-        - /data/share/prod_duplicate/server
-        - /data/share/prod_duplicate/venv
-        - /data/share/prod_duplicate/local_tools
-        - /data/share/prod_duplicate/tmp
+        - /data/share/prod
+        - /data/share/prod/database
+        - /data/share/prod/server
+        - /data/share/prod/venv
+        - /data/share/prod/local_tools
 
   roles:
     - role: geerlingguy.nfs

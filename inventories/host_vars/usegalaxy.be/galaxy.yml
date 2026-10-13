@@ -58,21 +58,20 @@ galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"
 # TODO: unify between test and prod
 old_galaxy_file_path: "{{ galaxy_mutable_data_dir }}/files"
 galaxy_file_path: "{{ galaxy_mutable_data_dir }}/objects"
-# tmp/* paths live on a dedicated NFS mount (prod_duplicate/tmp, no_root_squash) separate
-# from the database mount. This allows Docker daemon (root) to bind-mount job working dirs
-# into containers without NFS root_squash blocking it. Mirrors test layout.
-galaxy_tmp_dir: "{{ galaxy_shared_root }}/tmp/temp"
+galaxy_tmp_dir: "{{ galaxy_mutable_data_dir }}/tmp/temp"
 
 # Where temporary files are stored. It must be accessible at the same
 # path on any cluster nodes that will run Galaxy jobs
-galaxy_new_file_path: "{{ galaxy_shared_root }}/tmp/scratch"
+# TODO: unify between test and prod
+galaxy_new_file_path: "{{ galaxy_mutable_data_dir }}/tmp/scratch"
 
 # Each job is given a unique empty directory as its current working
 # directory. This option defines in what parent directory those
 # directories will be created.
-galaxy_job_working_directory: "{{ galaxy_shared_root }}/tmp/jobs"
+# TODO: unify between test and prod
+galaxy_job_working_directory: "{{ galaxy_mutable_data_dir }}/tmp/jobs"
 # NOTE: unused
-# galaxy_cluster_files_directory: "{{ galaxy_shared_root }}/tmp/pbs"
+# galaxy_cluster_files_directory: "{{ galaxy_mutable_data_dir }}/tmp/pbs"
 
 # Top level cache directory. Any other cache directories (tool_cache_data_dir, template_cache_path, etc.)
 # should be subdirectories.

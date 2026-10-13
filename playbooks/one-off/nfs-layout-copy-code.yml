@@ -14,10 +14,10 @@
   vars:
     layout_copies:
       prod:
-        - {src: /data/share/prod_duplicate/src/, dest: /data/share/prod_duplicate/server/}
-        - {src: /data/share/prod_duplicate/etc/venv-py3.11/, dest: /data/share/prod_duplicate/venv/venv-py3.11/}
+        - {src: /data/share/prod/src/, dest: /data/share/prod/server/}
+        - {src: /data/share/prod/etc/venv-py3.11/, dest: /data/share/prod/venv/venv-py3.11/}
       test:
-        - {src: /data/share/test_share/database/tool-dependencies/venv-py3.11/, dest: /data/share/test_share/venv/venv-py3.11/}
+        - {src: /data/share/test/database/tool-dependencies/venv-py3.11/, dest: /data/share/test/venv/venv-py3.11/}
     # Client paths in the virtualenv scripts: old -> new
     layout_rewrites:
       prod:

@@ -1,0 +1,24 @@
+---
+# Keeps prod on its current NFS paths until the prod window of the NFS layout RFC.
+# Loaded after galaxy.yml, so these values win. Deleting this file switches prod to the new layout.
+
+galaxy_server_dir: "{{ galaxy_shared_root }}/src"
+galaxy_venv_dir: "{{ galaxy_shared_root }}/etc/venv-py{{ galaxy_python_version }}"
+galaxy_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies"
+galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies/tool-dependencies"
+galaxy_tool_data_path: "{{ galaxy_mutable_config_dir }}/tool_data"
+galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_data"
+galaxy_local_tools_dir: "{{ galaxy_mutable_data_dir }}/local_tools"
+galaxy_shared_local_tools_dir: "{{ galaxy_local_tools_dir }}"
+
+galaxy_tool_config_files:
+  - "{{ galaxy_config_dir }}/tool_conf.xml"
+  - "{{ galaxy_shed_tool_conf_file }}"
+
+galaxy_local_tools: >-
+  {{ galaxy_shared_local_tools + [
+    {'file': 'tpv_test/test-condor-singularity.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
+    {'file': 'tpv_test/test-condor-docker.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
+    {'file': 'tpv_test/test-condor-conda.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
+    {'file': 'tpv_test/test-condor-gpu.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
+    {'file': 'tpv_test/test-condor-gpu-v3.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'}] }}
