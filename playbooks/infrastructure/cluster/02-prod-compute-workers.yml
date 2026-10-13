@@ -79,6 +79,9 @@
       - role: galaxyproject.cvmfs
         tags: cvmfs
 
+      - role: pdg.cvmfs_repo_config
+        tags: cvmfs
+
       # HTCondor Cluster setup
 
       - role: grycap.htcondor

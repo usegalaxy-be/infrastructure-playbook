@@ -127,6 +127,9 @@
       - role: galaxyproject.cvmfs
         tags: [cvmfs]
 
+      - role: pdg.cvmfs_repo_config
+        tags: [cvmfs]
+
   # NOTE: add service restarts as post tasks (firewall, galaxy, condor, ...)
   post_tasks:
     # NOTE: vcgn images are shipped with several services including pulsar, which is not currently necessary for our galaxy server
