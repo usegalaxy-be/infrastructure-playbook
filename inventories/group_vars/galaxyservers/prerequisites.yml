@@ -32,6 +32,9 @@ nginx_conf_user: "{{ galaxy_user_name }}"
 # miniconda_prefix: "{{ galaxy_tool_dependency_dir }}/_conda"
 miniconda_prefix: '{{ galaxy_dependency_dir }}/miniconda3'
 
+# ulimit -v (KB, 12 GB) for conda-memlimited, see conda_exec in gxconfig.yml.
+conda_memlimited_ulimit_kb: 12582912
+
 # Community-built conda envs, same repo usegalaxy.org uses (see dependency_resolvers_conf.xml).
 galaxy_cvmfs_conda_prefix: /cvmfs/main.galaxyproject.org/deps/_conda
 
