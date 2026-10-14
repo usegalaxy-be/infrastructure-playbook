@@ -4,10 +4,10 @@
 # Packages come from the old package cache. Each finished environment gets a marker file;
 # environments without one are cloned again, so the run can be repeated after an interruption.
 #
-# Needs the galaxy_shared autofs map and miniconda at the new path:
+# Installs Miniforge (conda-forge only) at the new path first, if it is missing.
+# Needs the galaxy_shared autofs map:
 #   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit usegalaxy.be
-#   ansible-playbook playbooks/infrastructure/03-galaxy-prerequisites.yml --limit test.usegalaxy.be --tags miniconda
-# Usage:
+# Usage, from tmux: the clone takes hours, and a second run while one is going stops with exit 3.
 #   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml
 #   -e conda_copy_allow_failed=true   finish even if some environments failed (listed in the result)
 
@@ -20,13 +20,44 @@
     conda_copy_old: /srv/galaxy/shared/etc/dependencies
     conda_copy_new: "{{ galaxy_shared_data_dir }}/dependencies"
     conda_copy_allow_failed: false
+    conda_copy_miniforge_version: 26.7.2-0
+    conda_copy_miniforge_sha256: 281b0ac7d550802efc81af633225a5e6116d29ae72f3ab4eae7168c3931a4c05
 
   tasks:
     - name: Check the new conda is installed
       ansible.builtin.stat:
         path: "{{ conda_copy_new }}/miniconda3/bin/conda"
       register: conda_copy_bin
-      failed_when: not conda_copy_bin.stat.exists
+
+    - name: Install Miniforge
+      when: not conda_copy_bin.stat.exists
+      block:
+        - name: Download the Miniforge installer
+          ansible.builtin.get_url:
+            url: "https://github.com/conda-forge/miniforge/releases/download/{{ conda_copy_miniforge_version }}/Miniforge3-{{ conda_copy_miniforge_version }}-Linux-x86_64.sh"
+            dest: /tmp/miniforge-installer.sh
+            checksum: "sha256:{{ conda_copy_miniforge_sha256 }}"
+            mode: "0700"
+
+        - name: Run the Miniforge installer
+          ansible.builtin.command: bash /tmp/miniforge-installer.sh -b -p {{ conda_copy_new }}/miniconda3
+          args:
+            creates: "{{ conda_copy_new }}/miniconda3/bin/conda"
+      always:
+        - name: Remove the Miniforge installer
+          ansible.builtin.file:
+            path: /tmp/miniforge-installer.sh
+            state: absent
+
+    - name: Channels for the new conda
+      ansible.builtin.copy:
+        dest: "{{ conda_copy_new }}/miniconda3/.condarc"
+        content: |
+          channels:
+            - conda-forge
+            - bioconda
+          channel_priority: strict
+        mode: "0644"
 
     # flock: a second run exits instead of cloning in parallel
     - name: Clone each environment into the new conda

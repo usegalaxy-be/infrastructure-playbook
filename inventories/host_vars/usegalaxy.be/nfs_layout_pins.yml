@@ -9,6 +9,8 @@ galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies/tool-depe
 galaxy_tool_data_path: "{{ galaxy_mutable_config_dir }}/tool_data"
 galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_data"
 galaxy_local_tools_dir: "{{ galaxy_mutable_data_dir }}/local_tools"
+miniconda_version: latest
+miniconda_channels: []
 galaxy_shared_local_tools_dir: "{{ galaxy_local_tools_dir }}"
 
 galaxy_tool_config_files:
