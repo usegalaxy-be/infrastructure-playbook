@@ -2,6 +2,9 @@
 # NFS server storage network address — used by all clients for autofs maps.
 nfs_server_address: "{{ vault_nfs_server_address }}"
 
+# Map changes reload autofs; a restart can drop mounts that running jobs use.
+autofs_handler_state: reloaded
+
 # Data shared by prod and test, mounted at the same path on every host,
 # because conda environments and .loc files store absolute paths.
 galaxy_shared_data_dir: /srv/galaxy_shared

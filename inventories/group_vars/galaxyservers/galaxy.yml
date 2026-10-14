@@ -402,6 +402,8 @@ galaxy_container_volumes:
     - "{{ galaxy_data_manager_data_path }}:ro"
     #- "{{ legacy_data_manager_data_path }}:ro"
     - "/srv/galaxy/shared/database/reference_data:ro"
+    - "{{ galaxy_shared_data_dir }}/dm_data:ro"
+    - "{{ galaxy_shared_data_dir }}/tool_data:ro"
     - "/cvmfs/data.galaxyproject.org:ro"
   # Same as 'local' but without $_CONDOR_SCRATCH_DIR, which HTCondor sets and
   # local_runner jobs never have. Scratch space is already covered by
@@ -422,6 +424,8 @@ galaxy_container_volumes:
     - "{{ galaxy_file_path }}:ro"
     - "{{ old_galaxy_file_path }}:ro"
     - "{{ galaxy_data_manager_data_path }}:ro"
+    - "{{ galaxy_shared_data_dir }}/dm_data:ro"
+    - "{{ galaxy_shared_data_dir }}/tool_data:ro"
     - "/cvmfs/data.galaxyproject.org:ro"
   vib:
     - "$_CONDOR_SCRATCH_DIR:rw"
@@ -440,4 +444,6 @@ galaxy_container_volumes:
     - "{{ galaxy_data_manager_data_path }}:ro"
     # - "{{ legacy_data_manager_data_path }}:ro"
     - "/srv/galaxy/shared/database/reference_data:ro"
+    - "{{ galaxy_shared_data_dir }}/dm_data:ro"
+    - "{{ galaxy_shared_data_dir }}/tool_data:ro"
     - "/cvmfs/data.galaxyproject.org:ro"

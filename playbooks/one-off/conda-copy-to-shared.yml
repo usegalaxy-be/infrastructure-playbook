@@ -4,10 +4,10 @@
 # Packages come from the old package cache. Each finished environment gets a marker file;
 # environments without one are cloned again, so the run can be repeated after an interruption.
 #
-# Needs the galaxy_shared autofs map and miniconda at the new path:
+# Needs the galaxy_shared autofs map and Miniforge at the new path:
 #   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit usegalaxy.be
 #   ansible-playbook playbooks/infrastructure/03-galaxy-prerequisites.yml --limit test.usegalaxy.be --tags miniconda
-# Usage:
+# Usage, from tmux: the clone takes hours, and a second run while one is going stops with exit 3.
 #   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml
 #   -e conda_copy_allow_failed=true   finish even if some environments failed (listed in the result)
 
