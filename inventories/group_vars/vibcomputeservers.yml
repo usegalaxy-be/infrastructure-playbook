@@ -101,4 +101,4 @@ autofs_cleanup_entries:
   - conf_location: /etc/auto.legacy
     key: dm-data
     unmount_path: /galaxy_base/scratch_prod/dm-data
-    remove_master_entry: galaxy_base/scratch_prod
+    remove_master_entry: legacy
