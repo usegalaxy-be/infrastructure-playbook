@@ -35,8 +35,9 @@ miniconda_prefix: '{{ galaxy_dependency_dir }}/miniconda3'
 # Community-built conda envs, same repo usegalaxy.org uses (see dependency_resolvers_conf.xml).
 galaxy_cvmfs_conda_prefix: /cvmfs/main.galaxyproject.org/deps/_conda
 
-# Miniforge 26.7.2-0 at the shared prefix, installed by playbooks/one-off/conda-copy-to-shared.yml.
-# conda-forge only: the Anaconda "defaults" channel needs its terms of service.
+# Miniforge, conda-forge only: the Anaconda "defaults" channel needs its terms of service.
+miniconda_distribution: miniforge
+miniconda_installer_version: 26.7.2-0
 miniconda_version: "26.7.2"
 miniconda_channels: ['conda-forge']
 
