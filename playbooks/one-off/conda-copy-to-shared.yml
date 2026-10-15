@@ -10,9 +10,12 @@
 # Usage, from tmux: the clone takes hours, and a second run while one is going stops with exit 3.
 #   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml
 #   -e conda_copy_allow_failed=true   finish even if some environments failed (listed in the result)
+# Then test's own environments that prod does not have:
+#   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml -e conda_copy_host=test.usegalaxy.be \
+#     -e conda_copy_old=/srv/galaxy_test/shared/database/tool-dependencies -e conda_copy_legacy=false
 
 - name: Copy conda environments to the shared path
-  hosts: usegalaxy.be
+  hosts: "{{ conda_copy_host | default('usegalaxy.be') }}"
   become: true
   become_user: "{{ galaxy_user_name }}"
   gather_facts: false
@@ -20,6 +23,7 @@
     conda_copy_old: /srv/galaxy/shared/etc/dependencies
     conda_copy_new: "{{ galaxy_shared_data_dir }}/dependencies"
     conda_copy_allow_failed: false
+    conda_copy_legacy: true
 
   tasks:
     - name: Check the new conda is installed
@@ -64,11 +68,13 @@
       changed_when: false
 
     - name: Copy the legacy tool-dependencies tree
+      when: conda_copy_legacy | bool
       ansible.builtin.command:
         cmd: rsync -a {{ conda_copy_old }}/tool-dependencies/ {{ conda_copy_new }}/tool-dependencies/
       changed_when: true
 
     - name: Point the legacy tool-dependencies env files at the new path
+      when: conda_copy_legacy | bool
       ansible.builtin.shell: |
         grep -rlZ --include=env.sh "{{ conda_copy_old }}" "{{ conda_copy_new }}/tool-dependencies" \
           | xargs -0 -r sed -i "s#{{ conda_copy_old }}#{{ conda_copy_new }}#g"
