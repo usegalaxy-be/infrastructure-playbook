@@ -139,7 +139,7 @@ galaxy_extra_dirs:
   - "{{ galaxy_data_manager_data_path }}"
   - "{{ galaxy_shed_tool_data_path }}"
   - "{{ galaxy_shed_database_path }}"
-  - "{{ galaxy_shared_local_tools_dir }}/interactive"
+  - "{{ galaxy_local_tools_dir }}/interactive"
   - "{{ galaxy_library_dir }}/admin"
   - "{{ galaxy_library_dir }}/user"
   - "{{ galaxy_job_working_directory }}/_interactive"
@@ -166,24 +166,19 @@ galaxy_job_metrics_plugins:
 
 galaxy_config_style: yaml
 
-# Local (relative to playbook) path to local tools. Shared between both envs;
-# which destination (shared vs per-env) each file goes to is decided by which
-# list it's in (galaxy_shared_local_tools below, vs galaxy_local_tools in
-# each host's own host_vars), not by which subdirectory it lives in here.
+# Local (relative to playbook) path to local tools
 galaxy_local_tools_src_dir: "{{ inventory_dir }}/../files/galaxy/tools"
 
 # Local (relative to playbook) path to dynamic job rules
 galaxy_dynamic_job_rules_src_dir: "{{ inventory_dir }}/../files/galaxy/dynamic_job_rules"
 
-# Where the common tool pool is deployed and read from. Both envs load the
-# same files from here, generated into shared_local_tool_conf.xml
-# (see playbooks/tasks/deploy-shared-local-tools.yml).
-galaxy_shared_local_tools_dir: "{{ galaxy_shared_data_dir }}/local_tools"
+# Each env's own copy, on its NFS tree
+galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
 
-# Tools identical on both prod and test. Env-only tools (e.g. test's TPV
-# routing-probe tools, or a tool version only one env is trialling) go in
-# that host's own galaxy_local_tools instead (host_vars/*/galaxy.yml).
-galaxy_shared_local_tools:
+# Local tools: the common list plus each host's galaxy_local_tools_env
+galaxy_local_tools: "{{ galaxy_local_tools_common + galaxy_local_tools_env }}"
+galaxy_local_tools_env: []
+galaxy_local_tools_common:
 - api_test.xml
 - testing.xml
 - plink.xml

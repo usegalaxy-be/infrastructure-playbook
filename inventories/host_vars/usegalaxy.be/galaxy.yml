@@ -32,16 +32,12 @@ galaxy_code_tmpfs_enabled: true
 galaxy_tool_config_files:
   - "{{ galaxy_config_dir }}/tool_conf.xml"
   - "{{ galaxy_shed_tool_conf_file }}"
-  - "{{ galaxy_config_dir }}/shared_local_tool_conf.xml"
   # - "{{ shared_tool_conf_file | default('') }}"
   # - "{{ galaxy_server_dir }}/config/tool_conf.xml.sample"
   # - "{{ galaxy_config_dir }}/interactive_tools_conf.xml"
 
-# Directory on the Galaxy server where env-only local tools will be installed
-# (the common tool pool lives separately, see galaxy_shared_local_tools_dir).
-galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
 # Test tools used by the job healthcheck (test also has the pulsar ones)
-galaxy_local_tools:
+galaxy_local_tools_env:
   - {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
   - {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
   - {file: tpv_test/test-condor-conda.xml,       section_name: "TPV test Tools", section_id: tpv_test}

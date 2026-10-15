@@ -18,7 +18,6 @@ galaxy_shared_autofs_mount:
     - "tool_data     -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/tool_data"
     - "dependencies  -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/dependencies"
     - "dm_data       -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/dm_data"
-    - "local_tools   -rw,hard,intr,nosuid,quota  {{ galaxy_shared_nfs_server }}:/data/share/shared_data/local_tools"
 
 # pdg.autofs — service configuration (shared across all hosts using autofs)
 autofs_service:

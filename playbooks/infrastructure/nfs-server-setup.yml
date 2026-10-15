@@ -13,14 +13,13 @@
 #     /data/share/shared_data/tool_data    — shared tool_data_path
 #     /data/share/shared_data/dependencies — shared non-venv tool dependencies
 #     /data/share/shared_data/dm_data      — shared Data Manager reference data
-#     /data/share/shared_data/local_tools  — shared local_tools pool (no_root_squash)
 #
 #   Per environment, identical subdirectory names under test/ and
 #   prod/ (root_squash unless noted):
 #     database     — Galaxy mutable data dir
 #     server       — Galaxy server code (no_root_squash: Ansible privsep writes)
 #     venv         — Galaxy virtualenv (no_root_squash: Ansible privsep writes)
-#     local_tools  — env-only local tools (no_root_squash)
+#     local_tools  — local tools (no_root_squash)
 #     tmp          — job working dirs (no_root_squash: Docker daemon root bind-mounts these)
 #
 # The shared_data/* and per-env server/venv/local_tools/tmp directories are
@@ -89,7 +88,6 @@
         - /data/share/shared_data/tool_data
         - /data/share/shared_data/dependencies
         - /data/share/shared_data/dm_data
-        - /data/share/shared_data/local_tools
         # Test environment
         - /data/share/test
         - /data/share/test/database

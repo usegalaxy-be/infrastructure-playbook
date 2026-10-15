@@ -39,19 +39,14 @@ shared_tool_conf_file: "{{ galaxy_shared_root }}/shared_data/test/mutable-config
 galaxy_tool_config_files:
   - "{{ galaxy_config_dir }}/tool_conf.xml"
   - "{{ galaxy_shed_tool_conf_file }}"
-  - "{{ galaxy_config_dir }}/shared_local_tool_conf.xml"
   - "{{ shared_tool_conf_file | default('') }}"
   # - "{{ galaxy_server_dir }}/config/tool_conf.xml.sample"
   - "{{ galaxy_config_dir }}/tool_conf_interactive.xml"
 
-# Directory on the Galaxy server where env-only local tools will be installed
-# (the common tool pool lives separately, see galaxy_shared_local_tools_dir).
-galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
-
 # Test-only tools: a version prod is not on yet, and the TPV test tools (prod has the condor ones too).
 # test tools are deployed to galaxy_local_tools_dir/tpv_test/ and appear in
 # local_tool_conf.xml under a "TPV test Tools" section.
-galaxy_local_tools:
+galaxy_local_tools_env:
   - protein_calculator/v1.1.0+galaxy2/protein_calculator.xml
   # tool script (copied but not registered — the .py rides along so the container
   # version check ($__root_dir__ -> lib/galaxy/version.py) is deployed, not scp'd)

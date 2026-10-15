@@ -25,7 +25,7 @@ nfs_server_threads: 64
 # (database, server, venv, local_tools, tmp) under their own tree
 # (prod/, test/). Anything that doesn't need to differ
 # between the two environments (reference tool_data, non-venv tool
-# dependencies, the common local_tools pool) lives once under shared_data
+# dependencies) lives once under shared_data
 # instead of being duplicated on both trees.
 nfs_exports:
   # Parent export (required; NFS server needs to export a parent before its children).
@@ -43,8 +43,6 @@ nfs_exports:
   - "/data/share/shared_data/tool_data                  *(rw,sync,root_squash,no_subtree_check)"
   - "/data/share/shared_data/dependencies               *(rw,sync,root_squash,no_subtree_check)"
   - "/data/share/shared_data/dm_data                    *(rw,sync,root_squash,no_subtree_check)"
-  # shared_data/local_tools: common tool pool used by both envs; Ansible writes as galaxy_master
-  - "/data/share/shared_data/local_tools                *(rw,sync,no_root_squash,no_subtree_check)"
 
   # --- Test environment ---
   # galaxy_dirs (galaxy-user owned) — root_squash OK
