@@ -73,10 +73,6 @@ galaxy_job_working_directory: "{{ galaxy_mutable_data_dir }}/tmp/jobs"
 # NOTE: unused
 # galaxy_cluster_files_directory: "{{ galaxy_mutable_data_dir }}/tmp/pbs"
 
-# Top level cache directory. Any other cache directories (tool_cache_data_dir, template_cache_path, etc.)
-# should be subdirectories.
-galaxy_cache_dir: "{{ galaxy_mutable_data_dir }}/cache"
-
 # TODO: implement a local disk (not NFS) iRODS object store cache to avoid double network hop
 # galaxy_irods_cache_path: "{{ galaxy_local_root }}/object_store_cache"
 
