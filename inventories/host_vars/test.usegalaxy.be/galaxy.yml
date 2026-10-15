@@ -90,9 +90,6 @@ galaxy_job_working_directory: "{{ galaxy_shared_root }}/tmp/jobs"
 # NOTE: unused
 # galaxy_cluster_files_directory: "{{ galaxy_shared_root }}/tmp/pbs"
 
-# TODO: check if this actually needs to be set
-galaxy_cache_dir: "{{ galaxy_shared_root }}/tmp/cache"
-
 # TODO: implement a local disk (not NFS) iRODS object store cache to avoid double network hop
 # galaxy_irods_cache_path: "{{ galaxy_local_root }}/object_store_cache"
 
