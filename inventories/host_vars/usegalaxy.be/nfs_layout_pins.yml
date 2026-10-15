@@ -11,16 +11,4 @@ galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_
 galaxy_local_tools_dir: "{{ galaxy_mutable_data_dir }}/local_tools"
 miniconda_version: latest
 miniconda_channels: []
-galaxy_shared_local_tools_dir: "{{ galaxy_local_tools_dir }}"
 
-galaxy_tool_config_files:
-  - "{{ galaxy_config_dir }}/tool_conf.xml"
-  - "{{ galaxy_shed_tool_conf_file }}"
-
-galaxy_local_tools: >-
-  {{ galaxy_shared_local_tools + [
-    {'file': 'tpv_test/test-condor-singularity.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
-    {'file': 'tpv_test/test-condor-docker.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
-    {'file': 'tpv_test/test-condor-conda.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
-    {'file': 'tpv_test/test-condor-gpu.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'},
-    {'file': 'tpv_test/test-condor-gpu-v3.xml', 'section_name': 'TPV test Tools', 'section_id': 'tpv_test'}] }}

@@ -1,0 +1,10 @@
+---
+# Creates the subdirectories of galaxy_local_tools, which the galaxyproject.galaxy role copies into but does not create.
+- name: Create local tool directories
+  ansible.builtin.file:
+    path: "{{ galaxy_local_tools_dir }}/{{ (item.file | default(item)) | dirname }}"
+    state: directory
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+  loop: "{{ galaxy_local_tools | default([]) }}"
+  when: (item.file | default(item)) | dirname | length > 0
