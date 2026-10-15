@@ -11,10 +11,3 @@ condor_peer_schedd_dnat:
   - floating_ip: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_vip_ip }}"   # test head VSC floating IP
     vm_ip: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_ip }}"           # test head VM-network IP
 
-# pdg.rsync_tool_dependencies
-
-rsync_source: "/srv/galaxy/shared/etc/dependencies"
-rsync_destination: "/srv/galaxy/shared/etc/dependencies_test"
-rsync_chdir: "/"
-rsync_enabled: false
-cron_enabled: true

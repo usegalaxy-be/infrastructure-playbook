@@ -1,0 +1,19 @@
+---
+# autofs maps for test.usegalaxy.be, written by nfs-client-mounts.yml.
+# Same per-env names as prod; data shared with prod is in galaxy_shared_autofs_mount.
+# Map name matches the existing file (data.autofs), so it is replaced in place.
+
+autofs_mounts:
+  - name: data
+    mountpoint: "/srv/galaxy_test/shared"
+    conf_location: "/etc/auto.data"
+    map_options: "nfsvers=3 browse"
+    conf:
+      - "database      -rw,hard,intr,nosuid,quota,local_lock=all  {{ nfs_server_address }}:/data/share/test/database"
+      - "server        -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test/server"
+      - "venv          -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test/venv"
+      - "local_tools   -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/test/local_tools"
+      - "tmp           -rw,hard,intr,nosuid,quota,local_lock=all  {{ nfs_server_address }}:/data/share/test/tmp"
+      - "shared_certs  -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_certs"
+      - "shared_data   -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data"
+  - "{{ galaxy_shared_autofs_mount }}"

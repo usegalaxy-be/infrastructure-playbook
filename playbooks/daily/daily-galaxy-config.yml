@@ -14,6 +14,8 @@
     - name: Print
       debug:
         msg: "galaxy_server_dir: {{ galaxy_server_dir }}"
+
+    - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/local-tools-dirs.yml"
   roles:
     # set up local galaxy clone and local config
     - role: galaxyproject.galaxy

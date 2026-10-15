@@ -1,0 +1,30 @@
+---
+# NFS Client Mounts (autofs)
+# ==========================
+# Writes the autofs maps on Galaxy heads and compute workers, then reloads autofs.
+# A reload adds new mount points and entries without touching mounts in use.
+# Maps: autofs_mounts in host_vars/*/nfs_client.yml (heads) and
+# group_vars/{prod,vib}computeservers.yml (workers); the shared map is
+# galaxy_shared_autofs_mount in group_vars/all/nfs_config.yml.
+#
+# Usage:
+#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml
+#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit testgalaxyservers
+
+- name: Configure NFS client mounts via autofs
+  hosts: "galaxyservers:computeservers"
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Create NFS mount base directories
+      file:
+        path: "{{ item.mountpoint }}"
+        state: directory
+        mode: "0755"
+      loop: "{{ autofs_mounts }}"
+
+  roles:
+    - role: pdg.autofs
+      vars:
+        autofs_handler_state: reloaded

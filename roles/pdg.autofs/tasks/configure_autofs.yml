@@ -7,7 +7,7 @@
     group: root
     mode: 0644
   loop: "{{ autofs_mounts }}"
-  # notify: Restart autofs
+  notify: Restart autofs
 
 - name: Copy mount point configuration files
   template:
