@@ -2,6 +2,9 @@
 # Set up production HTCondor worker nodes (prodcomputeservers) that execute Galaxy tool jobs.
 # Workers join the Galaxy HTCondor pool managed by the head node on usegalaxy.be.
 # Run after 06-galaxy-postrequisites.yml. Use --limit <host> to target a single worker.
+# GPU workers set gpu_generation (v2 = GPUv2/T4, v3 = GPUv3/A2) in inventories/hosts.
+# To only (re)advertise the GPU generation, without restarting Docker or HTCondor:
+#   ansible-playbook playbooks/infrastructure/cluster/02-prod-compute-workers.yml --limit worker12x0.usegalaxy.be --tags gpu
 
 - hosts: prodcomputeservers
   become: true
@@ -119,6 +122,24 @@
       notify: Restart condor
       tags: condor
 
+    - name: Advertise GPUs and generation for GPU workers
+      ansible.builtin.copy:
+        dest: /etc/condor/config.d/20-gpu.conf
+        content: |
+          # Advertise GPUs so request_gpus and GPU TPV destinations can target this node.
+          use feature : GPUs
+
+          # Hardware generation so TPV can distinguish GPUv2 (Tesla T4) vs GPUv3 (A2) workers.
+          GPUGeneration = "{{ gpu_generation }}"
+          STARTD_ATTRS = $(STARTD_ATTRS) GPUGeneration
+        owner: root
+        group: root
+        mode: '0644'
+      when: gpu_generation is defined
+      # A new ClassAd attribute only needs a reconfig; a restart would evict running jobs.
+      notify: Reconfigure condor
+      tags: [condor, gpu]
+
     - name: Disable pulsar
       systemd:
         name: pulsar
@@ -193,3 +214,6 @@
       ansible.builtin.systemd:
         name: condor
         state: restarted
+    - name: Reconfigure condor
+      ansible.builtin.command: condor_reconfig
+      changed_when: true

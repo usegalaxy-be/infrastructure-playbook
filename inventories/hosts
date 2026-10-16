@@ -94,7 +94,7 @@ usegalaxy.be
 
 [prodcomputeservers]
 #worker1xl0.usegalaxy.be ansible_port=22 ansible_user=test #legacy
-worker12x0.usegalaxy.be ansible_port=22 ansible_user=test
+worker12x0.usegalaxy.be ansible_port=22 ansible_user=test gpu_generation=v3
 worker4x0.usegalaxy.be  ansible_port=22 ansible_user=test
 worker4x1.usegalaxy.be  ansible_port=22 ansible_user=test
 worker4x2.usegalaxy.be  ansible_port=22 ansible_user=test
