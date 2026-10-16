@@ -60,6 +60,13 @@
         name: condor
         state: absent
       when: uninstall_condor
+    # pdg.nvidia_gpu only updates the kernel on a worker without a driver yet.
+    - name: Check for an installed NVIDIA driver
+      ansible.builtin.stat:
+        path: /usr/bin/nvidia-smi
+      register: nvidia_gpu_driver_bin
+      when: gpu_generation is defined
+      tags: always
   roles:
       # Manage /etc/hosts (head, monitoring, iRODS) as part of standard node init, so a
       # newly provisioned worker gets it without a separate daily-update-hosts run.
@@ -86,12 +93,13 @@
       - role: grycap.htcondor
 
       # NVIDIA driver and Docker runtime, GPU workers only. Runs after condor; Docker comes
-      # with the worker image here. No kernel update: on prod, kernel changes go through a
-      # change window, so the driver builds against the running kernel. A driver (re)install
-      # still reboots the node, so drain it first or check with --check --diff.
+      # with the worker image here. The kernel is only updated on a new worker without a
+      # driver yet; on a running worker, kernel changes go through a change window and the
+      # driver builds against the running kernel. A driver (re)install still reboots the
+      # node, so drain it first or check with --check --diff.
       - role: pdg.nvidia_gpu
         vars:
-          nvidia_gpu_update_kernel: false
+          nvidia_gpu_update_kernel: "{{ not (nvidia_gpu_driver_bin.stat.exists | default(false)) }}"
         when: gpu_generation is defined
         tags: gpu
 
