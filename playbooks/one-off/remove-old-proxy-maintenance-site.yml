@@ -1,0 +1,27 @@
+---
+# Remove the unmanaged 2024 maintenance site from the proxy (server_name
+# example.com, never matched) and the old maintenance.disable flag. Maintenance
+# mode now lives in templates/nginx/subdomain-proxy.j2.
+#
+#   ansible-playbook playbooks/one-off/remove-old-proxy-maintenance-site.yml
+- name: Remove the old proxy maintenance site
+  hosts: proxyservers
+  become: true
+  tasks:
+    - name: Remove the old site and flag files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx/sites-enabled/maintenance
+        - /etc/nginx/sites-available/maintenance
+        - /var/www/html/maintenance.html
+        - /var/www/html/maintenance.enable
+        - /var/www/html/maintenance.disable
+      notify: Reload nginx
+
+  handlers:
+    - name: Reload nginx
+      ansible.builtin.service:
+        name: nginx
+        state: reloaded
