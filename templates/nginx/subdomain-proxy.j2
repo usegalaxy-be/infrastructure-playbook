@@ -1,3 +1,14 @@
+# Maintenance bypass: requests from the internal network with "X-Maintenance-Bypass: 1"
+# reach Galaxy while maintenance mode is on, for checks before switching it off.
+geo $maintenance_internal {
+    default 0;
+    10.113.3.0/24 1;
+}
+map "$maintenance_internal:$http_x_maintenance_bypass" $maintenance_bypass {
+    default 0;
+    "1:1" 1;
+}
+
 {% for subdomain in subdomains %}
 
 # forwards from proxy to {{ subdomain }}
@@ -36,7 +47,14 @@ server {
     }
 
     location /api/upload/resumable_upload {
+        set $maintenance "";
         if (-f /var/www/html/maintenance-{{ subdomain }}) {
+            set $maintenance "on";
+        }
+        if ($maintenance_bypass) {
+            set $maintenance "";
+        }
+        if ($maintenance = "on") {
             return 503;
         }
 
@@ -56,7 +74,14 @@ server {
     }
 
     location / {
+        set $maintenance "";
         if (-f /var/www/html/maintenance-{{ subdomain }}) {
+            set $maintenance "on";
+        }
+        if ($maintenance_bypass) {
+            set $maintenance "";
+        }
+        if ($maintenance = "on") {
             return 503;
         }
 
