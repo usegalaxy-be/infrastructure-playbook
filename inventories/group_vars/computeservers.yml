@@ -16,3 +16,5 @@ galaxy_server_ips:
 
 # pdg.os_update: drain in HTCondor before updating.
 os_update_condor_drain: true
+# Restarting docker during the update can hang on an autofs mount.
+os_update_stop_services: [docker]
