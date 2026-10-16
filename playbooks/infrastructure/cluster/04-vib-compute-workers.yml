@@ -65,14 +65,6 @@
         disable_excludes: main
       tags: [packages]
 
-    - name: Exclude openssh packages from dnf updates
-      ansible.builtin.lineinfile:
-        path: /etc/dnf/dnf.conf
-        regexp: '^exclude='
-        insertafter: '^\[main\]'
-        line: 'exclude=openssh openssh-server openssh-clients openssl openssl-libs'
-      tags: [packages]
-
     - name: Apply common repo fixes
       ansible.builtin.include_tasks: ../tasks/fix_repos.yml
       tags: [packages]

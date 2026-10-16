@@ -1,0 +1,60 @@
+---
+# Read-only. Also used by playbooks/one-off/kernel-audit.yml.
+- name: Check pending security updates
+  ansible.builtin.command: dnf --security check-update
+  register: os_update_pending_security
+  changed_when: false
+  failed_when: false
+
+- name: Check all pending updates
+  ansible.builtin.command: dnf check-update
+  register: os_update_pending_all
+  changed_when: false
+  failed_when: false
+
+- name: Find the newest installed and the newest available kernel
+  ansible.builtin.command: dnf -q repoquery {{ item }} --latest-limit 1 --qf '%{version}-%{release}' kernel
+  loop: ["--installed", "--available"]
+  register: os_update_kernel_versions
+  changed_when: false
+  failed_when: false
+
+- name: Check whether the running kernel meets the minimum
+  ansible.builtin.shell: |
+    set -o pipefail
+    running=$(uname -r | sed 's/\.x86_64$//')
+    oldest=$(printf '%s\n%s\n' "{{ os_update_minimum }}" "$running" | sort -V | head -1)
+    test "$oldest" = "{{ os_update_minimum }}"
+  args:
+    executable: /bin/bash
+  vars:
+    os_update_minimum: "{{ os_update_kernel_minimum[ansible_distribution_major_version] | default('') }}"
+  register: os_update_meets_minimum
+  changed_when: false
+  failed_when: false
+  when: os_update_minimum | length > 0 and 'elrepo' not in ansible_kernel
+
+# Verdict words avoid yes/no/true/false, which Ansible coerces to booleans.
+- name: Build the report line
+  ansible.builtin.set_fact:
+    os_update_report_line: >-
+      {{ inventory_hostname }} | os={{ ansible_distribution }} {{ ansible_distribution_version }}
+      | running={{ ansible_kernel }}
+      | installed={{ os_update_installed_kernel or 'none' }}
+      | available={{ os_update_kernel_versions.results[1].stdout | default('') or 'unknown' }}
+      | minimum={{ 'no-minimum' if os_update_meets_minimum is skipped
+                   else ('ok' if os_update_meets_minimum.rc == 0 else 'BELOW-MINIMUM') }}
+      | reboot={{ 'pending' if os_update_installed_kernel and os_update_installed_kernel not in ansible_kernel else 'none' }}
+      | updates={{ 'security' if os_update_pending_security.rc == 100
+                   else ('other' if os_update_pending_all.rc == 100 else 'none') }}
+  vars:
+    os_update_installed_kernel: "{{ os_update_kernel_versions.results[0].stdout | default('') }}"
+
+- name: Report
+  ansible.builtin.debug:
+    msg: "{{ os_update_report_line }}"
+
+- name: Show the pending updates
+  ansible.builtin.debug:
+    msg: "{{ os_update_pending_all.stdout_lines | select('match', '^\\S+\\.(x86_64|noarch|i686) ') | list }}"
+  when: os_update_preview_packages | bool and os_update_pending_all.rc == 100

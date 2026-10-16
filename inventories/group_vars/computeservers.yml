@@ -13,3 +13,6 @@ htcondor_firewall_nfs: false
 galaxy_server_ips:
   - "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_ip }}"
   - "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
+
+# pdg.os_update: drain in HTCondor before updating.
+os_update_condor_drain: true
