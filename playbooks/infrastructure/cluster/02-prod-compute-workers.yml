@@ -2,6 +2,11 @@
 # Set up production HTCondor worker nodes (prodcomputeservers) that execute Galaxy tool jobs.
 # Workers join the Galaxy HTCondor pool managed by the head node on usegalaxy.be.
 # Run after 06-galaxy-postrequisites.yml. Use --limit <host> to target a single worker.
+# GPU workers set gpu_generation (v2 = GPUv2/T4, v3 = GPUv3/A2) in inventories/hosts.
+# GPU setup only (NVIDIA driver, Docker runtime, HTCondor GPU config); a driver change reboots the node:
+#   ansible-playbook playbooks/infrastructure/cluster/02-prod-compute-workers.yml --limit worker12x0.usegalaxy.be --tags gpu
+# To only (re)advertise the GPU generation, without restarting Docker or HTCondor:
+#   ansible-playbook playbooks/infrastructure/cluster/02-prod-compute-workers.yml --limit worker12x0.usegalaxy.be --tags gpu_condor
 
 - hosts: prodcomputeservers
   become: true
@@ -55,6 +60,13 @@
         name: condor
         state: absent
       when: uninstall_condor
+    # pdg.nvidia_gpu only updates the kernel on a worker without a driver yet.
+    - name: Check for an installed NVIDIA driver
+      ansible.builtin.stat:
+        path: /usr/bin/nvidia-smi
+      register: nvidia_gpu_driver_bin
+      when: gpu_generation is defined
+      tags: always
   roles:
       # Manage /etc/hosts (head, monitoring, iRODS) as part of standard node init, so a
       # newly provisioned worker gets it without a separate daily-update-hosts run.
@@ -79,6 +91,17 @@
       # HTCondor Cluster setup
 
       - role: grycap.htcondor
+
+      # NVIDIA driver and Docker runtime, GPU workers only. Runs after condor; Docker comes
+      # with the worker image here. The kernel is only updated on a new worker without a
+      # driver yet; on a running worker, kernel changes go through a change window and the
+      # driver builds against the running kernel. A driver (re)install still reboots the
+      # node, so drain it first or check with --check --diff.
+      - role: pdg.nvidia_gpu
+        vars:
+          nvidia_gpu_update_kernel: "{{ not (nvidia_gpu_driver_bin.stat.exists | default(false)) }}"
+        when: gpu_generation is defined
+        tags: gpu
 
       # # Autofs setup
 
@@ -118,6 +141,24 @@
         mode: '0644'
       notify: Restart condor
       tags: condor
+
+    - name: Advertise GPUs and generation for GPU workers
+      ansible.builtin.copy:
+        dest: /etc/condor/config.d/20-gpu.conf
+        content: |
+          # Advertise GPUs so request_gpus and GPU TPV destinations can target this node.
+          use feature : GPUs
+
+          # Hardware generation so TPV can distinguish GPUv2 (Tesla T4) vs GPUv3 (A2) workers.
+          GPUGeneration = "{{ gpu_generation }}"
+          STARTD_ATTRS = $(STARTD_ATTRS) GPUGeneration
+        owner: root
+        group: root
+        mode: '0644'
+      when: gpu_generation is defined
+      # A new ClassAd attribute only needs a reconfig; a restart would evict running jobs.
+      notify: Reconfigure condor
+      tags: [condor, gpu, gpu_condor]
 
     - name: Disable pulsar
       systemd:
@@ -193,3 +234,6 @@
       ansible.builtin.systemd:
         name: condor
         state: restarted
+    - name: Reconfigure condor
+      ansible.builtin.command: condor_reconfig
+      changed_when: true
