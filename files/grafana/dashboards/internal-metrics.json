@@ -2450,7 +2450,7 @@
         "type": "influxdb",
         "uid": "be-internal-metrics"
       },
-      "description": "Current total registered users per institution (point-in-time snapshot, not a cumulative daily sum). Will show data once the new Telegraf query has run at least once. Download CSV: panel menu \u2192 Download data.",
+      "description": "Users who created an account in the selected time range, per institution (sum of the daily new users). Download CSV: panel menu \u2192 Download data.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -3925,7 +3925,391 @@
       ],
       "transparent": true,
       "type": "table",
-      "description": "Total CPU-hours per institution, summed across the Grafana time range. Set the VIB Data Core filter to \"Exclude\" for official/reported numbers."
+      "description": "Total data downloaded per institution, summed across the Grafana time range. Set the VIB Data Core filter to \"Exclude\" for official/reported numbers."
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "displayName": "${__field.labels.institution}",
+          "unit": "gbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 11,
+        "x": 0,
+        "y": 118
+      },
+      "id": 30,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "measurement": "total_data_uploaded_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"total_data_uploaded_gb\" FROM \"total_data_uploaded_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "tags": []
+        }
+      ],
+      "title": "Data uploaded - Flemish institutions",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.7,
+            "drawStyle": "bars",
+            "fillOpacity": 0,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "displayName": "${__field.labels.vib_domain}",
+          "unit": "gbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 11,
+        "y": 118
+      },
+      "id": 31,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true,
+          "sortBy": "Max",
+          "sortDesc": true
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "measurement": "total_data_uploaded_-_vib_centers",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"total_data_uploaded_gb\" FROM \"total_data_uploaded_-_vib_centers\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"vib_domain\" =~ /^$vib_domain$/)) GROUP BY \"vib_domain\"::tag\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "tags": []
+        }
+      ],
+      "title": "Data uploaded - VIB Centers",
+      "transparent": true,
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "gbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 3,
+        "x": 21,
+        "y": 118
+      },
+      "id": 32,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "measurement": "total_data_uploaded_-_flemish_institutions",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"total_data_uploaded_gb\" FROM \"total_data_uploaded_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/))\n",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table",
+          "tags": []
+        }
+      ],
+      "title": "Total data uploaded",
+      "transformations": [
+        {
+          "id": "reduce",
+          "options": {
+            "includeTimeField": false,
+            "labelsToFields": false,
+            "mode": "seriesToRows",
+            "reducers": [
+              "sum"
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "be-internal-metrics"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              }
+            ]
+          },
+          "unit": "gbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 12,
+        "x": 0,
+        "y": 126
+      },
+      "id": 33,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Data uploaded"
+          }
+        ]
+      },
+      "pluginVersion": "12.0.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "influxdb",
+            "uid": "be-internal-metrics"
+          },
+          "hide": false,
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT SUM(\"total_data_uploaded_gb\") AS \"Data uploaded\" FROM \"total_data_uploaded_-_flemish_institutions\" WHERE $timeFilter AND ((\"is_vib_data_core\" =~ /^${vib_data_core:raw}$/) AND (\"institution\" =~ /^$institution$/)) GROUP BY \"institution\"::tag",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "table"
+        }
+      ],
+      "title": "Data uploaded by institution: total over time range",
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "institution": "Institution"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": [
+              {
+                "desc": true,
+                "displayName": "Data uploaded"
+              }
+            ]
+          }
+        }
+      ],
+      "transparent": true,
+      "type": "table",
+      "description": "Total data uploaded per institution, summed across the Grafana time range. Counts each uploaded dataset once. Set the VIB Data Core filter to \"Exclude\" for official/reported numbers."
     }
   ],
   "refresh": "",
