@@ -2450,7 +2450,7 @@
         "type": "influxdb",
         "uid": "be-internal-metrics"
       },
-      "description": "Current total registered users per institution (point-in-time snapshot, not a cumulative daily sum). Will show data once the new Telegraf query has run at least once. Download CSV: panel menu \u2192 Download data.",
+      "description": "Users who created an account in the selected time range, per institution (sum of the daily new users). Download CSV: panel menu \u2192 Download data.",
       "fieldConfig": {
         "defaults": {
           "custom": {
