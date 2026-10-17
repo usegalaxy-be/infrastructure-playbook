@@ -58,7 +58,7 @@ DRIFTING = {
     'new_users': 'purging a user rewrites the email, moving them to Others',
     'active_users': 'gu.active and the email are read at query time',
     'newly_active_users': 'gu.active and the email are read at query time',
-    'total_data_uploaded': 'total_size is set when the job finishes, and every later copy of a dataset adds its size again',
+    'total_data_uploaded': 'total_size is set when the upload finishes; days before the query fix used another definition',
 }
 
 # Independent SQL for part 2, no institution mapping, run per data day to keep temp files small.

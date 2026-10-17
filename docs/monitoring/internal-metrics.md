@@ -102,7 +102,7 @@ All counts are for registered users only (jobs with a `user_id`).
 | `jobs_by_state_-_*` | `job_count` per tag `state` | Jobs created that day, by their last state in `job_state_history` before the day ended | No |
 | `jobs_executed_-_*` | `jobs_submitted`, `jobs_executed`, `jobs_never_executed` | Executed: `job_state_history` has a `running` row, at any time | Yes: a job still queued at 00:00 counts as never executed for good |
 | `cpu_hours_-_*` | `cpu_hours` | `runtime_seconds × galaxy_slots / 3600` of that day's jobs, allocated not used | Yes: a job still running at 00:00 has no runtime yet and is never counted |
-| `total_data_uploaded_-_*` | `total_data_uploaded_gb` | Size of `tier1_data` datasets created that day | Yes, and over-counts (below). No panel uses it |
+| `total_data_uploaded_-_*` | `total_data_uploaded_gb` | Size of `tier1_data` datasets created that day by an upload job (`__DATA_FETCH__`, `upload1`), each dataset once, by the uploading user | Yes: an upload still running at 00:00 has no size yet. Older points use another definition (below) |
 
 Things to know before reporting a number:
 
@@ -115,10 +115,11 @@ Things to know before reporting a number:
   jobs with their original `create_time`, after that day was collected. A
   re-run then finds more jobs than InfluxDB holds; the check recognises these
   by their first `job_state_history` row coming after that day.
-- **`total_data_uploaded` counts every copy.** The query joins each dataset to
-  all its history items, so a dataset copied into a second history counts
-  twice. It also counts tool outputs, not just uploads, and `total_size` is
-  filled in when the job finishes. Fix the query before putting it on a panel.
+- **`total_data_uploaded` changed definition.** Before this query, it counted
+  every new `tier1_data` dataset, tool outputs included, once per history copy.
+  Points stored before the change keep that definition, roughly double the new
+  one, until the measurement is backfilled again (delete its old points first,
+  or the panels sum both).
 - **The institution mapping is a substring match on the email domain**, first
   match wins, VIB first (`vib|psb|ccb|...|irc|cmn` anywhere in the domain).
 
