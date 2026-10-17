@@ -366,7 +366,8 @@ destinations:
   # (20-gpu.conf in 04-vib-compute-workers.yml and 02-prod-compute-workers.yml).
   # GPU tools carry the `gpu` tag and land on any generation (condor_vib_gpu_tpv).
   # To test a tool on one generation, a job also carries `gpu_v2` or `gpu_v3`, from the
-  # tool (test-condor-gpu-v3) or from the gpu_v2_pin / gpu_v3_pin Galaxy roles (roles.yml.j2).
+  # tool (test-condor-gpu for v2, test-condor-gpu-v3 for v3) or from the gpu_v2_pin /
+  # gpu_v3_pin Galaxy roles (roles.yml.j2).
 
   condor_vib_gpu_tpv:
     # Default GPU destination for VIB users: HTCondor GPU workers of either generation.
