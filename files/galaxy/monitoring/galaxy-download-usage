@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+# galaxy-download-usage
+# Data downloaded from Galaxy per day, per Flemish institution and per VIB center.
+#   Reads the nginx download log (galaxy_downloads format: time, status, bytes, file path),
+#   which only has the requests nginx served from disk via X-Accel-Redirect.
+#   Each dataset file counts toward the owner of its first history copy, which is
+#   not always the person who downloaded it (shared and published data).
+#   Other files (zips, history exports) and datasets without a history count as Unattributed.
+# Points are timestamped at local midnight so reruns overwrite. Only the last RECENT_DAYS
+# days are written, so a day whose oldest lines were rotated away keeps its complete total.
+# Outputs InfluxDB line protocol. libpq reads PGHOST/PGDATABASE/PGUSER/PGPASSWORD.
+#
+# Deployed to: /usr/local/share/galaxy-metrics/download_usage.py
+# SQL from: /usr/local/share/galaxy-metrics/download_usage.sql (galaxy-download-usage.sql.j2)
+# Telegraf exec plugin interval: 6h
+#
+# Usage: galaxy-download-usage <log_dir>
+
+import datetime
+import glob
+import gzip
+import os
+import re
+import sys
+
+import psycopg2
+
+SQL_FILE = "/usr/local/share/galaxy-metrics/download_usage.sql"
+RECENT_DAYS = 7
+
+# dataset_<uuid>.dat (store_by="uuid") or dataset_<id>.dat (store_by="id"), and composite files
+DATASET_FILE = re.compile(r"/dataset_(?:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})|(\d+))(?:\.dat$|_files/)")
+
+
+def tag(value):
+    return str(value).replace("\\", "\\\\").replace(" ", "\\ ").replace(",", "\\,").replace("=", "\\=") or "none"
+
+
+def read_downloads(log_dir, since):
+    """Bytes and requests per (day, dataset uuid, dataset id); both None for other files."""
+    totals = {}
+    for path in glob.glob(os.path.join(log_dir, "downloads.log*")):
+        opener = gzip.open if path.endswith(".gz") else open
+        with opener(path, "rt", errors="replace") as f:
+            for line in f:
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) != 4 or parts[1] not in ("200", "206"):
+                    continue
+                day = parts[0][:10]
+                if day < since:
+                    continue
+                match = DATASET_FILE.search(parts[3])
+                uuid = match.group(1).replace("-", "") if match and match.group(1) else None
+                dataset_id = int(match.group(2)) if match and match.group(2) else None
+                key = (day, uuid, dataset_id)
+                size, requests = totals.get(key, (0, 0))
+                totals[key] = (size + int(parts[2]), requests + 1)
+    return totals
+
+
+def midnight_ns(day):
+    return int(datetime.datetime.combine(day, datetime.time()).astimezone().timestamp()) * 10**9
+
+
+def main():
+    since = (datetime.date.today() - datetime.timedelta(days=RECENT_DAYS - 1)).isoformat()
+    totals = read_downloads(sys.argv[1], since)
+    if not totals:
+        return
+    keys = list(totals)
+    params = {
+        "days": [k[0] for k in keys],
+        "uuids": [k[1] for k in keys],
+        "ids": [k[2] for k in keys],
+        "bytes": [totals[k][0] for k in keys],
+        "requests": [totals[k][1] for k in keys],
+    }
+    with open(SQL_FILE) as f:
+        query = f.read()
+    conn = psycopg2.connect("")
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            for day, institution, vib_domain, data_core, gb, requests, owners in cur.fetchall():
+                if institution is not None:
+                    measurement, group = "data_downloaded_-_flemish_institutions", f"institution={tag(institution)}"
+                else:
+                    measurement, group = "data_downloaded_-_vib_centers", f"vib_domain={tag(vib_domain)}"
+                print(f"{measurement},{group},is_vib_data_core={data_core} "
+                      f"data_downloaded_gb={float(gb)},requests={requests}i,owners={owners}i {midnight_ns(day)}")
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    main()

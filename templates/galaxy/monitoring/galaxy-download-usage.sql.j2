@@ -1,0 +1,89 @@
+-- Download attribution for galaxy-download-usage (files/galaxy/monitoring/galaxy-download-usage).
+-- Input arrays, one element per (day, downloaded file): days, uuids (dataset.uuid without
+-- dashes), ids (dataset.id for store_by="id" backends), bytes, requests. uuid and id are both
+-- NULL for files that are not datasets.
+-- Each dataset counts toward the owner of its first history copy; no owner -> Unattributed.
+-- One query, two breakdowns via GROUPING SETS: rows with an institution are the
+-- Flemish institutions breakdown, rows with a vib_domain the VIB centers one.
+--
+-- Jinja2 TEMPLATE like galaxy-metrics-queries-daily.sql.j2, rendered by
+-- playbooks/infrastructure/07-monitoring.yml with vault_vib_data_core_emails.
+WITH dl AS (
+    SELECT *
+    FROM unnest(%(days)s::date[], %(uuids)s::text[], %(ids)s::int[], %(bytes)s::bigint[], %(requests)s::int[])
+        AS d(day, uuid, dataset_id, bytes, requests)
+),
+owner AS (
+    SELECT DISTINCT ON (ds.id) ds.id, ds.uuid, gu.id AS user_id, gu.email
+    FROM dataset ds
+    JOIN history_dataset_association hda ON hda.dataset_id = ds.id
+    JOIN history h ON h.id = hda.history_id
+    JOIN galaxy_user gu ON gu.id = h.user_id
+    WHERE ds.uuid IN (SELECT uuid FROM dl WHERE uuid IS NOT NULL)
+       OR ds.id IN (SELECT dataset_id FROM dl WHERE dataset_id IS NOT NULL)
+    ORDER BY ds.id, hda.id
+),
+attributed AS (
+    SELECT dl.day, dl.bytes, dl.requests, o.user_id, o.email
+    FROM dl
+    LEFT JOIN owner o ON o.uuid = dl.uuid OR o.id = dl.dataset_id
+)
+SELECT
+    d.day,
+    CASE WHEN GROUPING(institution) = 0 THEN institution END AS institution,
+    CASE WHEN GROUPING(vib_domain) = 0 THEN vib_domain END AS vib_domain,
+    is_vib_data_core,
+    ROUND(SUM(d.bytes) / (1024 * 1024 * 1024.0), 3) AS data_downloaded_gb,
+    SUM(d.requests) AS requests,
+    COUNT(DISTINCT d.user_id) AS owners
+FROM (
+    SELECT
+        gu.*,
+        CASE
+            WHEN gu.email IS NULL THEN 'Unattributed'
+            WHEN LOWER(substring(gu.email from position('@' in gu.email) + 1)) SIMILAR TO '%%(vib|psb|ccb|cmb|csb|cbd|cfm|nerf|irc|cmn)%%' THEN 'VIB'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%KULEUVEN%%' THEN 'KULEUVEN'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%UGENT%%' THEN 'UGENT'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%UHASSELT%%' THEN 'UHASSELT'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%VUB%%' THEN 'VUB'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%UANTWERP%%' THEN 'UANTWERP'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%MEISE%%' THEN 'MEISE'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'INBO.%%' THEN 'INBO'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%VLIZ%%' THEN 'VLIZ'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IMEC.%%' THEN 'IMEC'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ILVO.VLAANDEREN%%' THEN 'ILVO'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VITO.%%' THEN 'VITO'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'FLANDERSMAKE.%%' THEN 'FLANDERSMAKE'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ITG.%%' THEN 'ITG'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOWEST.%%' THEN 'HOWEST'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'HOGENT.%%' THEN 'HOGENT'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE '%%ARTEVELDEHS.%%' THEN 'ARTEVELDE'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'AP.%%' THEN 'AP'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PXL.%%' THEN 'PXL'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIVES.%%' THEN 'VIVES'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'KDG.%%' THEN 'KDG'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'ODISEE.%%' THEN 'ODISEE'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'THOMASMORE.%%' THEN 'THOMASMORE'
+            ELSE 'Others'
+        END AS institution,
+        CASE
+            WHEN gu.email IS NULL THEN 'Unattributed'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'VIB%%' THEN 'VIB'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'PSB%%' THEN 'PSB'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CCB%%' THEN 'CCB'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMB%%' THEN 'CMB'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CSB%%' THEN 'CSB'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CBD%%' THEN 'CBD'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CFM%%' THEN 'CFM'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'NERF%%' THEN 'NERF'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'IRC%%' THEN 'IRC'
+            WHEN substring(gu.email from position('@' in gu.email) + 1) ILIKE 'CMN%%' THEN 'CMN'
+            ELSE 'Others'
+        END AS vib_domain,
+        CASE
+            WHEN LOWER(gu.email) = ANY(ARRAY[{% for email in vault_vib_data_core_emails %}'{{ email }}'{% if not loop.last %}, {% endif %}{% endfor %}]) THEN 'true'
+            ELSE 'false'
+        END AS is_vib_data_core
+    FROM attributed gu
+) d
+GROUP BY GROUPING SETS ((d.day, institution, is_vib_data_core), (d.day, vib_domain, is_vib_data_core));
