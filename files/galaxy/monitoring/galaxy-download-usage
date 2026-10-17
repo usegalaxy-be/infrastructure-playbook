@@ -81,13 +81,14 @@ def main():
     try:
         with conn.cursor() as cur:
             cur.execute(query, params)
-            for day, institution, vib_domain, data_core, gb, requests, owners in cur.fetchall():
+            for day, institution, vib_domain, data_core, gb, size, requests, owners in cur.fetchall():
                 if institution is not None:
                     measurement, group = "data_downloaded_-_flemish_institutions", f"institution={tag(institution)}"
                 else:
                     measurement, group = "data_downloaded_-_vib_centers", f"vib_domain={tag(vib_domain)}"
                 print(f"{measurement},{group},is_vib_data_core={data_core} "
-                      f"data_downloaded_gb={float(gb)},requests={requests}i,owners={owners}i {midnight_ns(day)}")
+                      f"data_downloaded_gb={float(gb)},data_downloaded_bytes={size}i,"
+                      f"requests={requests}i,owners={owners}i {midnight_ns(day)}")
     finally:
         conn.close()
 

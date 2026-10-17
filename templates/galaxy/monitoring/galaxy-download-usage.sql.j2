@@ -34,6 +34,7 @@ SELECT
     CASE WHEN GROUPING(vib_domain) = 0 THEN vib_domain END AS vib_domain,
     is_vib_data_core,
     ROUND(SUM(d.bytes) / (1024 * 1024 * 1024.0), 3) AS data_downloaded_gb,
+    SUM(d.bytes) AS data_downloaded_bytes,
     SUM(d.requests) AS requests,
     COUNT(DISTINCT d.user_id) AS owners
 FROM (
