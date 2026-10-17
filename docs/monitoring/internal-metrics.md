@@ -54,7 +54,7 @@ Registered users only. "Late" means the stored value can differ from a later re-
 | `jobs_by_state_-_*` | Those jobs by state at the end of the day | No |
 | `jobs_executed_-_*` | Those jobs that ever reached `running` | Yes: jobs queued at 00:00 stay "never executed" |
 | `cpu_hours_-_*` | `runtime_seconds × galaxy_slots / 3600` of those jobs | Yes: jobs running at 00:00 are never counted |
-| `total_data_uploaded_-_*` | `tier1_data` datasets from upload jobs, each once, GiB | Yes: uploads running at 00:00 |
+| `total_data_uploaded_-_*` | Datasets from upload jobs, any storage, each once, GiB | Yes: uploads running at 00:00 |
 
 Backfilled days were computed later, so they include the late jobs and
 uploads. Points written before the data uploaded fix count every copy of every

@@ -628,7 +628,6 @@ JOIN LATERAL (
 LEFT JOIN galaxy_user gu ON gu.id = upload.user_id
 WHERE ds.create_time >= date_trunc('day', current_date - interval '1 day')
     AND ds.create_time < date_trunc('day', current_date)
-    AND ds.object_store_id = 'tier1_data'
 GROUP BY institution, is_vib_data_core
 ORDER BY total_data_uploaded_gb DESC;
 
@@ -667,7 +666,6 @@ JOIN LATERAL (
 LEFT JOIN galaxy_user gu ON gu.id = upload.user_id
 WHERE ds.create_time >= date_trunc('day', current_date - interval '1 day')
     AND ds.create_time < date_trunc('day', current_date)
-    AND ds.object_store_id = 'tier1_data'
 GROUP BY vib_domain, is_vib_data_core
 ORDER BY total_data_uploaded_gb DESC;
 
