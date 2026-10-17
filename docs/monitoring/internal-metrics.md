@@ -118,8 +118,8 @@ Things to know before reporting a number:
 - **`total_data_uploaded` changed definition.** Before this query, it counted
   every new `tier1_data` dataset, tool outputs included, once per history copy.
   Points stored before the change keep that definition, roughly double the new
-  one, until the measurement is backfilled again (delete its old points first,
-  or the panels sum both).
+  one, and the **Data uploaded** panels show them, until the measurement is
+  backfilled again (delete its old points first, or the panels sum both).
 - **The institution mapping is a substring match on the email domain**, first
   match wins, VIB first (`vib|psb|ccb|...|irc|cmn` anywhere in the domain).
 
