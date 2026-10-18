@@ -1,69 +1,67 @@
 # Internal metrics
 
-Daily usage per institution and VIB center, from the Galaxy database to the
-**Internal metrics** Grafana dashboard.
+Every night at 00:00 UTC, Telegraf on usegalaxy.be runs a set of SQL queries
+on the Galaxy database. Each query counts something for the previous day, such
+as new users, jobs or CPU hours, per Flemish institution and per VIB centre.
+Telegraf writes the results to the `internal_metrics` database in InfluxDB, and
+the **Internal metrics** dashboard in Grafana shows them.
 
-```
-Galaxy DB
-  │  Telegraf exec input galaxy_internal_metrics on usegalaxy.be, daily at 00:00 UTC
-  ▼
-InfluxDB monitoring.usegalaxy.be:8086, database internal_metrics
-  │  Grafana datasource "Metrics" (uid be-internal-metrics)
-  ▼
-Dashboard "Internal metrics"
-```
+## Files
 
-| File | Deployed as (usegalaxy.be, `/usr/local/share/galaxy-metrics/`) |
-|------|------|
-| `templates/galaxy/monitoring/galaxy-metrics-queries-daily.sql.j2` | `queries_daily.sql` |
-| `files/galaxy/monitoring/galaxy-metrics-internal` | `psql_query_metrics_telegraf.py` (run by Telegraf) |
-| `files/galaxy/monitoring/galaxy-metrics-backfill` | `backfill.py` |
-| `files/galaxy/monitoring/galaxy-metrics-check` | `check.py` |
-| `files/grafana/dashboards/internal-metrics.json` | Grafana |
+| In this repo | On usegalaxy.be, in `/usr/local/share/galaxy-metrics/` |
+|--------------|--------------------------------------------------------|
+| `templates/galaxy/monitoring/galaxy-metrics-queries-daily.sql.j2` | `queries_daily.sql`, the queries |
+| `files/galaxy/monitoring/galaxy-metrics-internal` | `psql_query_metrics_telegraf.py`, run by Telegraf |
+| `files/galaxy/monitoring/galaxy-metrics-backfill` | `backfill.py`, fills in past days |
+| `files/galaxy/monitoring/galaxy-metrics-check` | `check.py`, compares InfluxDB with the database |
+| `files/grafana/dashboards/internal-metrics.json` | The dashboard, on the monitoring server |
 
-Telegraf input and outputs: `inventories/host_vars/usegalaxy.be/monitoring.yml`.
+The Telegraf settings are in `inventories/host_vars/usegalaxy.be/monitoring.yml`.
+
+To deploy the scripts and queries, then the dashboard:
 
 ```bash
 ansible-playbook playbooks/infrastructure/07-monitoring.yml --limit usegalaxy.be --tags monitoring-scripts --diff
 ansible-playbook playbooks/infrastructure/07-monitoring.yml --limit monitoringservers --tags grafana --diff
 ```
 
-## How the SQL becomes data
+A change to the queries restarts Telegraf.
 
-- Each `-- CATEGORY: <name>` block is one measurement, named lowercase with
-  `_` for spaces: `jobs_submitted_-_flemish_institutions`.
-- String columns become tags, numbers become fields.
-- Every metric exists per Flemish institution (tag `institution`) and per VIB
-  center (tag `vib_domain`). Both have an `Others` bucket, so each sums to the
-  total.
-- Tag `is_vib_data_core` marks the Data Core accounts (`vault_vib_data_core_emails`).
-  Set the dashboard filter **VIB Data Core** to **Exclude** for official numbers.
-- **A point stamped on UTC day X holds day X - 1.** The queries count
-  yesterday, and Galaxy stores times in UTC.
+## Reading the numbers
 
-## Metrics
+- A point dated day X holds the numbers for day X - 1, because the queries
+  run just after midnight and count the day before.
+- Every metric is stored twice: per Flemish institution and per VIB centre.
+  Users who match neither are counted under `Others`, so both add up to the
+  same total.
+- Only registered users are counted.
+- Data Core team and service accounts are marked. Set the dashboard filter
+  **VIB Data Core** to **Exclude** for official numbers.
 
-Registered users only. "Late" means the stored value can differ from a later re-run.
+| Metric | What it counts |
+|--------|----------------|
+| New users | Accounts created that day |
+| Newly active users | Users whose first job was that day |
+| Active users | Users who ran a job that day |
+| Jobs submitted | Jobs created that day |
+| Jobs by state | Those jobs, by their state at the end of the day |
+| Jobs executed | Those jobs that started running |
+| CPU hours | Run time of those jobs, times their cores, in hours |
+| Data uploaded | Size of the files uploaded that day, each file once, in GiB |
 
-| Measurement | Counts | Late |
-|-------------|--------|------|
-| `new_users_-_*` | Accounts created that day | Per institution: purged users move to `Others` |
-| `newly_active_users_-_*` | Activated users whose first job was that day | Rarely |
-| `active_users_-_*` | Activated users with a job that day | Rarely |
-| `jobs_submitted_-_*` | Jobs created that day | History imports add jobs with old dates |
-| `jobs_by_state_-_*` | Those jobs by state at the end of the day | No |
-| `jobs_executed_-_*` | Those jobs that ever reached `running` | Yes: jobs queued at 00:00 stay "never executed" |
-| `cpu_hours_-_*` | `runtime_seconds × galaxy_slots / 3600` of those jobs | Yes: jobs running at 00:00 are never counted |
-| `total_data_uploaded_-_*` | Datasets from upload jobs, any storage, each once, GiB | Yes: uploads running at 00:00 |
+A job or upload still running at midnight is never added to CPU hours, jobs
+executed or data uploaded. Days filled in later with the backfill script do
+include them.
 
-Backfilled days were computed later, so they include the late jobs and
-uploads. Points written before the data uploaded fix count every copy of every
-new dataset (about double) until that measurement is dropped and backfilled again.
+In InfluxDB, each metric is named after its `-- CATEGORY:` line in the
+queries, in lower case with `_` for spaces, for example
+`jobs_submitted_-_flemish_institutions`.
 
-## Backfill
+## Filling in past days
 
-Writes past days with the same timestamps as Telegraf. `--end` is exclusive.
-A day written twice is summed twice.
+`backfill.py` runs the same queries for past days and writes them as Telegraf
+would have. `--end` is the first day it does not fill. Do not fill a day that
+already has data: the dashboard would add both.
 
 ```bash
 ssh usegalaxy.be
@@ -72,13 +70,13 @@ INFLUXDB_USER=... INFLUXDB_PASSWORD=... \
   --start 2026-03-21 --end 2026-03-22 --dry-run
 ```
 
-The DB login comes from galaxy_master's environment and `~/.pgpass`. The
-InfluxDB login is `influxdb_users.regular[1]` (vault), as in the
-`internal_metrics` output of `/etc/telegraf/telegraf.conf`.
+The database login works as is for galaxy_master. The InfluxDB login is the one
+Telegraf uses: `influxdb_users.regular[1]` in the vault.
 
-## Check
+## Checking the numbers
 
-Read-only. Run after changing the SQL, the dashboard or the backfill.
+`check.py` compares what is in InfluxDB with the Galaxy database. It only
+reads. Run it after changing the queries, the dashboard or the backfill.
 
 ```bash
 ssh usegalaxy.be
@@ -87,20 +85,15 @@ INFLUXDB_USER=... INFLUXDB_PASSWORD=... \
   --start 2026-10-03 --end 2026-10-17
 ```
 
-Default: the last 14 days. Ends with `RESULT: OK` or `RESULT: MISMATCH`.
+By default it checks the last 14 days. It ends with `RESULT: OK` or
+`RESULT: MISMATCH`, then prints the totals the dashboard should show and a link
+to the dashboard for the same days, so you can compare them by eye.
 
-1. Collection: one point per day, no duplicates.
-2. Totals: plain per-day SQL against both the Flemish and VIB center sums.
-3. Series: the deployed SQL re-run against every stored series (`--skip-series` skips it).
-4. Panels: the values the stat panels should show, and a dashboard link for the window.
+If you change the check or the queries, keep each query to a single day.
+Queries over months can fill the database server's disk with temporary files.
 
-Late metrics are reported, not failed. Open the link and compare the stat
-panels with part 4.
-
-Keep every check query to one day and avoid per-job subqueries: longer windows
-fill the DB server's temp space, and some days have tens of thousands of jobs.
-
-By hand, for one day (data day 2026-10-15 is stored on 2026-10-16):
+To check one day by hand, compare these two numbers. Day 2026-10-15 is stored
+on 2026-10-16.
 
 ```sql
 -- psql on usegalaxy.be
@@ -111,4 +104,5 @@ SELECT sum("total_jobs_submitted") FROM "jobs_submitted_-_flemish_institutions"
   WHERE time >= '2026-10-16T00:00:00Z' AND time < '2026-10-17T00:00:00Z'
 ```
 
-Check results and known data gaps: internal admin docs (usegalaxy-be-doc, `internal-metrics.md`).
+Check results and known gaps in the data are in the internal admin docs
+(usegalaxy-be-doc, `internal-metrics.md`).
