@@ -137,6 +137,3 @@ the dashboard.
    and Total CPU hours, and the "by institution" tables. Jobs executed and CPU
    hours can be a little higher in your query, for jobs that were still running
    at midnight. Active users only match for a single day.
-
-Check results and known gaps in the data are in the internal admin docs
-(usegalaxy-be-doc, `internal-metrics.md`).
