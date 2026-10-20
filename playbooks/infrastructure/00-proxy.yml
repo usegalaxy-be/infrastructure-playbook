@@ -34,13 +34,6 @@
         state: disabled
       tags: selinux
 
-    - name: Disable firewalld service
-      ansible.builtin.service:
-        name: firewalld
-        enabled: false
-        state: stopped
-      tags: firewalld
-
   roles:
     # Set NTP
     - role: influxdata.chrony
