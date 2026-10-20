@@ -24,6 +24,8 @@
             "git",
             "bc",
             "rsync",
+            # for galaxyproject.self_signed_certs
+            "python3-cryptography",
           ]
       become: true
       become_user: root
