@@ -23,6 +23,9 @@
             "tar",
             "git",
             "bc",
+            "rsync",
+            # for galaxyproject.self_signed_certs
+            "python3-cryptography",
           ]
       become: true
       become_user: root
@@ -32,13 +35,6 @@
       selinux:
         state: disabled
       tags: selinux
-
-    - name: Disable firewalld service
-      ansible.builtin.service:
-        name: firewalld
-        enabled: false
-        state: stopped
-      tags: firewalld
 
   roles:
     # Set NTP
@@ -63,6 +59,10 @@
           - "*.ep.interactivetool.test.usegalaxy.be"
         openssl_private_key_path: "{{ gxit_test_ssl_certificate_key }}"
         openssl_certificate_path: "{{ gxit_test_ssl_certificate }}"
+
+    # NFS mount for the shared certificates, written by the certbot post-renewal hook
+    - role: pdg.autofs
+      tags: autofs
 
     # Sets up a webserver
     - role: galaxyproject.nginx
