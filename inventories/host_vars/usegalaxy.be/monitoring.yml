@@ -300,3 +300,15 @@ telegraf_plugins_extra:
       - interval = "24h"
     tags:
       - dest = "internal_metrics"
+
+  # Data downloaded per day, per institution/VIB center, from the nginx download log.
+  # Points carry their own day timestamp, so each run overwrites the last 7 days.
+  galaxy_download_usage:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} {{ galaxy_venv_dir }}/bin/python3 /usr/local/share/galaxy-metrics/download_usage.py {{ galaxy_download_log_dir }}"]
+      - timeout = "120s"
+      - data_format = "influx"
+      - interval = "6h"
+    tags:
+      - dest = "internal_metrics"

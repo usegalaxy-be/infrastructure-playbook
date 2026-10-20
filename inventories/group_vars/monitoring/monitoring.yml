@@ -152,7 +152,7 @@ grafana_use_provisioning: true
 grafana_yum_repo: "https://rpm.grafana.com"
 grafana_yum_key: "https://rpm.grafana.com/gpg.key"
 
-grafana_version: "11.4.0"
+grafana_version: "13.2.4"
 
 # old var
 # grafana_url: "{{ instance_url }}stats"

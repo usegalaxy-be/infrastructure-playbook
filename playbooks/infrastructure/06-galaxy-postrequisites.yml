@@ -18,13 +18,6 @@
         cmd: iptables-save > /etc/sysconfig/iptables
 
   pre_tasks:
-    - name: Exclude openssh packages from dnf updates
-      ansible.builtin.lineinfile:
-        path: /etc/dnf/dnf.conf
-        regexp: '^exclude='
-        insertafter: '^\[main\]'
-        line: 'exclude=openssh openssh-server openssh-clients openssl openssl-libs'
-      tags: always
     - name: Apply common repo fixes (skip unavailable repos, refresh pgdg GPG key)
       ansible.builtin.include_tasks: tasks/fix_repos.yml
       tags: always

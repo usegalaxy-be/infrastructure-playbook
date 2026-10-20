@@ -1,0 +1,419 @@
+#!/usr/bin/env python3
+"""
+Check the internal_metrics InfluxDB database against the Galaxy database.
+
+Read-only on both sides. Run on the Galaxy VM (usegalaxy.be) with the Galaxy
+venv python (psycopg2). The DB connection comes from libpq: galaxy_master's
+login env and ~/.pgpass reach the prod DB. InfluxDB credentials come from
+INFLUXDB_USER / INFLUXDB_PASSWORD. See docs/monitoring/internal-metrics.md.
+
+Usage (from usegalaxy.be):
+    INFLUXDB_USER=<user> INFLUXDB_PASSWORD=<pass> \
+    /srv/galaxy/shared/etc/venv-py3.11/bin/python3 \
+        /usr/local/share/galaxy-metrics/check.py --start 2026-09-01 --end 2026-10-01
+
+--start and --end are data days (the day the jobs ran), --end exclusive.
+Default: the 14 days before today (UTC). Every SQL query covers one day, so a
+long window takes longer (about 1s per day without part 3) but never builds
+large temp files on the DB server.
+
+Three parts:
+  1. Collection: one point per data day, no duplicate collections.
+  2. Totals: SQL written from the metric definitions, without the institution
+     mapping, against the InfluxDB sums of both the Flemish and VIB center
+     measurements (each has an 'Others' bucket, so both add up to the total).
+  3. Series: the deployed queries_daily.sql re-run per day for the window,
+     against every stored series (measurement, tags, field).
+It ends with the values the dashboard stat panels should show for the window
+and a dashboard link with that time range.
+
+Exit status: 0 if every stable number matches, 1 otherwise. Numbers that can
+change after collection (see DRIFTING) are reported but do not fail the check.
+"""
+
+import os
+import sys
+import json
+import argparse
+import base64
+import importlib.util
+import urllib.parse
+import urllib.request
+from collections import defaultdict
+from datetime import date, datetime, timedelta, timezone
+
+import psycopg2
+
+METRICS_DIR = os.environ.get('GALAXY_METRICS_DIR', '/usr/local/share/galaxy-metrics')
+DASHBOARD_URL = 'https://monitoring.usegalaxy.be/d/77c70d5c-6c90-4ea6-9a0b-247033a0a6fe/internal-metrics'
+
+# Tags Telegraf adds that the SQL does not produce (backfilled points lack them)
+EXTRA_TAGS = {'host', 'dest'}
+
+# Measurement prefixes whose stored values can differ from a later re-run of
+# the same SQL, and why. Reported, not failed.
+DRIFTING = {
+    'cpu_hours': 'jobs still running at collection get their runtime metric later',
+    'jobs_executed': "jobs still queued at collection reach 'running' later",
+    'new_users': 'purging a user rewrites the email, moving them to Others',
+    'active_users': 'gu.active and the email are read at query time',
+    'newly_active_users': 'gu.active and the email are read at query time',
+    'total_data_uploaded': 'total_size is set when the upload finishes; days before the query fix used another definition',
+}
+
+# Independent SQL for part 2, no institution mapping, run per data day to keep temp files small.
+TOTALS_SQL = {
+    'jobs submitted': """
+        SELECT count(*) FROM job
+        WHERE user_id IS NOT NULL
+            AND create_time >= %(start)s AND create_time < %(end)s""",
+    # History imports insert jobs with their original create_time, after that
+    # day was collected; their first state row is from the import
+    'jobs inserted later': """
+        SELECT count(*) FROM job
+        WHERE user_id IS NOT NULL
+            AND create_time >= %(start)s AND create_time < %(end)s
+            AND NOT EXISTS (SELECT 1 FROM job_state_history h
+                            WHERE h.job_id = job.id AND h.create_time < %(end)s)""",
+    'new users': """
+        SELECT count(*) FROM galaxy_user
+        WHERE create_time >= %(start)s AND create_time < %(end)s""",
+    'active users': """
+        SELECT count(DISTINCT job.user_id)
+        FROM job JOIN galaxy_user gu ON gu.id = job.user_id
+        WHERE gu.active
+            AND job.create_time >= %(start)s AND job.create_time < %(end)s""",
+    # Distinct users first: a NOT EXISTS per job is too slow on days with very many jobs
+    'newly active users': """
+        SELECT count(*) FROM (
+            SELECT DISTINCT job.user_id
+            FROM job JOIN galaxy_user gu ON gu.id = job.user_id
+            WHERE gu.active
+                AND job.create_time >= %(start)s AND job.create_time < %(end)s
+        ) users
+        WHERE NOT EXISTS (SELECT 1 FROM job earlier
+                          WHERE earlier.user_id = users.user_id AND earlier.create_time < %(start)s)""",
+    'jobs executed (now)': """
+        SELECT count(*) FROM job
+        WHERE user_id IS NOT NULL
+            AND create_time >= %(start)s AND create_time < %(end)s
+            AND EXISTS (SELECT 1 FROM job_state_history h
+                        WHERE h.job_id = job.id AND h.state = 'running')""",
+    'jobs executed (as collected)': """
+        SELECT count(*) FROM job
+        WHERE user_id IS NOT NULL
+            AND create_time >= %(start)s AND create_time < %(end)s
+            AND EXISTS (SELECT 1 FROM job_state_history h
+                        WHERE h.job_id = job.id AND h.state = 'running'
+                            AND h.create_time < %(end)s)""",
+    'CPU hours (now)': """
+        SELECT coalesce(sum(r.metric_value * s.metric_value) / 3600, 0)
+        FROM job
+        JOIN job_metric_numeric r ON r.job_id = job.id AND r.metric_name = 'runtime_seconds'
+        JOIN job_metric_numeric s ON s.job_id = job.id AND s.metric_name = 'galaxy_slots'
+        WHERE job.user_id IS NOT NULL
+            AND job.create_time >= %(start)s AND job.create_time < %(end)s""",
+    'CPU hours (as collected)': """
+        SELECT coalesce(sum(r.metric_value * s.metric_value) / 3600, 0)
+        FROM job
+        JOIN job_metric_numeric r ON r.job_id = job.id AND r.metric_name = 'runtime_seconds'
+        JOIN job_metric_numeric s ON s.job_id = job.id AND s.metric_name = 'galaxy_slots'
+        WHERE job.user_id IS NOT NULL
+            AND job.create_time >= %(start)s AND job.create_time < %(end)s
+            AND EXISTS (SELECT 1 FROM job_state_history h
+                        WHERE h.job_id = job.id
+                            AND h.state IN ('ok', 'error', 'failed', 'deleted', 'stopped')
+                            AND h.create_time < %(end)s)""",
+}
+
+# Part 2 rows: label -> (measurement suffix, field, SQL key, rounding tolerance)
+TOTALS = [
+    ('Jobs submitted', 'jobs_submitted', 'total_jobs_submitted', 'jobs submitted', 0),
+    ('New users', 'new_users', 'new_users_count', 'new users', 0),
+    ('Newly active users', 'newly_active_users', 'newly_active_users_count', 'newly active users', 0),
+    ('Jobs executed', 'jobs_executed', 'jobs_executed', 'jobs executed (as collected)', 0),
+    ('CPU hours', 'cpu_hours', 'cpu_hours', 'CPU hours (as collected)', 1),
+]
+
+
+def load_backfill():
+    """galaxy-metrics-backfill as a module, for its query loading and date substitution."""
+    path = os.path.join(METRICS_DIR, 'backfill.py')
+    spec = importlib.util.spec_from_file_location('galaxy_metrics_backfill', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class Influx:
+    def __init__(self, url, db, user, password):
+        self.url, self.db = url, db
+        self.auth = base64.b64encode(f'{user}:{password}'.encode()).decode()
+
+    def query(self, q):
+        params = urllib.parse.urlencode({'db': self.db, 'q': q, 'epoch': 's'})
+        req = urllib.request.Request(f'{self.url}/query?{params}')
+        req.add_header('Authorization', f'Basic {self.auth}')
+        with urllib.request.urlopen(req) as resp:
+            result = json.load(resp)['results'][0]
+        if 'error' in result:
+            raise RuntimeError(f'InfluxDB: {result["error"]} in: {q}')
+        return result.get('series', [])
+
+    def points(self, measurement, start, end):
+        """Rows of one measurement for data days [start, end), as dicts."""
+        # A point stamped on UTC day X holds data day X - 1
+        q = (f'SELECT * FROM "{measurement}" '
+             f"WHERE time >= '{start + timedelta(days=1)}T00:00:00Z' "
+             f"AND time < '{end + timedelta(days=1)}T00:00:00Z'")
+        rows = []
+        for series in self.query(q):
+            for values in series['values']:
+                rows.append(dict(zip(series['columns'], values)))
+        return rows
+
+
+def data_day(ts):
+    return datetime.fromtimestamp(ts, tz=timezone.utc).date() - timedelta(days=1)
+
+
+def is_field(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def series_sums(rows):
+    """Sum each field per (tags) over rows, ignoring tags the SQL does not produce."""
+    sums = defaultdict(float)
+    for row in rows:
+        tags = tuple(sorted((k, v) for k, v in row.items()
+                            if k != 'time' and k not in EXTRA_TAGS and isinstance(v, str)))
+        for k, v in row.items():
+            if k != 'time' and is_field(v):
+                sums[(tags, k)] += v
+    return sums
+
+
+def drift_reason(measurement):
+    for prefix, reason in DRIFTING.items():
+        if measurement.startswith(prefix + '_-_'):
+            return reason
+    return None
+
+
+def fmt(n):
+    return f'{n:,.1f}' if n % 1 else f'{int(n):,}'
+
+
+def daily_sql(cur, start, end):
+    """Each TOTALS_SQL value per data day: {key: {day: value}}."""
+    daily = defaultdict(dict)
+    d = start
+    while d < end:
+        for key, query in TOTALS_SQL.items():
+            try:
+                cur.execute(query, {'start': d, 'end': d + timedelta(days=1)})
+            except psycopg2.errors.QueryCanceled:
+                sys.exit(f'ERROR: "{key}" for {d} hit the statement timeout')
+            daily[key][d] = float(cur.fetchone()[0])
+        d += timedelta(days=1)
+    return daily
+
+
+def check_collection(influx, measurements, jobs_per_day, start, end):
+    print('\n== 1. Collection: one point per data day ==')
+    ok = True
+    for m in measurements:
+        stamps = defaultdict(set)
+        for row in influx.points(m, start, end):
+            stamps[data_day(row['time'])].add(row['time'])
+        dupes = {d: s for d, s in stamps.items() if len(s) > 1}
+        for d, s in sorted(dupes.items()):
+            times = ', '.join(datetime.fromtimestamp(t, tz=timezone.utc).strftime('%H:%M:%S') for t in sorted(s))
+            print(f'  DUPLICATE {m} {d}: {len(s)} collections ({times} UTC), sums double-count')
+            ok = False
+        if m == 'jobs_submitted_-_flemish_institutions':
+            # A day with jobs but without this measurement was not collected;
+            # a day without jobs has no rows to write
+            missing = [d for d, n in sorted(jobs_per_day.items()) if n and d not in stamps]
+            for d in missing:
+                print(f'  MISSING  {d}: {int(jobs_per_day[d])} jobs in the DB, no collection')
+            ok = ok and not missing
+            idle = sum(1 for n in jobs_per_day.values() if not n)
+            times = sorted({datetime.fromtimestamp(t, tz=timezone.utc).strftime('%H:%M:%S')
+                            for s in stamps.values() for t in s})
+            print(f'  {len(stamps)} of {len(jobs_per_day)} days collected ({idle} days without jobs), '
+                  f'at {", ".join(times)} UTC')
+    if ok:
+        print('  OK: no missing days, no duplicates')
+    return ok
+
+
+def check_totals(influx, daily, start, end):
+    print('\n== 2. Totals: independent SQL vs InfluxDB ==')
+    sql = {key: sum(days.values()) for key, days in daily.items()}
+    sql_daily_active = daily['active users']
+
+    ok = True
+    stored = {}
+    print(f'  {"metric":<22}{"SQL":>12}{"Flemish":>12}{"VIB centers":>13}  result')
+    for label, suffix, field, key, tolerance in TOTALS:
+        expected = sql[key]
+        got = []
+        per_day = defaultdict(float)
+        for scope in ('flemish_institutions', 'vib_centers'):
+            rows = [r for r in influx.points(f'{suffix}_-_{scope}', start, end) if is_field(r.get(field))]
+            got.append(sum(r[field] for r in rows))
+            if scope == 'flemish_institutions':
+                for r in rows:
+                    per_day[data_day(r['time'])] += r[field]
+        stored[label] = got[0]
+        match = all(abs(g - expected) <= tolerance for g in got)
+        drift = drift_reason(f'{suffix}_-_')
+        days = daily[key]
+        late = daily['jobs inserted later'] if key == 'jobs submitted' else {}
+        differing = [d for d in sorted(days) if abs(days[d] - per_day.get(d, 0)) > tolerance]
+        # A day short by no more than its later-inserted jobs is explained
+        unexplained = [d for d in differing if not days[d] - late.get(d, 0) <= per_day.get(d, 0) <= days[d]]
+        if match:
+            verdict = 'match'
+        elif drift:
+            verdict = f'differs (may drift: {drift})'
+        elif not unexplained and got[0] == got[1]:
+            verdict = f'differs by jobs inserted later (history imports), {len(differing)} days'
+        else:
+            verdict = 'MISMATCH'
+        ok = ok and not verdict.startswith('MISMATCH')
+        print(f'  {label:<22}{fmt(expected):>12}{fmt(got[0]):>12}{fmt(got[1]):>13}  {verdict}')
+        if not match and not drift:
+            for d in differing[:10]:
+                note = f', {int(late[d])} inserted later' if late.get(d) else ''
+                print(f'    {d}: SQL {fmt(days[d])}, InfluxDB {fmt(per_day.get(d, 0))}{note}')
+    print(f'  {"":<22}now: jobs executed {fmt(sql["jobs executed (now)"])}, '
+          f'CPU hours {fmt(sql["CPU hours (now)"])} (both can only grow after collection)')
+
+    influx_daily = defaultdict(float)
+    for r in influx.points('active_users_-_flemish_institutions', start, end):
+        influx_daily[data_day(r['time'])] += r['active_users_count']
+    stored['Peak daily active users'] = max(influx_daily.values(), default=0)
+    per_institution = defaultdict(float)
+    for r in influx.points('jobs_submitted_-_flemish_institutions', start, end):
+        per_institution[r['institution']] += r['total_jobs_submitted']
+    stored['jobs per institution'] = per_institution
+    differing = [d for d in sql_daily_active if sql_daily_active[d] != influx_daily.get(d, 0)]
+    for d in sorted(differing):
+        print(f'  active users {d}: SQL {fmt(sql_daily_active[d])}, InfluxDB {fmt(influx_daily.get(d, 0))}')
+    print(f'  {"Active users, daily":<22}{len(differing)} of {len(sql_daily_active)} days differ'
+          + (f' (may drift: {DRIFTING["active_users"]})' if differing else ''))
+    return ok, stored
+
+
+def check_series(cur, influx, backfill, queries, start, end):
+    print('\n== 3. Series: deployed queries re-run vs every stored series ==')
+    sql_sums = defaultdict(lambda: defaultdict(float))
+    d = start
+    while d < end:
+        for m, (_, query) in queries.items():
+            cur.execute(backfill.parameterize_query(query, d))
+            cols = [c[0] for c in cur.description]
+            for row in cur.fetchall():
+                values = dict(zip(cols, row))
+                tags = tuple(sorted((k, str(v)) for k, v in values.items()
+                                    if v is not None and not isinstance(v, (int, float)) and not hasattr(v, 'as_tuple')))
+                for k, v in values.items():
+                    if isinstance(v, (int, float)) or hasattr(v, 'as_tuple'):
+                        sql_sums[m][(tags, k)] += float(v)
+        d += timedelta(days=1)
+
+    ok = True
+    compared = 0
+    for m in queries:
+        stored = series_sums(influx.points(m, start, end))
+        rerun = sql_sums[m]
+        keys = set(stored) | set(rerun)
+        # Rows with only zero fields are not written, so treat absent as 0
+        diffs = [(k, rerun.get(k, 0.0), stored.get(k, 0.0)) for k in keys
+                 if abs(rerun.get(k, 0.0) - stored.get(k, 0.0)) > (0.01 if m.startswith('cpu_hours') or m.startswith('total_data') else 0)]
+        compared += len(keys)
+        if not diffs:
+            continue
+        reason = drift_reason(m)
+        ok = ok and bool(reason)
+        print(f'  {m}: {len(diffs)} of {len(keys)} series differ' + (f' (may drift: {reason})' if reason else ' MISMATCH'))
+        for (tags, field), now, was in sorted(diffs)[:8]:
+            label = ','.join(f'{k}={v}' for k, v in tags)
+            print(f'    {field} [{label}]: re-run {fmt(now)}, stored {fmt(was)}')
+    print(f'  {compared} series compared across {len(queries)} measurements')
+    if ok:
+        print('  OK: every stable series matches')
+    return ok
+
+
+def print_panels(stored, start, end):
+    print('\n== Panels: stored values the stats should show, institution All, VIB Data Core All ==')
+    print(f'  Total jobs               {fmt(stored["Jobs submitted"])}')
+    print(f'  Registered users         {fmt(stored["New users"])}')
+    print(f'  Active registered users  {fmt(stored["Newly active users"])}')
+    print(f'  Peak daily active users  {fmt(stored["Peak daily active users"])}')
+    print(f'  Total CPU hours          {fmt(stored["CPU hours"])}')
+    per_institution = stored['jobs per institution']
+    if per_institution:
+        # Total jobs reduces one series per institution; a stat that shows only
+        # the last row shows the alphabetically last institution
+        last = max(per_institution)
+        print(f'  (Total jobs showing {fmt(per_institution[last])} = {last} only: the stat is not summing institutions)')
+    t0 = int(datetime(*(start + timedelta(days=1)).timetuple()[:3], tzinfo=timezone.utc).timestamp() * 1000)
+    t1 = int(datetime(*(end + timedelta(days=1)).timetuple()[:3], tzinfo=timezone.utc).timestamp() * 1000) - 1000
+    print(f'  Dashboard for data days {start} to {end - timedelta(days=1)}:')
+    print(f'  {DASHBOARD_URL}?from={t0}&to={t1}&timezone=utc')
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Check internal_metrics InfluxDB against the Galaxy DB')
+    today = datetime.now(timezone.utc).date()
+    parser.add_argument('--start', type=date.fromisoformat, default=today - timedelta(days=14),
+                        help='First data day YYYY-MM-DD (inclusive)')
+    parser.add_argument('--end', type=date.fromisoformat, default=today,
+                        help='Last data day YYYY-MM-DD (exclusive)')
+    parser.add_argument('--influxdb-url', default='http://monitoring.usegalaxy.be:8086')
+    parser.add_argument('--influxdb-db', default='internal_metrics')
+    parser.add_argument('--influxdb-user', default=os.environ.get('INFLUXDB_USER', ''))
+    parser.add_argument('--influxdb-password', default=os.environ.get('INFLUXDB_PASSWORD', ''))
+    parser.add_argument('--skip-series', action='store_true', help='Skip part 3 (re-runs every query per day)')
+    args = parser.parse_args()
+
+    if args.end <= args.start:
+        parser.error(f'--end ({args.end}) must be after --start ({args.start})')
+    if args.end > today:
+        parser.error(f'--end ({args.end}) is after today: that data day is not collected yet')
+    if not (args.influxdb_user and args.influxdb_password):
+        parser.error('--influxdb-user and --influxdb-password required (or set INFLUXDB_USER/INFLUXDB_PASSWORD)')
+
+    backfill = load_backfill()
+    queries = {backfill.measurement_name(c): q for c, q in backfill.load_queries(backfill.QUERIES_FILE).items()}
+    influx = Influx(args.influxdb_url, args.influxdb_db, args.influxdb_user, args.influxdb_password)
+
+    conn = psycopg2.connect('')
+    conn.set_session(readonly=True)
+    try:
+        with conn.cursor() as cur:
+            cur.execute('SHOW timezone')
+            print(f'Data days {args.start} to {args.end - timedelta(days=1)}; '
+                  f'DB TimeZone {cur.fetchone()[0]} (sets what "yesterday" means for the daily run)')
+            # Bounds any single query; work_mem spills are capped by querying per day
+            cur.execute("SET statement_timeout = '120s'")
+            daily = daily_sql(cur, args.start, args.end)
+            ok = check_collection(influx, list(queries), daily['jobs submitted'], args.start, args.end)
+            totals_ok, stored = check_totals(influx, daily, args.start, args.end)
+            ok = ok and totals_ok
+            if not args.skip_series:
+                ok = check_series(cur, influx, backfill, queries, args.start, args.end) and ok
+            print_panels(stored, args.start, args.end)
+    finally:
+        conn.close()
+
+    print('\nRESULT: ' + ('OK' if ok else 'MISMATCH, see above'))
+    sys.exit(0 if ok else 1)
+
+
+if __name__ == '__main__':
+    main()

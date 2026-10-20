@@ -1,6 +1,7 @@
 ---
 # Deploy admin working environment (pdg.workenv) to all managed hosts.
 # All hosts: vim, tmux, SSH keys, console password (galaxy_master user only, not the galaxy app user).
+# --tags console_password sets only the console passwords.
 # Loginnode extras: galaxy-session.sh, tmux log rotation, personal and guest accounts.
 # Galaxyservers extras: condor_q.sh, condor_history.sh.
 
@@ -36,3 +37,4 @@
       loop: "{{ workenv_users }}"
       no_log: true
       when: item.password is defined
+      tags: console_password

@@ -271,10 +271,6 @@ tools:
   toolshed.g2.bx.psu.edu/repos/mnhn65mo/csv_to_tabular/csv2tab_R/0.1:
     inherits: _conda_local
 
-  # NOTE: results in mkdir error using singularity 
-  toolshed.g2.bx.psu.edu/repos/bgruening/salmon/salmon/.*:
-    inherits: _conda_local
-
   toolshed.g2.bx.psu.edu/repos/devteam/bowtie_wrappers/bowtie_wrapper/.*:
     inherits: _conda_local
 
@@ -925,8 +921,10 @@ tools:
         - singularity
         - pulsar
 
+  # The two GPU test tools pin one generation each, so the healthcheck covers both the
+  # GPUv2 (T4) and the GPUv3 (A2) workers.
   # $-anchored: tool ids are matched as regex, so a bare "test-condor-gpu" also prefix-matches
-  # "test-condor-gpu-v3" and would wrongly add the gpu tag to it (→ no matching destination).
+  # "test-condor-gpu-v3" and would wrongly add the gpu_v2 tag to it (→ no matching destination).
   test-condor-gpu$:
     gpus: 1
     params:
@@ -937,6 +935,7 @@ tools:
     scheduling:
       require:
         - gpu
+        - gpu_v2
         - vib-users
 
   test-condor-gpu-v3:

@@ -1,0 +1,38 @@
+---
+# kernel (default), security (security and bugfix advisories) or baseline (all packages).
+os_update_scope: kernel
+
+# Oldest kernel allowed per Rocky major version; a host that boots below it fails.
+os_update_kernel_minimum:
+  "9": "{{ kernel_minimum | default('') }}"
+  "8": "{{ kernel_minimum_el8 | default('') }}"
+
+# Kernel packages updated in the kernel scope, if installed. kernel-devel lets DKMS modules build.
+os_update_kernel_packages: [kernel, kernel-core, kernel-modules, kernel-modules-core, kernel-modules-extra,
+                            kernel-devel, kernel-devel-matched, kernel-headers, kernel-tools, kernel-tools-libs]
+
+# List every pending package in the preview.
+os_update_preview_packages: true
+
+# Ask for confirmation before updating the host.
+os_update_confirm: false
+
+# Drain the host in HTCondor first, on this central manager.
+os_update_condor_drain: false
+os_update_condor_central_manager: "{{ groups['prodgalaxyservers'][0] }}"
+
+# Services stopped before the update and started again after it.
+os_update_stop_services: []
+
+# Packages removed and repositories disabled after the update.
+os_update_remove_packages: []
+os_update_disable_repos: []
+
+os_update_reboot_timeout: 600
+os_update_post_reboot_delay: 15
+
+# URL that must return 200 after the update, for example a Galaxy API.
+os_update_wait_url: ""
+
+# Read-only command whose output is shown after the update, for example exportfs -v.
+os_update_post_check: ""

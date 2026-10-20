@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: pdg
+  description: Update OS packages, reboot only when needed and check the running kernel against a minimum
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags:
+    - rocky
+    - updates
+    - kernel
+
+dependencies: []
