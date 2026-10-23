@@ -233,6 +233,8 @@ galaxy_config_files:
 
 # Anything that is based on a template obtained from the ansible dir should go here
 # the galaxy config galaxy.ini/galaxy.yml is treated separatedly 
+# Temporarily "none" while the iRODS server certificate is expired; back to "{{ vault_irods_ssl_verify_server }}" once renewed.
+galaxy_irods_ssl_verify_server: "none"
 galaxy_config_template_src_dir: "{{ inventory_dir }}/../templates/galaxy/config"
 irods_config_template_src_dir: "{{ inventory_dir }}/../templates/irods"
 galaxy_config_templates:
