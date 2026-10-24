@@ -187,3 +187,6 @@ tpv_dry_run_ignore_errors: false
 
 # Test consumes prod's synced tool state, it must not run its own bulk installs.
 galaxy_tools_install_schedule: []
+
+# TPV: run tools that inherit _local_scratch (Unicycler) in node-local HTCondor scratch.
+tpv_local_scratch_enabled: true
