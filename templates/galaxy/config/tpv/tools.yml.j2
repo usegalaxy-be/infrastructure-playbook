@@ -152,6 +152,7 @@ tools:
         fail: "Input data too large for this assembler. Please contact support or downsample your reads."
 
   # Tool working directory on node-local HTCondor scratch instead of NFS, for I/O-heavy tools.
+  # The scratch copy links back to the other job dir entries, so relative paths like ../outputs still resolve.
   # Use $VAR, not ${VAR}: TPV evaluates {...} in env values.
   _local_scratch:
     abstract: true
@@ -161,10 +162,13 @@ tools:
     env:
     - execute: >-
         if [ -n "$_CONDOR_SCRATCH_DIR" ] && [ -d "$_CONDOR_SCRATCH_DIR" ] && [ -n "$_GALAXY_JOB_DIR" ] && [ -d "$_GALAXY_JOB_DIR" ]; then
-        mkdir -p "$_CONDOR_SCRATCH_DIR/working" &&
-        cp -a "$_GALAXY_JOB_DIR/working/." "$_CONDOR_SCRATCH_DIR/working/" 2>/dev/null;
+        _gx_scratch="$_CONDOR_SCRATCH_DIR/galaxy_job" &&
+        mkdir -p "$_gx_scratch/working" &&
+        cp -a "$_GALAXY_JOB_DIR/working/." "$_gx_scratch/working/" 2>/dev/null;
+        for _gx_entry in "$_GALAXY_JOB_DIR"/*; do [ "$(basename "$_gx_entry")" = working ] || ln -s "$_gx_entry" "$_gx_scratch/"; done;
+        for _gx_entry in outputs configs metadata; do [ -e "$_gx_scratch/$_gx_entry" ] || ln -s "$_GALAXY_JOB_DIR/$_gx_entry" "$_gx_scratch/$_gx_entry"; done;
         rm -rf "$_GALAXY_JOB_DIR/working" &&
-        ln -s "$_CONDOR_SCRATCH_DIR/working" "$_GALAXY_JOB_DIR/working"; fi
+        ln -s "$_gx_scratch/working" "$_GALAXY_JOB_DIR/working"; fi
 {% endif %}
 
   # Specific tool definitions
