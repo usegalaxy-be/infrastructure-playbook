@@ -151,6 +151,22 @@ tools:
       - if: input_size >= 20
         fail: "Input data too large for this assembler. Please contact support or downsample your reads."
 
+  # Tool working directory on node-local HTCondor scratch instead of NFS, for I/O-heavy tools.
+  # Use $VAR, not ${VAR}: TPV evaluates {...} in env values.
+  _local_scratch:
+    abstract: true
+{% if tpv_local_scratch_enabled | default(false) %}
+    params:
+      request_disk: "{{ tpv_local_scratch_request_disk | default('20G') }}"
+    env:
+    - execute: >-
+        if [ -n "$_CONDOR_SCRATCH_DIR" ] && [ -d "$_CONDOR_SCRATCH_DIR" ] && [ -n "$_GALAXY_JOB_DIR" ] && [ -d "$_GALAXY_JOB_DIR" ]; then
+        mkdir -p "$_CONDOR_SCRATCH_DIR/working" &&
+        cp -a "$_GALAXY_JOB_DIR/working/." "$_CONDOR_SCRATCH_DIR/working/" 2>/dev/null;
+        rm -rf "$_GALAXY_JOB_DIR/working" &&
+        ln -s "$_CONDOR_SCRATCH_DIR/working" "$_GALAXY_JOB_DIR/working"; fi
+{% endif %}
+
   # Specific tool definitions
 
   toolshed.g2.bx.psu.edu/repos/iuc/ncbi_fcs_gx/ncbi_fcs_gx/.*:
@@ -832,6 +848,7 @@ tools:
         - singularity
 
   toolshed.g2.bx.psu.edu/repos/iuc/unicycler/unicycler/.*:
+    inherits: _local_scratch
     cores: 16
     mem: 90
     env:
