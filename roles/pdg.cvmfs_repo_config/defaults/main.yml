@@ -1,0 +1,7 @@
+---
+# Per-repository CVMFS client settings, written to /etc/cvmfs/config.d/<repository>.local.
+# Keys are repository names, values are lists of KEY=value lines, e.g.
+# cvmfs_repo_config:
+#   main.galaxyproject.org:
+#     - CVMFS_HOST_RESET_AFTER=300
+cvmfs_repo_config: {}

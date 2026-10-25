@@ -14,12 +14,32 @@ server {
     # Manually blocked IPs (scanner/attacker blocks — replace with fail2ban when deployed)
     deny 185.177.72.11;
 
+    # Maintenance page, answered with 503 so monitors and API clients see the outage.
+    # The flag file is managed by 00-proxy.yml --tags maintenance (nginx_maintenance_sites).
+    error_page 503 @maintenance;
+    location @maintenance {
+        rewrite ^ /maintenance break;
+        proxy_pass https://usegalaxy-be.github.io;
+        proxy_set_header Host usegalaxy-be.github.io;
+        proxy_ssl_server_name on;
+        proxy_hide_header Cache-Control;
+        proxy_hide_header Expires;
+        proxy_hide_header ETag;
+        proxy_hide_header Last-Modified;
+        add_header Cache-Control "no-store" always;
+        add_header Retry-After 300 always;
+    }
+
     # Drop common vulnerability scan targets (wp-config, .env files, php probes)
     location ~* "(\.env(\.|$)|wp-config\.php|\.php$|/config\.env$)" {
         return 444;
     }
 
     location /api/upload/resumable_upload {
+        if (-f /var/www/html/maintenance-{{ subdomain }}) {
+            return 503;
+        }
+
         # Disable request and response buffering (required for TUS chunked uploads)
         proxy_request_buffering off;
         proxy_buffering         off;
@@ -36,6 +56,10 @@ server {
     }
 
     location / {
+        if (-f /var/www/html/maintenance-{{ subdomain }}) {
+            return 503;
+        }
+
         # This is the backend to send the requests to.
         proxy_pass https://{{ subdomain }};
 

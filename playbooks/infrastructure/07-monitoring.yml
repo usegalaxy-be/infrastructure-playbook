@@ -328,6 +328,36 @@
         mode: '0755'
       tags: [telegraf, monitoring-scripts]
 
+    - name: Deploy galaxy-download-usage script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-download-usage"
+        dest: /usr/local/share/galaxy-metrics/download_usage.py
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-download-usage SQL query
+      become: true
+      template:
+        src: "{{ playbook_dir }}/../../templates/galaxy/monitoring/galaxy-download-usage.sql.j2"
+        dest: /usr/local/share/galaxy-metrics/download_usage.sql
+        owner: root
+        group: root
+        mode: '0644'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-metrics-check script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-metrics-check"
+        dest: /usr/local/share/galaxy-metrics/check.py
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
     # ── Telegraf stale plugin cleanup ────────────────────────────────────────
 
     - name: Remove stale Telegraf plugin config files
@@ -403,6 +433,26 @@
       copy:
         src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-failed-units"
         dest: /usr/bin/galaxy-failed-units
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-tool-usage script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-tool-usage"
+        dest: /usr/bin/galaxy-tool-usage
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-tool-tests-status script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-tool-tests-status"
+        dest: /usr/bin/galaxy-tool-tests-status
         owner: root
         group: root
         mode: '0755'

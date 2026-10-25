@@ -1,0 +1,4 @@
+---
+# pdg.os_update: test and prod Galaxy run from these exports.
+os_update_confirm: true
+os_update_post_check: exportfs -v

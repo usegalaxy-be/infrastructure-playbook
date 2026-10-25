@@ -76,6 +76,50 @@
       when: ansible_os_family == 'Debian'
       tags: [packages]
 
+    # Download log for galaxy-download-usage. Must exist before the nginx role loads the
+    # vhosts that write to it. Group = Galaxy user's group, which telegraf is a member of.
+    - name: Create nginx download log directory
+      ansible.builtin.file:
+        path: "{{ galaxy_download_log_dir }}"
+        state: directory
+        owner: "{{ galaxy_user_name }}"
+        group: "{{ galaxy_user_name }}"
+        mode: '0750'
+      tags: [nginx]
+
+    - name: Create nginx download log file
+      ansible.builtin.file:
+        path: "{{ galaxy_download_log_dir }}/downloads.log"
+        state: touch
+        owner: "{{ galaxy_user_name }}"
+        group: "{{ galaxy_user_name }}"
+        mode: '0640'
+        modification_time: preserve
+        access_time: preserve
+      tags: [nginx]
+
+    # Kept longer than galaxy-download-usage's 7-day window, so every day it writes is complete
+    - name: Rotate nginx download log
+      ansible.builtin.copy:
+        dest: /etc/logrotate.d/nginx-downloads
+        content: |
+          {{ galaxy_download_log_dir }}/downloads.log {
+              create 0640 {{ galaxy_user_name }} {{ galaxy_user_name }}
+              daily
+              rotate 14
+              missingok
+              notifempty
+              compress
+              delaycompress
+              postrotate
+                  /bin/kill -USR1 `cat /run/nginx.pid 2>/dev/null` 2>/dev/null || true
+              endscript
+          }
+        owner: root
+        group: root
+        mode: '0644'
+      tags: [nginx]
+
   roles:
       # Set NTP
       - role: influxdata.chrony
@@ -127,6 +171,9 @@
       - role: galaxyproject.cvmfs
         tags: [cvmfs]
 
+      - role: pdg.cvmfs_repo_config
+        tags: [cvmfs]
+
   # NOTE: add service restarts as post tasks (firewall, galaxy, condor, ...)
   post_tasks:
     # NOTE: vcgn images are shipped with several services including pulsar, which is not currently necessary for our galaxy server
@@ -154,3 +201,38 @@
         hour: "*/3"
         job: "/bin/docker system prune --all -f > /dev/null"
       tags: [docker]
+
+    # nginx loads its certificate from the autofs-mounted NFS share; wait for it before nginx -t.
+    - name: Create systemd drop-in directory for nginx
+      ansible.builtin.file:
+        path: /etc/systemd/system/nginx.service.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [nginx, systemd]
+
+    - name: Create systemd drop-in to start nginx after autofs mounts the certificate
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nginx.service.d/autofs.conf
+        content: |
+          [Unit]
+          After=autofs.service
+          Wants=autofs.service
+
+          [Service]
+          ExecStartPre=
+          ExecStartPre=/usr/bin/timeout 60 /usr/bin/stat {{ galaxy_shared_certs_dir }}/{{ galaxy_shared_cert_domain }}/fullchain.pem
+          ExecStartPre=/usr/bin/rm -f /run/nginx.pid
+          ExecStartPre=/usr/sbin/nginx -t
+        owner: root
+        group: root
+        mode: '0644'
+      register: _nginx_autofs_dropin
+      tags: [nginx, systemd]
+
+    - name: Reload systemd after nginx drop-in change
+      ansible.builtin.systemd:
+        daemon_reload: true
+      when: _nginx_autofs_dropin.changed
+      tags: [nginx, systemd]

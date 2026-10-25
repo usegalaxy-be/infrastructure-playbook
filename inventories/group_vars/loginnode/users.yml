@@ -1,0 +1,26 @@
+---
+# Personal and guest accounts on the loginnode (pdg.local_users).
+# galaxy_master is not listed here and stays as it is.
+local_users:
+  - name: paul
+    uid: 2001
+    sudo: true
+    ssh_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINJcsN/tuCA6hyV/kUOiakJwp3sQPe7mzEeisP/WDoA4 padge@mac0208"
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB93bzXS2aw2B1PTUntLRWt1UGBbMnorQ1wwHYvlwJUr padge@desktop"
+
+  - name: boris
+    uid: 2002
+    sudo: true
+    ssh_keys:
+      - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHQqWEGEfQp6NNl3WI8jcC3Rp+4Gtspfacu9J74HYN1o boris@laptop"
+      - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD3K+hyB/UcgmOTWXpStXwL3j00yHSUHtR8EVdUAafklnYcNnJj7ip3zhjyUsIhO1KvbiOLYsBX+fFa1jkh/6/UA5SE7NjG3Glt3Y/z/MRiT8pOm3uru+OponcNzWqzwA3067hROLKqTc/3dNltXUmyVnHgSqc9IlYmLj8BsPeU95h1VNLYyGPXteH0c1plGdbscBn0U+1dMwAMpi/RVdU1qK6pgjYej4Q1TMVZLJlWqXUmBfHic6ZOIIfXL2OXK7QmpjigknwyevrzfkghQDFJNOceChtsoWrxfiq9+bGw6BjJ9RRKEqt2uJJuM5rGHwLjdCg8+xPTJD+mAOgHlNkVoEHT3CQ0nk0hMVbdo8xhXniGVbPp8M8wFP+tXou3siLXcHDYBNUmctw96RFdLVfpqETNqAJHDVXcYz5c44/eL6/dK4fe01aLbO2GFPsKVXkU6Xle0Vc5i14qWgmiuXId/r2PVtC9Q7n9r0wo2thQc2pYdbs94h1a4tDqfj9W8T+tYKM5JXOkANlY41i2ViuimbC3f7qEZhftdCUlPx4DzrlZvr/cPXTs/S2wgi28I+9ay9ZAnKfhsbfFK9fkEt+Rr8CBPG+pppwqR3yfHcqARu+7jos+62Ckf67O8rVc+CyB5Ao0AdbwoFio4sw2SgvzhxV21dIn/fEveNFl30/Fww== boris@vsc"
+
+  # Guest template: the account locks on `expires`, sudo stops on `sudo_expires`.
+  # Leave out `sudo` for a guest who only needs to log in.
+  # - name: jdoe
+  #   expires: "2026-11-01"
+  #   sudo: true
+  #   sudo_expires: "2026-10-15"
+  #   ssh_keys:
+  #     - "ssh-ed25519 AAAA... jdoe@laptop"

@@ -3,3 +3,6 @@
 # and logrotate. Other hosts only get the vim setup (see group_vars/all/workenv.yml).
 workenv_tmux_install: true
 workenv_deploy_session_script: true
+# pandoc converts RFC drafts to epub.
+workenv_extra_packages:
+  - pandoc

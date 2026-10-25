@@ -172,6 +172,21 @@ galaxy_job_config:
     - type: destination_user_concurrent_jobs
       id: local_upload
       value: 10
+    # One running GPU job per user on each GPU destination; more GPU jobs wait in the queue.
+    # Limits must use the TPV destination id: Galaxy only adds up `tag:` limits over
+    # destinations defined in this job config, and TPV destinations are not.
+    - type: destination_user_concurrent_jobs
+      id: condor_gpu
+      value: 1
+    - type: destination_user_concurrent_jobs
+      id: condor_vib_gpu_tpv
+      value: 1
+    - type: destination_user_concurrent_jobs
+      id: condor_vib_gpu_v2_tpv
+      value: 1
+    - type: destination_user_concurrent_jobs
+      id: condor_vib_gpu_v3_tpv
+      value: 1
     - type: walltime
       value: '148:00:00'
     # Limited time for Interactive tools
