@@ -41,8 +41,8 @@ tools:
       # Capped to our largest worker (350GB/20 cores, matching condor_tpv's max_accepted_*).
       request_cpus: "{min(cores, 20)}"
       # Counts attempts; Galaxy carries it over to the next attempt when it resubmits after an OOM.
-      SCALING_FACTOR: "{int(job.destination_params.get('SCALING_FACTOR', 0)) + 1 if job.destination_params else 1}"
-      request_memory: "{min(int(mem * 1024) * (int(job.destination_params.get('SCALING_FACTOR', 0)) + 1 if job.destination_params else 1), 358400)}"
+      SCALING_FACTOR: "{int((getattr(job, 'destination_params', None) or dict()).get('SCALING_FACTOR', 0)) + 1}"
+      request_memory: "{min(int(mem * 1024) * (int((getattr(job, 'destination_params', None) or dict()).get('SCALING_FACTOR', 0)) + 1), 358400)}"
       request_gpus: "{gpus or 0}"
       singularity_enabled: true
       singularity_volumes: "{{ galaxy_container_volumes.local | join(',') }}"
