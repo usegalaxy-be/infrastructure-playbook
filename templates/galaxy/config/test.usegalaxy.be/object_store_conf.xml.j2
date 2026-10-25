@@ -9,7 +9,7 @@
             <ssl client_server_negotiation="{{ vault_irods_client_server_negotiation }}" client_server_policy="{{ vault_irods_client_server_policy }}" 
                 encryption_algorithm="{{ vault_irods_encryption_algorithm }}" encryption_key_size="{{ vault_irods_encryption_key_size }}" 
                 encryption_num_hash_rounds="{{ vault_irods_encryption_num_hash_rounds }}" encryption_salt_size="{{ vault_irods_encryption_salt_size }}" 
-                ssl_verify_server="{{ vault_irods_ssl_verify_server }}" ssl_ca_certificate_file="{{ vault_irods_ssl_ca_certificate_file }}" />
+                ssl_verify_server="{{ galaxy_irods_ssl_verify_server }}" ssl_ca_certificate_file="{{ vault_irods_ssl_ca_certificate_file }}" />
             <logical path="{{ vault_irods_cwd }}/test" />
             <cache path="{{ galaxy_object_store_cache_path }}" size="10000" cache_updated_data="True"/>
             <extra_dir type="job_work" path="{{galaxy_job_working_directory}}" />
