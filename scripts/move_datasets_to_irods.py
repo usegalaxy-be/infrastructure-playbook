@@ -12,7 +12,9 @@ revert: point datasets that still have their disk copy back at the disk store.
 check:  read moved datasets that still have their disk copy through Galaxy's
         object store, and compare them with the disk copy.
 
-Datasets used by an unfinished job are skipped in all modes.
+Datasets used by an unfinished job are skipped in all modes. Each run ends with a
+summary line; pass its next_start_id as --start-id to the next run. When it is
+above --end-id, the range is done.
 
 Run as the Galaxy user with Galaxy's virtualenv, from <galaxy_server_dir>/scripts:
   python move_datasets_to_irods.py -c galaxy.yml --mode copy \
@@ -69,7 +71,7 @@ COPY_SELECT = (
     AND d.id BETWEEN :start_id AND :end_id
     """
     + NOT_USED_BY_ACTIVE_JOB
-    + " ORDER BY d.id LIMIT :limit"
+    + " ORDER BY d.id"
 )
 
 CLEAN_SELECT = (
@@ -189,9 +191,11 @@ def main():
 
     done = skipped = failed = 0
     total_bytes = 0
+    next_start_id = args.start_id
     for dataset_id, dataset_uuid in rows:
         if done >= args.limit:
             break
+        next_start_id = dataset_id + 1
         ds = SimpleNamespace(id=dataset_id, uuid=uuid.UUID(str(dataset_uuid)))
         try:
             pairs, dirs = file_pairs(source, target, ds)
@@ -243,7 +247,12 @@ def main():
                 print(f"stopping after {failed} errors")
                 break
 
-    print(f"summary mode={args.mode} done={done} skipped={skipped} failed={failed} bytes={total_bytes}")
+    if done < args.limit and failed < args.max_errors:
+        next_start_id = args.end_id + 1
+    print(
+        f"summary mode={args.mode} done={done} skipped={skipped} failed={failed} bytes={total_bytes}"
+        f" next_start_id={next_start_id}"
+    )
     object_store.shutdown()
     sys.exit(1 if failed else 0)
 
