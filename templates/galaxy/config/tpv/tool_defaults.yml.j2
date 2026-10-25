@@ -64,7 +64,8 @@ tools:
     resubmit:
       on_out_of_memory:
         condition: memory_limit_reached and attempt <= 4
-        destination: tpv_dispatcher
+        # Galaxy reads "environment"; "destination" only works in the old XML job config.
+        environment: tpv_dispatcher
     # tags are used to do the actual matching of the tool to the destination. 
     # No other settings are considered for matching, besides the ranking of the matched destinations
     # by default we want to use singularity for all tools whether locally or on a remote Pulsar node
