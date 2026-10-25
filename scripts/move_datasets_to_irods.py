@@ -8,8 +8,11 @@ copy:  upload each dataset to iRODS, compare checksums, then point the dataset
        at the iRODS store. The disk copy stays.
 clean: for datasets moved at least --min-age-hours ago, compare checksums
        again, then remove the disk copy.
+revert: point datasets that still have their disk copy back at the disk store.
+check:  read moved datasets that still have their disk copy through Galaxy's
+        object store, and compare them with the disk copy.
 
-Datasets used by an unfinished job are skipped in both modes.
+Datasets used by an unfinished job are skipped in all modes.
 
 Run as the Galaxy user with Galaxy's virtualenv, from <galaxy_server_dir>/scripts:
   python move_datasets_to_irods.py -c galaxy.yml --mode copy \
@@ -19,6 +22,7 @@ Run as the Galaxy user with Galaxy's virtualenv, from <galaxy_server_dir>/script
 
 import argparse
 import base64
+import filecmp
 import hashlib
 import os
 import shutil
@@ -84,6 +88,11 @@ SWITCH_STORE = """
     WHERE id = :id AND object_store_id = :source
 """
 
+REVERT_STORE = """
+    UPDATE dataset SET object_store_id = :source, update_time = (now() at time zone 'utc')
+    WHERE id = :id AND object_store_id = :target
+"""
+
 
 def local_checksums(path):
     sha256 = hashlib.sha256()
@@ -143,12 +152,12 @@ def copy_dataset(session, target, pairs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=["copy", "clean"], required=True)
+    parser.add_argument("--mode", choices=["copy", "clean", "revert", "check"], required=True)
     parser.add_argument("--source-store", required=True, help="disk object store id, e.g. internal_nfs_shares")
     parser.add_argument("--target-store", required=True, help="iRODS object store id, e.g. tier1_data")
     parser.add_argument("--start-id", type=int, required=True)
     parser.add_argument("--end-id", type=int, required=True)
-    parser.add_argument("--limit", type=int, default=1000, help="maximum number of datasets copied or cleaned in this run")
+    parser.add_argument("--limit", type=int, default=1000, help="maximum number of datasets handled in this run")
     parser.add_argument("--min-age-hours", type=int, default=24, help="clean: only datasets moved this long ago")
     parser.add_argument("--max-errors", type=int, default=20, help="stop after this many failed datasets")
     parser.add_argument("--dry-run", action="store_true", help="list what would happen, change nothing")
@@ -173,6 +182,8 @@ def main():
         "states": ACTIVE_JOB_STATES,
     }
     select = COPY_SELECT if args.mode == "copy" else CLEAN_SELECT
+    if args.mode in ("revert", "check"):
+        params["min_age_hours"] = 0
     with engine.connect() as conn:
         rows = conn.execute(text(select).bindparams(bindparam("states", expanding=True)), params).fetchall()
 
@@ -185,7 +196,7 @@ def main():
         try:
             pairs, dirs = file_pairs(source, target, ds)
         except ObjectNotFound:
-            # In clean mode most datasets in the target store were never on the source store.
+            # In clean, revert and check mode most datasets in the target store were never on the source store.
             if args.mode == "copy":
                 print(f"skip {dataset_id}: no file on {args.source_store}")
                 skipped += 1
@@ -206,6 +217,15 @@ def main():
                 if updated != 1:
                     raise RuntimeError("dataset row not switched, store changed during copy")
                 print(f"copied {dataset_id}: {len(pairs)} files, {size} bytes")
+            elif args.mode == "check":
+                ds.object_store_id = args.target_store
+                if not filecmp.cmp(object_store.get_filename(ds), pairs[0][0], shallow=False):
+                    raise RuntimeError("Galaxy reads different content than the disk copy")
+                print(f"readable {dataset_id}: {size} bytes")
+            elif args.mode == "revert":
+                with engine.begin() as conn:
+                    conn.execute(text(REVERT_STORE), {**params, "id": dataset_id})
+                print(f"reverted {dataset_id}: {len(pairs)} files, {size} bytes")
             else:
                 for local, remote in pairs:
                     if not irods_matches(session, local, remote):
