@@ -194,6 +194,17 @@
           state: absent
         tags: condor
 
+      # The htcondor runner reaches the schedd over TCP via the forwarding address, where FS auth fails; it uses this token instead.
+      - name: Fetch an HTCondor IDTOKEN for the Galaxy user from the local schedd
+        ansible.builtin.command:
+          cmd: "condor_token_fetch -token {{ galaxy_user_name }}"
+          creates: "{{ galaxy_user_home }}/.condor/tokens.d/{{ galaxy_user_name }}"
+        become: true
+        become_user: "{{ galaxy_user_name }}"
+        tags:
+          - condor
+          - condor-token
+
       # - name: Upgrade condor to latest in configured channel
       #   ansible.builtin.dnf:
       #       name: condor
