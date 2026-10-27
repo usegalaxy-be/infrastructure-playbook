@@ -380,7 +380,7 @@ tools:
   toolshed.g2.bx.psu.edu/repos/boris/phylorelatives/phylorelatives/0.0.1: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1.1[23].*: {inherits: _legacy}
   # Prod jobs on bacterial assemblies (<50 MB) keep about 1.2 of 8 cores busy; no data for larger inputs.
-  toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1\.14\..*:
+  toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/.*:
     rules:
     - id: prokka_small_assembly_rule
       if: input_size < 0.05
@@ -532,7 +532,7 @@ tools:
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.32.3: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.36.[235]: {inherits: _legacy}
   # Prod jobs keep 0.8 to 1.5 of 6 cores busy at every input size, up to >2 GB.
-  toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0\.39.*:
+  toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/.*:
     cores: 2
   toolshed.g2.bx.psu.edu/repos/devteam/join/gops_join_1/.*: {inherits: _legacy}
 
