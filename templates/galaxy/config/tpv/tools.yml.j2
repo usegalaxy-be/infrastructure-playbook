@@ -379,9 +379,12 @@ tools:
   toolshed.g2.bx.psu.edu/repos/blankenberg/naive_variant_caller/naive_variant_caller/0.0.[12]: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/boris/phylorelatives/phylorelatives/0.0.1: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1.1[23].*: {inherits: _legacy}
-  # Shared DB gives 8 cores; 4 lets twice as many run during trainings.
+  # Prod jobs on bacterial assemblies (<50 MB) keep about 1.2 of 8 cores busy; no data for larger inputs.
   toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1\.14\..*:
-    cores: 4
+    rules:
+    - id: prokka_small_assembly_rule
+      if: input_size < 0.05
+      cores: 4
   toolshed.g2.bx.psu.edu/repos/crs4/taxonomy_krona_chart/taxonomy_krona_chart/2.[06].*: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/devteam/bamleftalign/bamleftalign/0.0.2: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/devteam/bamtools/bamtools/0.0.[12]: {inherits: _legacy}
@@ -528,7 +531,7 @@ tools:
   toolshed.g2.bx.psu.edu/repos/peterjc/mummer/mummerplot_wrapper/0.0.7: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.32.3: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.36.[235]: {inherits: _legacy}
-  # Shared DB gives 6 cores; a bacterial read pair trims in under 3 minutes on 2.
+  # Prod jobs keep 0.8 to 1.5 of 6 cores busy at every input size, up to >2 GB.
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0\.39.*:
     cores: 2
   toolshed.g2.bx.psu.edu/repos/devteam/join/gops_join_1/.*: {inherits: _legacy}
