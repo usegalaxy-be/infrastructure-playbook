@@ -379,6 +379,9 @@ tools:
   toolshed.g2.bx.psu.edu/repos/blankenberg/naive_variant_caller/naive_variant_caller/0.0.[12]: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/boris/phylorelatives/phylorelatives/0.0.1: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1.1[23].*: {inherits: _legacy}
+  # Shared DB gives 8 cores; 4 lets twice as many run during trainings.
+  toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1\.14\..*:
+    cores: 4
   toolshed.g2.bx.psu.edu/repos/crs4/taxonomy_krona_chart/taxonomy_krona_chart/2.[06].*: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/devteam/bamleftalign/bamleftalign/0.0.2: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/devteam/bamtools/bamtools/0.0.[12]: {inherits: _legacy}
@@ -525,6 +528,9 @@ tools:
   toolshed.g2.bx.psu.edu/repos/peterjc/mummer/mummerplot_wrapper/0.0.7: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.32.3: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.36.[235]: {inherits: _legacy}
+  # Shared DB gives 6 cores; a bacterial read pair trims in under 3 minutes on 2.
+  toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0\.39.*:
+    cores: 2
   toolshed.g2.bx.psu.edu/repos/devteam/join/gops_join_1/.*: {inherits: _legacy}
 
   # legacy singularity resolv.conf fix tools
@@ -866,6 +872,11 @@ tools:
       if: 0.05 <= input_size < 2
       cores: 8
       mem: 31
+    # Short-read-only runs use about 4 cores and peak at 3.4 GB.
+    - id: unicycler_short_only_rule
+      if: 0.05 <= input_size < 2 and not any(d.name == 'long' for d in job.input_datasets)
+      cores: 4
+      mem: 8
 
   # SPAdes family — see _spades abstract for core/mem scaling rules
   toolshed.g2.bx.psu.edu/repos/nml/spades/spades/.*: {inherits: _spades}
