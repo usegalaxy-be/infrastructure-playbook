@@ -108,10 +108,8 @@ roles:
           require:
             - gpu_v3
 
-  # training.*:
-  #   max_cores: 2
-  #   max_mem: max_cores * 3.8  # TODO check multiplier
-  #   scheduling:
-  #     require:
-  #       # TODO: figure out what to require
-  #       - training
+  # TiaaS gives trainees a training-<id> role. All Galaxy jobs share one HTCondor user, so job priority
+  # moves trainee jobs ahead of other waiting jobs; nothing is preempted and no workers are reserved.
+  training-.*:
+    params:
+      priority: "{{ tpv_training_priority | default(10) }}"
