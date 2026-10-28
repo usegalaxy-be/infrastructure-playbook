@@ -1,0 +1,66 @@
+---
+# ============================================================================
+# Reserve HTCondor workers for a training
+# ============================================================================
+#
+# Lets the workers start only trainee jobs (JobPrio >= 10, set by TPV for
+# training-* roles), GPU jobs, and optionally small jobs (uploads, light tools)
+# from everyone. Jobs already running finish normally; other jobs wait in the
+# queue and start once the reservation is removed. Nothing is preempted.
+#
+# Usage:
+#   # Reserve (about 1 to 2 hours before the session):
+#   ansible-playbook playbooks/one-off/training-worker-reservation.yml
+#
+#   # Remove after the hands-on part:
+#   ansible-playbook playbooks/one-off/training-worker-reservation.yml -e training_reservation=absent
+#
+#   # Fewer workers or no exception for small jobs:
+#   ansible-playbook playbooks/one-off/training-worker-reservation.yml --limit worker4x0.usegalaxy.be -e training_reservation_allow_small=false
+#
+# Check on a worker:
+#   condor_config_val START
+# ============================================================================
+
+- name: Reserve HTCondor workers for a training
+  hosts: prodcomputeservers
+  become: true
+  gather_facts: false
+
+  vars:
+    training_reservation: present
+    training_reservation_min_priority: 10
+    training_reservation_allow_small: true
+    training_reservation_file: /etc/condor/config.d/99-training-reservation.conf
+
+  tasks:
+    - name: Write the training START rule
+      ansible.builtin.copy:
+        dest: "{{ training_reservation_file }}"
+        mode: "0644"
+        content: |
+          # Training reservation, written by playbooks/one-off/training-worker-reservation.yml
+          START = (TARGET.JobPrio >= {{ training_reservation_min_priority }}) || (ifThenElse(isUndefined(TARGET.RequestGPUs), 0, TARGET.RequestGPUs) > 0){% if training_reservation_allow_small %} || (TARGET.RequestCpus <= 1 && TARGET.RequestMemory <= 8192){% endif %}
+
+      when: training_reservation == 'present'
+      register: training_reservation_written
+
+    - name: Remove the training START rule
+      ansible.builtin.file:
+        path: "{{ training_reservation_file }}"
+        state: absent
+      when: training_reservation == 'absent'
+      register: training_reservation_removed
+
+    - name: Reload the HTCondor configuration
+      ansible.builtin.command: condor_reconfig
+      when: training_reservation_written is changed or training_reservation_removed is changed
+
+    - name: Show the active START rule
+      ansible.builtin.command: condor_config_val START
+      register: training_reservation_start
+      changed_when: false
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "START = {{ training_reservation_start.stdout }}"
