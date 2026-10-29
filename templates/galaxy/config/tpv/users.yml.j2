@@ -38,6 +38,17 @@ users:
   # NOTE: decomissioning pulsar, vib users go to regular destinations for now.      
   .*@vib.be:
     inherits: vib_users
+{% for day in tpv_training_email_days | default([]) %}
+  # Training without TiaaS: trainee priority for matching emails on {{ day.date }} only.
+  '{{ day.pattern }}':
+    rules:
+      - id: training_email_day_{{ loop.index }}
+        if: |
+          from datetime import date
+          date.today().isoformat() == '{{ day.date }}'
+        params:
+          priority: "{{ tpv_training_priority | default(10) }}"
+{% endfor %}
   # paul.degeest@vib.be:
     # rules:
     # - id: debug
