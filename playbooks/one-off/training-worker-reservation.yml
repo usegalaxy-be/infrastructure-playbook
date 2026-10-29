@@ -4,8 +4,8 @@
 # ============================================================================
 #
 # Lets the workers start only trainee jobs (JobPrio >= 10, set by TPV for
-# training-* roles), GPU jobs, and optionally small jobs (uploads, light tools)
-# from everyone. Jobs already running finish normally; other jobs wait in the
+# training-* roles), GPU jobs, and optionally smaller jobs (up to 4 cores by
+# default) from everyone. Jobs already running finish normally; other jobs wait in the
 # queue and start once the reservation is removed. Nothing is preempted.
 #
 # Usage:
@@ -31,6 +31,9 @@
     training_reservation: present
     training_reservation_min_priority: 10
     training_reservation_allow_small: true
+    # Jobs up to this size from other users still start; >4 cores is 6% of jobs but 90% of core-hours.
+    training_reservation_small_cpus: 4
+    training_reservation_small_memory_mb: 65536
     training_reservation_file: /etc/condor/config.d/99-training-reservation.conf
 
   tasks:
@@ -40,7 +43,7 @@
         mode: "0644"
         content: |
           # Training reservation, written by playbooks/one-off/training-worker-reservation.yml
-          START = (TARGET.JobPrio >= {{ training_reservation_min_priority }}) || (ifThenElse(isUndefined(TARGET.RequestGPUs), 0, TARGET.RequestGPUs) > 0){% if training_reservation_allow_small %} || (TARGET.RequestCpus <= 1 && TARGET.RequestMemory <= 8192){% endif %}
+          START = (TARGET.JobPrio >= {{ training_reservation_min_priority }}) || (ifThenElse(isUndefined(TARGET.RequestGPUs), 0, TARGET.RequestGPUs) > 0){% if training_reservation_allow_small %} || (TARGET.RequestCpus <= {{ training_reservation_small_cpus }} && TARGET.RequestMemory <= {{ training_reservation_small_memory_mb }}){% endif %}
 
       when: training_reservation == 'present'
       register: training_reservation_written
