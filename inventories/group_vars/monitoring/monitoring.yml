@@ -158,6 +158,11 @@ grafana_yum_key: "https://rpm.grafana.com/gpg.key"
 
 grafana_version: "13.2.4"
 
+# WAL lets alert rule reads go on while Grafana writes to its SQLite database
+grafana_database:
+  type: sqlite3
+  wal: true
+
 # old var
 # grafana_url: "{{ instance_url }}stats"
 grafana_url: "https://{{ inventory_hostname }}/grafana/"
