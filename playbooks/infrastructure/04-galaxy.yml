@@ -8,7 +8,7 @@
   become: true
   become_user: root
   vars:
-    # Gravity-managed units that exec from the autofs-mounted NFS share
+    # Units that exec from the autofs-mounted NFS share
     galaxy_autofs_dropin_units:
       - galaxy-gunicorn@
       - galaxy-handler@
@@ -17,6 +17,7 @@
       - galaxy-gx-it-proxy
       - galaxy-tusd
       - galaxy-workflow-scheduler
+      - flower
   vars_files:
   pre_tasks:
     - ansible.builtin.import_tasks: "{{ playbook_dir }}/../tasks/assert-tmpfs-venv.yml"

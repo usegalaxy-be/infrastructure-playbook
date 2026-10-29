@@ -1,0 +1,128 @@
+---
+- name: Ensure needs-restarting is available
+  ansible.builtin.dnf:
+    name: dnf-utils
+    state: present
+
+- name: Remove the openssh and openssl dnf exclude
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/dnf.conf
+    regexp: '^exclude=openssh openssh-server openssh-clients openssl openssl-libs$'
+    state: absent
+
+- name: Stop services before updating
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: stopped
+  loop: "{{ os_update_stop_services }}"
+
+- name: List the installed kernel packages
+  ansible.builtin.command: rpm -qa --qf '%{NAME}\n' 'kernel*'
+  register: os_update_installed_kernel_packages
+  changed_when: false
+  when: os_update_scope == 'kernel'
+
+- name: Apply updates ({{ os_update_scope }})
+  ansible.builtin.dnf:
+    name: >-
+      {{ os_update_installed_kernel_packages.stdout_lines | unique | intersect(os_update_kernel_packages)
+         if os_update_scope == 'kernel' else ['*'] }}
+    state: latest
+    security: "{{ os_update_scope == 'security' }}"
+    bugfix: "{{ os_update_scope == 'security' }}"
+    update_cache: true
+  register: os_update_result
+
+- name: Show updated packages
+  ansible.builtin.debug:
+    msg: "{{ os_update_result.results | default(['no changes']) }}"
+
+- name: Check if a reboot is required
+  ansible.builtin.command: needs-restarting -r
+  register: os_update_reboot_needed
+  changed_when: false
+  failed_when: false
+
+- name: Reboot
+  ansible.builtin.reboot:
+    reboot_timeout: "{{ os_update_reboot_timeout }}"
+    post_reboot_delay: "{{ os_update_post_reboot_delay }}"
+    msg: "Rebooting for OS updates (scope: {{ os_update_scope }})"
+  when: os_update_reboot_needed.rc == 1
+
+- name: Refresh facts after reboot
+  ansible.builtin.setup:
+    filter: ansible_kernel
+
+- name: Fail if a non-vendor kernel is running
+  ansible.builtin.fail:
+    msg: "{{ ansible_kernel }} is not a stock Rocky kernel, so the kernel minimum cannot be checked."
+  when: "'elrepo' in ansible_kernel"
+
+- name: Assert the running kernel meets the minimum
+  ansible.builtin.shell: |
+    set -o pipefail
+    running=$(uname -r | sed 's/\.x86_64$//')
+    oldest=$(printf '%s\n%s\n' "{{ os_update_minimum }}" "$running" | sort -V | head -1)
+    test "$oldest" = "{{ os_update_minimum }}"
+  args:
+    executable: /bin/bash
+  vars:
+    os_update_minimum: "{{ os_update_kernel_minimum[ansible_distribution_major_version] | default('') }}"
+  changed_when: false
+  when: os_update_minimum | length > 0
+
+- name: Report the running kernel
+  ansible.builtin.debug:
+    msg: >-
+      running {{ ansible_kernel }}, minimum
+      {{ os_update_kernel_minimum[ansible_distribution_major_version] | default('none') }}
+
+- name: Remove packages
+  ansible.builtin.dnf:
+    name: "{{ os_update_remove_packages }}"
+    state: absent
+  when: os_update_remove_packages | length > 0
+
+- name: Disable repositories
+  ansible.builtin.command: dnf config-manager --set-disabled {{ item }}
+  loop: "{{ os_update_disable_repos }}"
+  changed_when: true
+
+- name: Start services after updating
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+  loop: "{{ os_update_stop_services }}"
+
+# Read-only, so it also runs in --check. Galaxy takes several minutes to start after a reboot.
+- name: Wait for {{ os_update_wait_url }}
+  ansible.builtin.uri:
+    url: "{{ os_update_wait_url }}"
+    status_code: 200
+  register: os_update_wait
+  check_mode: false
+  retries: 40
+  delay: 15
+  until: os_update_wait.status | default(0) == 200
+  when: os_update_wait_url | length > 0
+
+- name: Run the post-update check
+  ansible.builtin.command: "{{ os_update_post_check }}"
+  register: os_update_post_check_result
+  changed_when: false
+  when: os_update_post_check | length > 0
+
+- name: Show the post-update check
+  ansible.builtin.debug:
+    msg: "{{ os_update_post_check_result.stdout_lines }}"
+  when: os_update_post_check | length > 0
+
+# A reboot clears the drain, but a run with nothing to update does not reboot.
+- name: Cancel the drain
+  ansible.builtin.command: condor_drain -cancel {{ os_update_condor_slots.stdout_lines[0] }}
+  delegate_to: "{{ os_update_condor_central_manager }}"
+  register: os_update_drain_cancel
+  changed_when: os_update_drain_cancel.rc == 0
+  failed_when: false
+  when: os_update_condor_drain | bool

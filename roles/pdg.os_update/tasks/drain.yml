@@ -1,0 +1,30 @@
+---
+# The HTCondor machine name can differ from the inventory name.
+- name: Read the HTCondor machine name
+  ansible.builtin.command: condor_config_val FULL_HOSTNAME
+  register: os_update_condor_name
+  changed_when: false
+
+- name: Fail if the central manager does not know this worker
+  ansible.builtin.command: >-
+    condor_status -af Name -constraint 'Machine == "{{ os_update_condor_name.stdout }}"'
+  delegate_to: "{{ os_update_condor_central_manager }}"
+  register: os_update_condor_slots
+  changed_when: false
+  failed_when: os_update_condor_slots.stdout | length == 0
+
+# By slot name: condor_drain resolves a bare machine name in DNS, which fails for VIB workers.
+- name: Drain {{ os_update_condor_name.stdout }}
+  ansible.builtin.command: condor_drain {{ os_update_condor_slots.stdout_lines[0] }}
+  delegate_to: "{{ os_update_condor_central_manager }}"
+  changed_when: true
+
+- name: Wait for running jobs to finish (30 minutes at most)
+  ansible.builtin.command: >-
+    condor_status -af Activity -constraint 'Machine == "{{ os_update_condor_name.stdout }}"'
+  delegate_to: "{{ os_update_condor_central_manager }}"
+  register: os_update_condor_activity
+  retries: 60
+  delay: 30
+  until: "'Busy' not in os_update_condor_activity.stdout"
+  changed_when: false

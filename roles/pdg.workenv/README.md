@@ -24,7 +24,7 @@ user's shell environment is managed separately by `usegalaxy-eu.bashrc`.
 | `~/galaxy-session.sh` | Pure-tmux session init — replaces `galaxy-byobu.sh` |
 | `~/.vault-pass.sh` | Ansible vault password script — reads `$ANSIBLE_VAULT_PASSWORD` from SSH env |
 | `/etc/logrotate.d/tmux-logs` | Daily log rotation for `~/tmux-logs/`, 7-day retention |
-| `~/bin/wt-clean` | Removes git worktrees whose PR is merged (`wt-clean` dry run, `wt-clean --apply`) |
+| `~/bin/wt-clean` | Removes git worktrees whose PR is merged (`wt-clean` dry run, `wt-clean --apply`; `--force` also removes those with uncommitted changes) |
 
 ## Variables
 
@@ -37,6 +37,7 @@ workenv_users:
 workenv_vim_install: true            # ensure vim package is present
 workenv_tmux_install: false          # tmux — enabled for loginnode via group_vars
 workenv_deploy_session_script: false # session script + vault helper — loginnode only
+workenv_extra_packages: []           # extra packages, e.g. pandoc on the loginnode
 ```
 
 ## Usage

@@ -187,3 +187,11 @@ postgresql_backup_rsync_connect_opts: >-
 # Scripts (archive_wal.sh, backup.py) are installed here, local to the DB server.
 # Note: "'~postgres' | expanduser" was not being processed as /var/lib/pgsql for some reason
 postgresql_backup_local_dir: /var/lib/pgsql/backups
+
+# pdg.os_update: one PostgreSQL serves both test and prod Galaxy.
+# PostgreSQL stays up during the update; its package restarts it on upgrade.
+os_update_confirm: true
+os_update_post_reboot_delay: 30
+# Left over from the ELRepo mainline kernel.
+os_update_remove_packages: ["kernel-ml*"]
+os_update_disable_repos: [elrepo]

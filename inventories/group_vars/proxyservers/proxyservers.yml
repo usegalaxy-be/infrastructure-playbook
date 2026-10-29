@@ -11,6 +11,23 @@ host_mappings: "{{ vault_host_mappings }}"
 
 shared_certs_dir: /srv/galaxy/shared/shared_certs
 
+# pdg.autofs: only shared_certs, for the certbot post-renewal hook
+_vault_device_ips: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips') }}"
+# NFS server's vm network address; the proxy has no port on the _nfs network
+_nfs_ip: "{{ _vault_device_ips.nfs_usegalaxy_be_ip }}"
+
+autofs_service:
+  install: true
+  enable: true
+
+autofs_mounts:
+  - name: "prod"
+    conf:
+      - "shared_certs  -rw,hard,intr,nosuid,quota  {{ _nfs_ip }}:/data/share/shared_certs"
+    mountpoint: "/srv/galaxy/shared"
+    conf_location: "/etc/auto.prod"
+    map_options: "nfsvers=3 browse"
+
 
 # usegalaxy_eu.handy.os_setup
 # enable_hostname: true
