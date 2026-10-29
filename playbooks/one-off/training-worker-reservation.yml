@@ -31,7 +31,7 @@
     training_reservation: present
     training_reservation_min_priority: 10
     training_reservation_allow_small: true
-    # Jobs up to this size from other users still start; >4 cores is 6% of jobs but 90% of core-hours.
+    # Jobs up to this size from other users still start; >4 cores is 4% of jobs but 93% of core-hours.
     training_reservation_small_cpus: 4
     training_reservation_small_memory_mb: 65536
     training_reservation_file: /etc/condor/config.d/99-training-reservation.conf
