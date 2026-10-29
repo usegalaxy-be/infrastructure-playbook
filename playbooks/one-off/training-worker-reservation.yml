@@ -4,8 +4,8 @@
 # ============================================================================
 #
 # Lets the workers start only trainee jobs (JobPrio >= 10, set by TPV for
-# training-* roles), GPU jobs, and optionally smaller jobs (up to 4 cores by
-# default) from everyone. Jobs already running finish normally; other jobs wait in the
+# training-* roles) and optionally smaller jobs (up to 4 cores by default)
+# from everyone. Jobs already running finish normally; other jobs wait in the
 # queue and start once the reservation is removed. Nothing is preempted.
 #
 # Usage:
@@ -15,8 +15,8 @@
 #   # Remove after the hands-on part:
 #   ansible-playbook playbooks/one-off/training-worker-reservation.yml -e training_reservation=absent
 #
-#   # Fewer workers or no exception for small jobs:
-#   ansible-playbook playbooks/one-off/training-worker-reservation.yml --limit worker4x0.usegalaxy.be -e training_reservation_allow_small=false
+#   # All workers but one for trainees only, the last one open to everyone:
+#   ansible-playbook playbooks/one-off/training-worker-reservation.yml --limit 'prodcomputeservers:!worker4x3.usegalaxy.be' -e training_reservation_allow_small=false
 #
 # Check on a worker:
 #   condor_config_val START
@@ -43,7 +43,7 @@
         mode: "0644"
         content: |
           # Training reservation, written by playbooks/one-off/training-worker-reservation.yml
-          START = (TARGET.JobPrio >= {{ training_reservation_min_priority }}) || (ifThenElse(isUndefined(TARGET.RequestGPUs), 0, TARGET.RequestGPUs) > 0){% if training_reservation_allow_small %} || (TARGET.RequestCpus <= {{ training_reservation_small_cpus }} && TARGET.RequestMemory <= {{ training_reservation_small_memory_mb }}){% endif %}
+          START = (TARGET.JobPrio >= {{ training_reservation_min_priority }}){% if training_reservation_allow_small %} || (TARGET.RequestCpus <= {{ training_reservation_small_cpus }} && TARGET.RequestMemory <= {{ training_reservation_small_memory_mb }}){% endif %}
 
       when: training_reservation == 'present'
       register: training_reservation_written
