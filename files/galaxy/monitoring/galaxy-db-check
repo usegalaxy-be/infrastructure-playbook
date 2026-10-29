@@ -1,0 +1,22 @@
+#!/bin/bash
+# galaxy-db-check
+# Connects to the Galaxy database the way Galaxy does and runs SELECT 1.
+# The other database scripts print 0 when psql fails, so this is the one
+# that shows the database cannot be reached.
+# Outputs InfluxDB line protocol.
+#
+# Deployed to: /usr/bin/galaxy-db-check
+# Telegraf exec plugin interval: 1m
+#
+# Requires env vars set by custom_telegraf_env:
+#   PGHOST, PGDATABASE, PGUSER, PGPASSWORD
+
+start=$(date +%s%N)
+if result=$(PGCONNECT_TIMEOUT=10 psql -t -A -c 'SELECT 1' 2>/dev/null) && [ "$result" = "1" ]; then
+  ok=1
+else
+  ok=0
+fi
+ms=$(( ($(date +%s%N) - start) / 1000000 ))
+
+printf 'galaxy_db_check ok=%si,ms=%si\n' "$ok" "$ms"

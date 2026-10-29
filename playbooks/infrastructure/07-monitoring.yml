@@ -418,6 +418,26 @@
         mode: '0755'
       tags: [telegraf, monitoring-scripts]
 
+    - name: Deploy galaxy-db-check script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-db-check"
+        dest: /usr/bin/galaxy-db-check
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
+    - name: Deploy galaxy-irods-probe script
+      become: true
+      copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/monitoring/galaxy-irods-probe"
+        dest: /usr/bin/galaxy-irods-probe
+        owner: root
+        group: root
+        mode: '0755'
+      tags: [telegraf, monitoring-scripts]
+
     - name: Deploy galaxy-backup-freshness script
       become: true
       copy:

@@ -2645,6 +2645,447 @@ groups:
             a lost Celery metadata task.
             ssh test.usegalaxy.be 'gxadmin query queue-detail | grep running'
 
+  # ── iRODS probe ──────────────────────────────────────────────────────────────
+  # Data source: galaxy_irods_probe (telegraf exec on each Galaxy host, every 5m).
+  # Each run opens a new iRODS connection, then writes, reads and deletes a small
+  # object. No data means the probe hung past its 90s timeout.
+
+  - orgId: 1
+    name: iRODS Probe Failed prod
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-probe-failed
+        title: iRODS Probe Failed (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_irods_probe"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: >-
+            usegalaxy.be cannot write to and read from iRODS
+          description: >-
+            The iRODS probe on usegalaxy.be failed or hung for 10 minutes. Uploads and jobs
+            that read or write iRODS are likely failing too. The error field names the
+            exception. The June 2026 outage was the iRODS port being blocked.
+            ssh usegalaxy.be 'sudo -u telegraf telegraf --test --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --input-filter exec 2>&1 | grep irods'
+
+  - orgId: 1
+    name: iRODS Connection Slow prod
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-slow
+        title: iRODS Connection Slow (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("connect_seconds") FROM "galaxy_irods_probe"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [10]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: >-
+            New iRODS connections from usegalaxy.be take over 10 s
+          description: >-
+            Opening a new iRODS connection from usegalaxy.be has taken over 10 s for 15 minutes
+            (normal is under 1 s). Jobs that need a new connection wait this long before
+            they start. Slow TLS handshakes on the KU Leuven side caused this before;
+            report it to the VSC iRODS team with the connect_seconds graph.
+
+  - orgId: 1
+    name: iRODS Probe Failed test
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-probe-failed-test
+        title: iRODS Probe Failed (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_irods_probe"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            test.usegalaxy.be cannot write to and read from iRODS
+          description: >-
+            The iRODS probe on test.usegalaxy.be failed or hung for 10 minutes. Uploads and jobs
+            that read or write iRODS are likely failing too. The error field names the
+            exception. The June 2026 outage was the iRODS port being blocked.
+            ssh test.usegalaxy.be 'sudo -u telegraf telegraf --test --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --input-filter exec 2>&1 | grep irods'
+
+  - orgId: 1
+    name: iRODS Connection Slow test
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-slow-test
+        title: iRODS Connection Slow (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("connect_seconds") FROM "galaxy_irods_probe"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [10]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            New iRODS connections from test.usegalaxy.be take over 10 s
+          description: >-
+            Opening a new iRODS connection from test.usegalaxy.be has taken over 10 s for 15 minutes
+            (normal is under 1 s). Jobs that need a new connection wait this long before
+            they start. Slow TLS handshakes on the KU Leuven side caused this before;
+            report it to the VSC iRODS team with the connect_seconds graph.
+
+  # ── Galaxy database ──────────────────────────────────────────────────────────
+  # Data source: galaxy_db_check (telegraf exec on each Galaxy host, every 1m),
+  # SELECT 1 with Galaxy's connection settings. No data means telegraf stopped.
+
+  - orgId: 1
+    name: Galaxy Database Unreachable prod
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-db-unreachable
+        title: Galaxy Database Unreachable (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_db_check"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 3m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: >-
+            usegalaxy.be cannot query the Galaxy database
+          description: >-
+            SELECT 1 on the Galaxy database from usegalaxy.be has failed for 3 minutes.
+            Galaxy cannot serve pages or run jobs without it.
+            ssh usegalaxy.be 'sudo -u telegraf /usr/bin/galaxy-db-check'
+            ssh db.usegalaxy.be 'systemctl status postgresql'
+
+  - orgId: 1
+    name: Galaxy Database Unreachable test
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-db-unreachable-test
+        title: Galaxy Database Unreachable (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_db_check"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 3m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            test.usegalaxy.be cannot query the Galaxy database
+          description: >-
+            SELECT 1 on the Galaxy database from test.usegalaxy.be has failed for 3 minutes.
+            Galaxy cannot serve pages or run jobs without it.
+            ssh test.usegalaxy.be 'sudo -u telegraf /usr/bin/galaxy-db-check'
+            ssh db.usegalaxy.be 'systemctl status postgresql'
+
 # Rules retired from the groups above; file provisioning only adds/updates by
 # uid, it does not prune rules removed from this file, so old ones must be
 # deleted explicitly here.
