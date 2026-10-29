@@ -2201,81 +2201,10 @@ groups:
             Restart=always comes back by itself, so it never shows as a failed unit.
             ssh test.usegalaxy.be 'sudo journalctl -k --since -1h | grep -i "killed process"'
 
-  # ── Galaxy URL down ──────────────────────────────────────────────────────────
+  # ── Galaxy URL down (test) ───────────────────────────────────────────────────
   # Data source: http_response (telegraf on the monitoring host, every 1m). A
   # refused connection writes no http_response_code, so NoData also alerts.
-  - orgId: 1
-    name: Galaxy URL Down prod
-    folder: Galaxy Alerts
-    interval: 1m
-    rules:
-
-      - uid: be-galaxy-url-down
-        title: Galaxy Site Unreachable (prod)
-        condition: C
-        data:
-          - refId: A
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: be-galaxy-new
-            model:
-              datasource:
-                type: influxdb
-                uid: be-galaxy-new
-              hide: false
-              rawQuery: true
-              query: >-
-                SELECT last("http_response_code") FROM "http_response"
-                WHERE "env" = 'prod' AND $timeFilter
-              refId: A
-          - refId: B
-            relativeTimeRange:
-              from: 300
-              to: 0
-            datasourceUid: __expr__
-            model:
-              type: reduce
-              refId: B
-              datasource:
-                type: __expr__
-                uid: __expr__
-              expression: A
-              reducer: last
-              settings:
-                mode: dropNN
-          - refId: C
-            relativeTimeRange:
-              from: 0
-              to: 0
-            datasourceUid: __expr__
-            model:
-              type: threshold
-              refId: C
-              datasource:
-                type: __expr__
-                uid: __expr__
-              expression: B
-              conditions:
-                - type: query
-                  evaluator:
-                    type: outside_range
-                    params: [200, 299]
-        noDataState: Alerting
-        execErrState: Error
-        for: 10m
-        labels:
-          severity: critical
-          env: prod
-        annotations:
-          summary: >-
-            https://usegalaxy.be/api/version is not answering 2xx
-          description: >-
-            The monitoring host has not had a 2xx from https://usegalaxy.be/api/version for
-            10 minutes. No data means no HTTP response at all (connection refused, timeout).
-            curl -sv https://usegalaxy.be/api/version
-            ssh usegalaxy.be 'systemctl status nginx'
-
+  # Prod is watched by the UptimeRobot check behind status.galaxyproject.org.
   - orgId: 1
     name: Galaxy URL Down test
     folder: Galaxy Alerts
