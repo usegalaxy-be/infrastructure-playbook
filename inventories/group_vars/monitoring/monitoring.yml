@@ -64,6 +64,10 @@ telegraf_plugins_default:
   - plugin: swap
   # - plugin: net
   - plugin: netstat
+  # Kernel OOM-kill counter, alerted on by be-oom-kill
+  - plugin: kernel_vmstat
+    config:
+      - fieldinclude = ["oom_kill"]
 
 ### This can be useful for debbugging, just dumps the output to a file (can be stdout too)
 #  - type: file
@@ -153,6 +157,11 @@ grafana_yum_repo: "https://rpm.grafana.com"
 grafana_yum_key: "https://rpm.grafana.com/gpg.key"
 
 grafana_version: "13.2.4"
+
+# WAL lets alert rule reads go on while Grafana writes to its SQLite database
+grafana_database:
+  type: sqlite3
+  wal: true
 
 # old var
 # grafana_url: "{{ instance_url }}stats"
