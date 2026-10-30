@@ -6,8 +6,8 @@ Queries the Galaxy PostgreSQL database and emits InfluxDB line protocol to
 stdout. Telegraf handles timestamping and shipping to InfluxDB.
 
 Database connection is handled by libpq (psycopg2 uses it under the hood):
-PGHOST, PGDATABASE, PGUSER are set by custom_telegraf_env; PGPASSWORD is
-resolved via ~/.pgpass. No credential handling needed here.
+PGHOST, PGDATABASE, PGUSER and PGPASSFILE are set by custom_telegraf_env, and
+the password comes from that .pgpass file. No credential handling needed here.
 
 SQL queries are loaded from GALAXY_METRICS_QUERIES_FILE (default:
 /usr/local/share/galaxy-metrics/queries_daily.sql).
@@ -54,8 +54,8 @@ def escape_tag(value):
 
 
 def main():
-    # libpq reads PGHOST, PGDATABASE, PGUSER from env and PGPASSWORD from
-    # ~/.pgpass — no explicit credential handling needed.
+    # libpq reads PGHOST, PGDATABASE, PGUSER from env and the password from
+    # PGPASSFILE (.pgpass), so no explicit credential handling is needed.
     conn = psycopg2.connect('')
     try:
         queries = load_queries(QUERIES_FILE)

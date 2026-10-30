@@ -7,7 +7,7 @@
 # Telegraf exec plugin interval: 10m
 #
 # Requires env vars set by custom_telegraf_env:
-#   PGHOST, PGDATABASE, PGUSER, PGPASSWORD, GALAXY_ROOT, GALAXY_CONFIG_FILE
+#   PGHOST, PGDATABASE, PGUSER, PGPASSFILE, GALAXY_ROOT, GALAXY_CONFIG_FILE
 
 gxadmin iquery destination-queue-run-time --seconds --older-than=90 \
   | awk -F, '$2 != "destination_id=" { print }'

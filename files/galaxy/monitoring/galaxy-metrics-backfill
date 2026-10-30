@@ -6,7 +6,7 @@ Runs the same queries as galaxy-metrics-internal but over a historical date rang
 writing each day's data with the timestamp Telegraf would have used (next day 00:00:01 UTC).
 
 Must run on the Galaxy VM (usegalaxy.be) — needs psycopg2 and DB access via the
-same env vars Telegraf uses: PGHOST, PGDATABASE, PGUSER, PGPASSWORD.
+same env vars Telegraf uses: PGHOST, PGDATABASE, PGUSER, plus a .pgpass file.
 
 Usage (from usegalaxy.be; galaxy_master's login env and ~/.pgpass reach the prod DB):
     INFLUXDB_USER=<user> INFLUXDB_PASSWORD=<pass> \
