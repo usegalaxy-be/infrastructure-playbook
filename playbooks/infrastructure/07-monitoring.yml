@@ -505,16 +505,19 @@
       command: telegraf --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --test
       register: telegraf_test
       changed_when: false
+      # The running service already holds the statsd port, so --test cannot bind it.
       failed_when: >
         telegraf_test.rc != 0 or
-        ('E!' in telegraf_test.stdout) or
-        ('E!' in telegraf_test.stderr)
+        (telegraf_test.stdout_lines + telegraf_test.stderr_lines)
+        | select('search', 'E!') | reject('search', 'address already in use') | list | length > 0
       ignore_errors: true
+      # The output holds the exec commands with PGPASSWORD
+      no_log: true
       tags: [telegraf, telegraf-test]
 
     - name: Show Telegraf test errors (if any)
       debug:
-        msg: "{{ (telegraf_test.stdout + telegraf_test.stderr) | split('\n') | select('match', '.*E!.*') | list }}"
+        msg: "{{ (telegraf_test.stdout + telegraf_test.stderr) | split('\n') | select('match', '.*E!.*') | map('regex_replace', 'PGPASSWORD=\\S+', 'PGPASSWORD=***') | list }}"
       when: telegraf_test is defined
       tags: [telegraf, telegraf-test]
 
@@ -586,16 +589,19 @@
       command: telegraf --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --test
       register: telegraf_test
       changed_when: false
+      # The running service already holds the statsd port, so --test cannot bind it.
       failed_when: >
         telegraf_test.rc != 0 or
-        ('E!' in telegraf_test.stdout) or
-        ('E!' in telegraf_test.stderr)
+        (telegraf_test.stdout_lines + telegraf_test.stderr_lines)
+        | select('search', 'E!') | reject('search', 'address already in use') | list | length > 0
       ignore_errors: true
+      # The output holds the exec commands with PGPASSWORD
+      no_log: true
       tags: [telegraf, telegraf-test]
 
     - name: Show Telegraf test errors (if any)
       debug:
-        msg: "{{ (telegraf_test.stdout + telegraf_test.stderr) | split('\n') | select('match', '.*E!.*') | list }}"
+        msg: "{{ (telegraf_test.stdout + telegraf_test.stderr) | split('\n') | select('match', '.*E!.*') | map('regex_replace', 'PGPASSWORD=\\S+', 'PGPASSWORD=***') | list }}"
       when: telegraf_test is defined
       tags: [telegraf, telegraf-test]
 
