@@ -282,6 +282,8 @@
     # Installs and configures telegraf
     - role: dj-wasabi.telegraf
       tags: telegraf
+      # The rendered config holds database passwords; keep them out of --diff
+      diff: false
 
   post_tasks:
 
@@ -581,6 +583,8 @@
 
     - role: dj-wasabi.telegraf
       tags: telegraf
+      # The rendered config holds database passwords; keep them out of --diff
+      diff: false
 
   post_tasks:
 
