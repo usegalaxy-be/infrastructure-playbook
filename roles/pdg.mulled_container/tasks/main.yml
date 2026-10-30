@@ -15,6 +15,12 @@
     state: present
   tags: [mulled_container]
 
+- name: Check whether the mulled build venv is installed
+  ansible.builtin.stat:
+    path: "{{ mulled_container_build_venv }}/bin/python"
+  register: _mulled_venv_python
+  tags: [mulled_container]
+
 - name: Ensure the shared mulled cache directory exists
   ansible.builtin.file:
     path: "{{ mulled_container_cache_dir }}"
