@@ -12,14 +12,20 @@
       - -c
       - "{{ _mulled_name_script }}"
       - "{{ spec.tool_xml }}"
+      - "{{ spec.extra_targets | default([]) | join(',') }}"
   vars:
+    # Prints the resolver name, the conda targets to build (with extra_targets added)
+    # and the name the build itself produces.
     _mulled_name_script: |
       import sys
       from galaxy.tool_util.parser import get_tool_source
       from galaxy.tool_util.deps.mulled.mulled_build_tool import requirements_to_mulled_targets
-      from galaxy.tool_util.deps.mulled.util import v2_image_name
-      reqs = get_tool_source(sys.argv[1]).parse_requirements()[0]
-      print(v2_image_name(requirements_to_mulled_targets(reqs)))
+      from galaxy.tool_util.deps.mulled.util import build_target, v2_image_name
+      targets = requirements_to_mulled_targets(get_tool_source(sys.argv[1]).parse_requirements()[0])
+      extra = [build_target(*(t.split("=", 1) + [None])[:2]) for t in sys.argv[2].split(",") if t]
+      print(v2_image_name(targets))
+      print(",".join(t.package + ("=" + t.version if t.version else "") for t in targets + extra))
+      print(v2_image_name(targets + extra))
   register: _img
   changed_when: false
   check_mode: false
@@ -37,8 +43,10 @@
     # build suffix ("-0"), so match/cache on the "mulled-v2-<hash>" stem.
     - name: "[{{ spec.name }}] Set image name facts"
       ansible.builtin.set_fact:
-        _mulled_base: "{{ _img.stdout | trim }}"
-        _mulled_stem: "{{ (_img.stdout | trim).split(':')[0] }}"
+        _mulled_base: "{{ _img.stdout_lines[0] }}"
+        _mulled_stem: "{{ _img.stdout_lines[0].split(':')[0] }}"
+        _mulled_targets: "{{ _img.stdout_lines[1] }}"
+        _mulled_built_stem: "{{ _img.stdout_lines[2].split(':')[0] }}"
 
     - name: "[{{ spec.name }}] Check whether the image is already cached"
       ansible.builtin.find:
@@ -68,12 +76,13 @@
           trap cleanup EXIT
           rm -rf ./build ./sif
           mkdir -p ./sif
-          "{{ mulled_container_build_venv }}/bin/python" -m galaxy.tool_util.deps.mulled.mulled_build_tool \
-            build "{{ spec.tool_xml }}" --channels "{{ spec.channels | default(mulled_container_channels) | join(',') }}" \
+          # With extra_targets the image gets another name; the SIF keeps the resolver name.
+          "{{ mulled_container_build_venv }}/bin/python" -m galaxy.tool_util.deps.mulled.mulled_build \
+            build "{{ _mulled_targets }}" --channels "{{ spec.channels | default(mulled_container_channels) | join(',') }}" \
             {{ '' if spec.strict_channel_priority | default(true) else '--disable-strict-channel-priority' }}
-          img=$(docker images --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}' | grep -m1 -F "{{ _mulled_stem }}" || true)
-          [ -n "$img" ] || { echo "no docker image matching {{ _mulled_stem }} after build" >&2; exit 3; }
-          sif=$(printf '%s' "$img" | sed 's#^.*/##')
+          img=$(docker images --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}' | grep -m1 -F "{{ _mulled_built_stem }}" || true)
+          [ -n "$img" ] || { echo "no docker image matching {{ _mulled_built_stem }} after build" >&2; exit 3; }
+          sif="{{ _mulled_base }}-${img##*-}"
           apptainer build "./sif/$sif" "docker-daemon://$img"
           chown "{{ mulled_container_build_user }}" "./sif/$sif"
           docker rmi "$img" || true

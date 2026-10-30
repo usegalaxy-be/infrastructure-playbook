@@ -24,4 +24,5 @@ mulled_container_force: false  # rebuild even if the image is already cached
 #   tool_xml: absolute path to the deployed tool XML on the build host
 #   channels: optional, overrides mulled_container_channels for this spec
 #   strict_channel_priority: optional, default true
+#   extra_targets: optional extra conda pins (e.g. pillow=9.5.0); the SIF keeps the tool's resolver name
 mulled_container_specs: []

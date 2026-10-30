@@ -25,7 +25,9 @@
         tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/bimib/marea/dcb817af5d81/marea/Marea/marea_cluster.xml"
         channels: [conda-forge/label/cf201901, conda-forge, bioconda]
         strict_channel_priority: false
+      # Pillow 10.3+ needs numpy >= 1.21 but does not declare it; this set pins numpy 1.20.3.
       - name: marea_cluster_1_1_2
         tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/bimib/marea/84da46340c39/marea/Marea/marea_cluster.xml"
+        extra_targets: [pillow=9.5.0]
   roles:
     - pdg.mulled_container
