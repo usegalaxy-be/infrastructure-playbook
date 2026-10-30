@@ -19,8 +19,12 @@
       - name: protein_calculator_v1_0_2
         tool_xml: /srv/galaxy_test/shared/local_tools/protein_calculator/v1.0.2/protein_calculator.xml
       # MaREA_cluester 1.1.2 ships with two requirement sets across its installed revisions.
+      # matplotlib 2.2.2 and scipy 1.1.0 only exist under conda-forge's cf201901 label,
+      # and cobra 0.10.1 only on bioconda, so this set needs non-strict priority.
       - name: marea_cluster_1_1_2_cobra
         tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/bimib/marea/dcb817af5d81/marea/Marea/marea_cluster.xml"
+        channels: [conda-forge/label/cf201901, conda-forge, bioconda]
+        strict_channel_priority: false
       - name: marea_cluster_1_1_2
         tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/bimib/marea/84da46340c39/marea/Marea/marea_cluster.xml"
   roles:

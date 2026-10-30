@@ -62,11 +62,16 @@
         chdir: "{{ mulled_container_workdir }}"
         cmd: |
           set -euo pipefail
+          # mulled-build leaves its stopped step containers behind; remove the ones this build created.
+          before=$(docker ps -aq --no-trunc | sort)
+          cleanup() { comm -13 <(echo "$before") <(docker ps -aq --no-trunc --filter status=exited --filter status=created | sort) | xargs -r docker rm >/dev/null || true; }
+          trap cleanup EXIT
           rm -rf ./build ./sif
           mkdir -p ./sif
           "{{ mulled_container_build_venv }}/bin/python" -m galaxy.tool_util.deps.mulled.mulled_build_tool \
-            build "{{ spec.tool_xml }}" --channels "{{ mulled_container_channels | join(',') }}"
-          img=$(docker images | awk -v h="{{ _mulled_stem }}" '$0 ~ h {print $1":"$2; exit}')
+            build "{{ spec.tool_xml }}" --channels "{{ spec.channels | default(mulled_container_channels) | join(',') }}" \
+            {{ '' if spec.strict_channel_priority | default(true) else '--disable-strict-channel-priority' }}
+          img=$(docker images --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}' | grep -m1 -F "{{ _mulled_stem }}" || true)
           [ -n "$img" ] || { echo "no docker image matching {{ _mulled_stem }} after build" >&2; exit 3; }
           sif=$(printf '%s' "$img" | sed 's#^.*/##')
           apptainer build "./sif/$sif" "docker-daemon://$img"

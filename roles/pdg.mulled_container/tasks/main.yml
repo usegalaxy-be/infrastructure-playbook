@@ -9,7 +9,9 @@
   become: true
   become_user: "{{ mulled_container_build_user }}"
   ansible.builtin.pip:
-    name: "galaxy-tool-util{{ ('==' ~ mulled_container_tool_util_version) if mulled_container_tool_util_version else '' }}"
+    name: "{{ ['galaxy-tool-util', 'galaxy-tool-util-models', 'galaxy-util']
+              | map('regex_replace', '$', ('==' ~ mulled_container_tool_util_version) if mulled_container_tool_util_version else '')
+              | list }}"
     virtualenv: "{{ mulled_container_build_venv }}"
     virtualenv_command: "python3 -m venv"
     state: present
