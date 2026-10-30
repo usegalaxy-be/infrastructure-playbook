@@ -32,9 +32,19 @@
     mode: "0755"
   tags: [mulled_container]
 
-- name: Build each container
-  ansible.builtin.include_tasks: build_one.yml
+- name: Check which tool XMLs exist on this host
+  ansible.builtin.stat:
+    path: "{{ spec.tool_xml }}"
   loop: "{{ mulled_container_specs }}"
+  loop_control:
+    loop_var: spec
+    label: "{{ spec.name }}"
+  register: _spec_xml
+  tags: [mulled_container]
+
+- name: Build each container whose tool XML exists
+  ansible.builtin.include_tasks: build_one.yml
+  loop: "{{ _spec_xml.results | selectattr('stat.exists') | map(attribute='spec') | list }}"
   loop_control:
     loop_var: spec
     label: "{{ spec.name }}"

@@ -4,6 +4,8 @@
 # cached_mulled_singularity cache. See roles/pdg.mulled_container/README.md.
 #
 #   ansible-playbook playbooks/one-off/build-mulled-containers.yml --limit test.usegalaxy.be
+#   ansible-playbook playbooks/one-off/build-mulled-containers.yml -e mulled_build_host=usegalaxy.be --limit usegalaxy.be
+# Specs whose tool XML is not on the build host are skipped.
 - name: Build local mulled singularity containers
   hosts: "{{ mulled_build_host | default('testgalaxyservers') }}"
   gather_facts: true
@@ -16,5 +18,10 @@
       # v1.0.2 differs (no `requests` requirement) -> its own SIF.
       - name: protein_calculator_v1_0_2
         tool_xml: /srv/galaxy_test/shared/local_tools/protein_calculator/v1.0.2/protein_calculator.xml
+      # MaREA_cluester 1.1.2 ships with two requirement sets across its installed revisions.
+      - name: marea_cluster_1_1_2_cobra
+        tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/bimib/marea/dcb817af5d81/marea/Marea/marea_cluster.xml"
+      - name: marea_cluster_1_1_2
+        tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/bimib/marea/84da46340c39/marea/Marea/marea_cluster.xml"
   roles:
     - pdg.mulled_container
