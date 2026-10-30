@@ -21,6 +21,7 @@
       print(v2_image_name(requirements_to_mulled_targets(reqs)))
   register: _img
   changed_when: false
+  check_mode: false
 
 # _mulled_base is "mulled-v2-<hash>:<versionhash>"; the actual container adds a
 # build suffix ("-0"), so match/cache on the "mulled-v2-<hash>" stem.
