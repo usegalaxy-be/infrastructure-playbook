@@ -10,7 +10,7 @@ set -euo pipefail
 #   ~/galaxy-session.sh --attach # attach to existing session if present
 #
 # Logs:
-#   ~/tmux-logs/*.log  — rotated daily, kept 7 days (see /etc/logrotate.d/tmux-logs)
+#   ~/tmux-logs/*.log  — rotated daily or at 100 MB, kept 7 files (see /etc/logrotate-tmux-logs.conf)
 #   Note: the monitoring window runs htop interactively and is not logged
 #   (escape codes make the output unreadable as text).
 
