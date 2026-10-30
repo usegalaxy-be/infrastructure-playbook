@@ -1,0 +1,86 @@
+---
+# Copy prod's conda environments and legacy tool dependencies to the shared dependencies directory.
+# Conda environments contain their own path, so each one is cloned (paths rewritten), not copied.
+# Packages come from the old package cache. Each finished environment gets a marker file;
+# environments without one are cloned again, so the run can be repeated after an interruption.
+#
+# Needs the galaxy_shared autofs map and Miniforge at the new path:
+#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit usegalaxy.be
+#   ansible-playbook playbooks/infrastructure/03-galaxy-prerequisites.yml --limit test.usegalaxy.be --tags miniconda
+# Usage, from tmux: the clone takes hours, and a second run while one is going stops with exit 3.
+#   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml
+#   -e conda_copy_allow_failed=true   finish even if some environments failed (listed in the result)
+# Then test's own environments that prod does not have:
+#   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml -e conda_copy_host=test.usegalaxy.be \
+#     -e conda_copy_old=/srv/galaxy_test/shared/database/tool-dependencies -e conda_copy_legacy=false
+
+- name: Copy conda environments to the shared path
+  hosts: "{{ conda_copy_host | default('usegalaxy.be') }}"
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+  gather_facts: false
+  vars:
+    conda_copy_old: /srv/galaxy/shared/etc/dependencies
+    conda_copy_new: "{{ galaxy_shared_data_dir }}/dependencies"
+    conda_copy_allow_failed: false
+    conda_copy_legacy: true
+
+  tasks:
+    - name: Check the new conda is installed
+      ansible.builtin.stat:
+        path: "{{ conda_copy_new }}/miniconda3/bin/conda"
+      register: conda_copy_bin
+      failed_when: not conda_copy_bin.stat.exists
+
+    # flock: a second run exits instead of cloning in parallel
+    - name: Clone each environment into the new conda
+      ansible.builtin.shell: |
+        set -u
+        exec 9> "{{ conda_copy_new }}/conda-copy.lock"
+        flock -n 9 || { echo "another copy is running"; exit 3; }
+        export CONDA_PKGS_DIRS="{{ conda_copy_new }}/miniconda3/pkgs,{{ conda_copy_old }}/miniconda3/pkgs"
+        failed_list="{{ conda_copy_new }}/conda-copy-failed.txt"
+        : > "$failed_list"
+        copied=0; skipped=0; failed=0
+        for env in {{ conda_copy_old }}/miniconda3/envs/*/; do
+          name=$(basename "$env")
+          new="{{ conda_copy_new }}/miniconda3/envs/$name"
+          if [ -f "$new/.copied" ]; then skipped=$((skipped+1)); continue; fi
+          rm -rf "$new"
+          if "{{ conda_copy_new }}/miniconda3/bin/conda" create --quiet --yes --prefix "$new" --clone "$env" \
+              >> "{{ conda_copy_new }}/conda-copy.log" 2>&1; then
+            touch "$new/.copied"; copied=$((copied+1))
+          else
+            rm -rf "$new"; echo "$name" >> "$failed_list"; failed=$((failed+1))
+          fi
+        done
+        echo "copied=$copied skipped=$skipped failed=$failed"
+      args:
+        executable: /bin/bash
+      async: 172800
+      poll: 60
+      register: conda_copy_result
+      changed_when: "'copied=0 ' not in conda_copy_result.stdout"
+
+    - name: Environments that failed to clone
+      ansible.builtin.command: cat {{ conda_copy_new }}/conda-copy-failed.txt
+      register: conda_copy_failed
+      changed_when: false
+
+    - name: Copy the legacy tool-dependencies tree
+      when: conda_copy_legacy | bool
+      ansible.builtin.command:
+        cmd: rsync -a {{ conda_copy_old }}/tool-dependencies/ {{ conda_copy_new }}/tool-dependencies/
+      changed_when: true
+
+    - name: Point the legacy tool-dependencies env files at the new path
+      when: conda_copy_legacy | bool
+      ansible.builtin.shell: |
+        grep -rlZ --include=env.sh "{{ conda_copy_old }}" "{{ conda_copy_new }}/tool-dependencies" \
+          | xargs -0 -r sed -i "s#{{ conda_copy_old }}#{{ conda_copy_new }}#g"
+      changed_when: true
+
+    - name: Result
+      ansible.builtin.debug:
+        msg: "{{ conda_copy_result.stdout }}; failed: {{ conda_copy_failed.stdout_lines | join(', ') or 'none' }}"
+      failed_when: conda_copy_failed.stdout_lines | length > 0 and not conda_copy_allow_failed | bool

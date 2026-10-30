@@ -1,0 +1,38 @@
+---
+# Points prod's reference data pointers at the shared reference data path.
+# Usage:
+#   # prod's own pointers, before they are copied to the shared tree
+#   ansible-playbook playbooks/one-off/nfs-layout-pointers.yml --check -e pointers_dir=/srv/galaxy/local/mutable-config/tool_data
+#   ansible-playbook playbooks/one-off/nfs-layout-pointers.yml --check
+#   ansible-playbook playbooks/one-off/nfs-layout-pointers.yml
+- name: Rewrite reference data pointers
+  hosts: usegalaxy.be
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+  vars:
+    pointers_old: /srv/galaxy/shared/database/reference_data/dm_data
+    pointers_new: "{{ galaxy_shared_data_dir }}/dm_data"
+    pointers_dir: "{{ galaxy_shared_data_dir }}/tool_data"
+    pointers_dirs:
+      - "{{ pointers_dir }}"
+      - /srv/galaxy/shared/database/shed_data/shed_data_tables
+  tasks:
+    - name: Find pointers with the old path
+      ansible.builtin.find:
+        paths: "{{ pointers_dirs }}"
+        recurse: true
+        contains: ".*{{ pointers_old | regex_escape }}.*"
+      register: pointers_found
+
+    - name: Number of pointers with the old path
+      ansible.builtin.debug:
+        msg: "{{ pointers_found.matched }}"
+
+    - name: Rewrite the old path
+      ansible.builtin.replace:
+        path: "{{ item.path }}"
+        regexp: "{{ pointers_old | regex_escape }}"
+        replace: "{{ pointers_new }}"
+      loop: "{{ pointers_found.files }}"
+      loop_control:
+        label: "{{ item.path }}"
