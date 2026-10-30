@@ -1002,7 +1002,8 @@ galaxy: &GALAXY
   # list. Add test/functional/webhooks to this list to include the demo
   # webhooks used to test the webhook framework.
   #webhooks_dir: config/plugins/webhooks
-  webhooks_dir: "{{ galaxy_config_dir }}/webhooks"
+  # Galaxy's own webhooks (gtn masthead button) plus ours
+  webhooks_dir: "{{ galaxy_server_dir }}/config/plugins/webhooks,{{ galaxy_config_dir }}/webhooks"
 
   # Each job is given a unique empty directory as its current working
   # directory. This option defines in what parent directory those

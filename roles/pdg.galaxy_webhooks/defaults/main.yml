@@ -1,5 +1,5 @@
 ---
-# Folder Galaxy loads webhooks from. Set webhooks_dir in galaxy.yml to the same path.
+# Folder for our webhooks. Add it to webhooks_dir in galaxy.yml, next to Galaxy's own folder.
 galaxy_webhooks_dir: "{{ galaxy_config_dir }}/webhooks"
 
 # Run as root after a webhook file changes: a rolling restart of the web processes only.
