@@ -9,7 +9,7 @@
 # Telegraf exec plugin interval: 1m
 #
 # Requires env vars set by custom_telegraf_env:
-#   PGHOST, PGDATABASE, PGUSER, PGPASSWORD
+#   PGHOST, PGDATABASE, PGUSER, PGPASSFILE (or PGPASSWORD)
 
 start=$(date +%s%N)
 if result=$(PGCONNECT_TIMEOUT=10 psql -t -A -c 'SELECT 1' 2>/dev/null) && [ "$result" = "1" ]; then
