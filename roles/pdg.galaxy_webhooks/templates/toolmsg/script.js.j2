@@ -1,10 +1,9 @@
-// Custom messages for tool forms, based on the usegalaxy.eu toolmsg webhook
+// Messages above tool forms, based on the usegalaxy.eu toolmsg webhook.
+// The not-logged-in message also shows in the upload dialog and on the welcome page.
 
 const enableDebug = false;
 const debugLog = (msg) => enableDebug && console.debug("[ToolMsg]: " + msg);
 
-const WAIT_TOOL_MAX_TRIES = 3;
-const WAIT_TOOL_INTERVAL = 500;
 const toolMessages = [
 {% for message in galaxy_webhooks_toolmsg_messages %}
     {
@@ -16,86 +15,146 @@ const toolMessages = [
 ];
 const anonymousMessage = {{ galaxy_webhooks_toolmsg_anonymous_message | trim | to_json }};
 
-function insertMessage(message, alertClass) {
-    const newElement = document.createElement('p');
-    newElement.className = 'alert alert-' + alertClass + ' my-3';
-    newElement.innerHTML = message;
-    const referenceElement = document.getElementById('tool-card-body');
-    if (referenceElement) {
-        referenceElement.parentNode.insertBefore(newElement, referenceElement);
-    } else {
-        debugLog('Reference element with id="tool-card-body" not found.');
-    }
+const BANNER_CLASS = "toolmsg-banner";
+const root = (window.Galaxy && window.Galaxy.root) || "/";
+
+function apiGet(path) {
+    return fetch(root + path, { credentials: "same-origin" }).then((response) => response.json());
 }
 
-// Anonymous visitors get no user id from the API
-function showAnonymousMessage() {
-    if (!anonymousMessage) {
+// Anonymous visitors get no user id from the API; checked again after each page change
+let anonymousUrl = null;
+let anonymous = null;
+async function isAnonymous() {
+    if (anonymousUrl !== window.location.href) {
+        anonymousUrl = window.location.href;
+        anonymous = await apiGet("api/users/current")
+            .then((user) => !user.id)
+            .catch(() => false);
+    }
+    return anonymous;
+}
+
+// Tool id from ?tool_id=, or from the job for a re-run (?job_id=)
+const jobTools = {};
+async function currentToolId() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("tool_id")) {
+        return params.get("tool_id");
+    }
+    const jobId = params.get("job_id");
+    if (jobId) {
+        if (!(jobId in jobTools)) {
+            jobTools[jobId] = await apiGet("api/jobs/" + jobId)
+                .then((job) => job.tool_id || "")
+                .catch(() => "");
+        }
+        return jobTools[jobId];
+    }
+    return "";
+}
+
+function makeBanner(message, alertClass, key) {
+    const element = document.createElement("p");
+    element.className = "alert alert-" + alertClass + " my-3 " + BANNER_CLASS;
+    element.dataset.toolmsgKey = key;
+    element.innerHTML = message;
+    return element;
+}
+
+// Drop banners left from an earlier page in a container Galaxy reused
+function hasCurrentBanners(container, key) {
+    let current = false;
+    container.querySelectorAll("." + BANNER_CLASS).forEach((element) => {
+        if (element.dataset.toolmsgKey === key) {
+            current = true;
+        } else {
+            element.remove();
+        }
+    });
+    return current;
+}
+
+async function showToolFormMessages() {
+    const cardBody = document.getElementById("tool-card-body");
+    if (!cardBody) {
         return;
     }
-    const root = (window.Galaxy && window.Galaxy.root) || '/';
-    fetch(root + 'api/users/current', { credentials: 'same-origin' })
-        .then((response) => response.json())
-        .then((user) => {
-            if (!user.id) {
-                insertMessage(anonymousMessage, 'warning');
-            }
-        })
-        .catch((error) => debugLog('User check failed: ' + error));
-}
-
-function waitToolFormLoad() {
-    tries++;
-    let matched = false;
-    const element = document.querySelector('div[tool_id]');
-    if (element) {
-        debugLog('Tool form has been loaded');
-        showAnonymousMessage();
-        matched = showToolMessages();
-        tries = WAIT_TOOL_MAX_TRIES;
-    } else {
-        debugLog("No tool form detected (tries: " + tries + ")");
+    const key = "form " + window.location.href;
+    if (hasCurrentBanners(cardBody.parentNode, key)) {
+        return;
     }
-    tries < WAIT_TOOL_MAX_TRIES
-        && !matched
-        && setTimeout(waitToolFormLoad, WAIT_TOOL_INTERVAL);
-}
-
-function isCurrentToolForm(toolId) {
-    const elements = document.querySelectorAll('[tool_id]');
-    for (let element of elements) {
-        const thisToolId = element.getAttribute('tool_id');
-        if (thisToolId && thisToolId.startsWith(toolId)) {
-            debugLog(toolId + " matches " + thisToolId);
-            return true;
-        }
+    const toolId = await currentToolId();
+    const banners = toolMessages
+        .filter((toolMessage) => toolId && toolId.startsWith(toolMessage.tool_id))
+        .map((toolMessage) => makeBanner(toolMessage.message, toolMessage.class, key));
+    if (anonymousMessage && (await isAnonymous())) {
+        banners.push(makeBanner(anonymousMessage, "warning", key));
     }
-    debugLog(toolId + " not found in page.");
-    return false;
-}
-
-function showToolMessages() {
-    let match = false;
-    toolMessages.forEach( (toolMessage) => {
-        if (isCurrentToolForm(toolMessage.tool_id)) {
-            insertMessage(toolMessage.message, toolMessage.class);
-            match = true;
-        }
-    })
-    return match;
-}
-
-let tries = 0;
-let lastUrlPath = null;
-
-// Re-check after each client-side page change
-const observer = new MutationObserver( () => {
-    if (lastUrlPath !== window.location.href) {
-        debugLog("Triggered mutation observer");
-        tries = 0;
-        lastUrlPath = window.location.href;
-        setTimeout(waitToolFormLoad, 500);
+    // The form may have changed while waiting for the API
+    if (document.getElementById("tool-card-body") !== cardBody || hasCurrentBanners(cardBody.parentNode, key)) {
+        return;
     }
+    banners.forEach((banner) => cardBody.parentNode.insertBefore(banner, cardBody));
+    debugLog(banners.length + " message(s) for " + toolId);
+}
+
+async function showUploadMessage() {
+    // Above the dialog body, which has a fixed height
+    const body = document.querySelector(".upload-dialog-body");
+    if (!anonymousMessage || !body || hasCurrentBanners(body.parentNode, "upload")) {
+        return;
+    }
+    if ((await isAnonymous()) && !hasCurrentBanners(body.parentNode, "upload")) {
+        const banner = makeBanner(anonymousMessage, "warning", "upload");
+        banner.classList.add("mx-3", "mb-0");
+        body.parentNode.insertBefore(banner, body);
+    }
+}
+
+async function showWelcomeMessage() {
+    const frame = document.querySelector("iframe.center-frame[src$='/welcome']");
+    if (!anonymousMessage || !frame || hasCurrentBanners(frame.parentNode, "welcome")) {
+        return;
+    }
+    if ((await isAnonymous()) && !hasCurrentBanners(frame.parentNode, "welcome")) {
+        const banner = makeBanner(anonymousMessage, "warning", "welcome");
+        banner.classList.add("mx-3");
+        // Keep the welcome frame filling the space under the banner
+        frame.parentNode.classList.add("d-flex", "flex-column");
+        frame.style.flex = "1 1 auto";
+        frame.style.height = "auto";
+        frame.parentNode.insertBefore(banner, frame);
+    }
+}
+
+let running = false;
+let rerun = false;
+async function showMessages() {
+    if (running) {
+        rerun = true;
+        return;
+    }
+    running = true;
+    try {
+        await showToolFormMessages();
+        await showUploadMessage();
+        await showWelcomeMessage();
+    } catch (error) {
+        debugLog("Failed: " + error);
+    }
+    running = false;
+    if (rerun) {
+        rerun = false;
+        showMessages();
+    }
+}
+
+// Galaxy changes pages and opens dialogs without a reload, so check after each change
+let timer = null;
+const observer = new MutationObserver(() => {
+    clearTimeout(timer);
+    timer = setTimeout(showMessages, 300);
 });
-
 observer.observe(document.body, { childList: true, subtree: true });
+showMessages();

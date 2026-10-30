@@ -3,8 +3,8 @@
 # Recommendations come from usegalaxy.eu, kept where we have both tools.
 
 galaxy_webhooks_toolmsg_anonymous_message: >
-  <strong>You are not logged in.</strong> Your history and results are linked to this browser only
-  and can be lost. <a href="/login/start">Log in or register</a> to keep your work.
+  <strong>You are not logged in.</strong> Please <a href="/login/start">log in or register</a>
+  to upload data and run tools.
 
 galaxy_webhooks_toolmsg_messages:
   - tool_id: interactive_tool_napari
