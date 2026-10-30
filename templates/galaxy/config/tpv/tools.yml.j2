@@ -158,7 +158,7 @@ tools:
     abstract: true
 {% if tpv_local_scratch_enabled | default(false) %}
     params:
-      request_disk: "{{ tpv_local_scratch_request_disk | default('20G') }}"
+      request_disk: "{{ tpv_local_scratch_request_disk | default('5G') }}"
     env:
     - execute: >-
         if [ -n "$_CONDOR_SCRATCH_DIR" ] && [ -d "$_CONDOR_SCRATCH_DIR" ] && [ -n "$_GALAXY_JOB_DIR" ] && [ -d "$_GALAXY_JOB_DIR" ]; then
