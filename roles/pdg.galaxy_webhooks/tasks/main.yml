@@ -1,0 +1,16 @@
+---
+- name: Create toolmsg webhook folder
+  ansible.builtin.file:
+    path: "{{ galaxy_webhooks_dir }}/toolmsg"
+    state: directory
+    mode: "0755"
+
+- name: Template toolmsg webhook files
+  ansible.builtin.template:
+    src: "toolmsg/{{ item }}.j2"
+    dest: "{{ galaxy_webhooks_dir }}/toolmsg/{{ item }}"
+    mode: "0644"
+  loop:
+    - config.yml
+    - script.js
+  notify: restart galaxy

@@ -1,0 +1,11 @@
+---
+# Folder Galaxy loads webhooks from. Set webhooks_dir in galaxy.yml to the same path.
+galaxy_webhooks_dir: "{{ galaxy_config_dir }}/webhooks"
+
+# Messages the toolmsg webhook shows above a tool form: a list of {tool_id, message, class}.
+# tool_id matches any tool whose id starts with it, so leave out the version.
+# message is HTML. class is a Bootstrap alert class: primary, info, success, warning, danger.
+galaxy_webhooks_toolmsg_messages: []
+
+# HTML message shown above every tool form to visitors who are not logged in. Empty: no message.
+galaxy_webhooks_toolmsg_anonymous_message: ""
