@@ -98,6 +98,7 @@ class Result:
     stderr: str = ""
     job_id: str = ""
     attempts: int = 0  # how many times this tool was run; >1 with state==ok means a recovered transient
+    timeouts: int = 0  # attempts abandoned because the job never reached a terminal state
 
 
 @dataclass
@@ -123,7 +124,7 @@ def _line_escape(value: str) -> str:
 def write_metrics(cfg: Config, run: Run) -> None:
     """Write one point per tool to InfluxDB (line protocol).
 
-    <measurement>,host=<h>,tool=<t> ok=<0|1>i,attempts=<n>i
+    <measurement>,host=<h>,tool=<t> ok=<0|1>i,attempts=<n>i,timeouts=<n>i
     <error_measurement>,host=<h>,tool=<t>,outcome=<transient|persistent> error="<stderr>"
 
     ok reflects the final state after retries: a tool that failed then recovered is
@@ -139,7 +140,9 @@ def write_metrics(cfg: Config, run: Run) -> None:
     for r in run.results:
         tool = _line_escape(r.tool_id)
         ok = 1 if r.state == "ok" else 0
-        lines.append(f"{cfg.influx_measurement},host={host},tool={tool} ok={ok}i,attempts={r.attempts}i")
+        lines.append(
+            f"{cfg.influx_measurement},host={host},tool={tool} ok={ok}i,attempts={r.attempts}i,timeouts={r.timeouts}i"
+        )
         # Record error detail for any tool that failed at least once, tagged by whether
         # it ultimately recovered (transient) or not (persistent).
         if r.state != "ok" or r.attempts > 1:
@@ -212,7 +215,10 @@ def _submit_and_poll(gi: GalaxyInstance, cfg: Config, specs: list[dict], hist_id
                 if state != "ok":
                     res.stderr = _fetch_stderr(gi, jid)
     for jid in pending:  # never reached terminal state
-        by_id[job_to_tool[jid]].state = "timeout"
+        res = by_id[job_to_tool[jid]]
+        res.state = "timeout"
+        res.timeouts += 1
+        log.warning("job %s (%s) did not finish within %ds, abandoned", jid, res.tool_id, cfg.job_timeout)
 
 
 def run_healthcheck(cfg: Config) -> Run:
@@ -269,6 +275,9 @@ def main() -> int:
     except Exception as exc:
         # Probe-level failure (e.g. Galaxy unreachable): log, but stay non-gating.
         log.error("healthcheck aborted: %s", exc)
+        # Report every tool as failed so the alerts read "failed" instead of NoData.
+        aborted = f"healthcheck aborted: {exc}"[:500]
+        write_metrics(cfg, Run(results=[Result(tool_id=t["tool_id"], state="error", stderr=aborted) for t in cfg.tools]))
         return 0
     write_metrics(cfg, run)
     level = logging.INFO if run.ok else logging.WARNING

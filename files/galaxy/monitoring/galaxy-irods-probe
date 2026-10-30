@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+# galaxy-irods-probe
+# Opens a new iRODS connection with Galaxy's own object store settings, then
+# writes, reads and deletes a small object. Times each step. A new connection
+# is opened every run, so a slow TLS handshake or a blocked port shows up here
+# before it shows up in user jobs.
+# Outputs InfluxDB line protocol. Always prints a line; ok=0 on any error.
+#
+# Deployed to: /usr/bin/galaxy-irods-probe
+# Telegraf exec plugin interval: 5m
+#
+# Usage: <galaxy venv>/bin/python galaxy-irods-probe <object_store_conf.xml>
+
+import socket
+import ssl
+import sys
+import time
+import xml.etree.ElementTree as ET
+
+TIMEOUT = 60
+
+
+def backend_config(path):
+    for backend in ET.parse(path).getroot().iter("backend"):
+        if backend.get("type") == "irods":
+            return backend
+    raise RuntimeError("no irods backend")
+
+
+def session_from(backend):
+    from irods.session import iRODSSession
+
+    auth = backend.find("auth")
+    conn = backend.find("connection")
+    params = {
+        "host": conn.get("host"),
+        "port": int(conn.get("port")),
+        "user": auth.get("username"),
+        "password": auth.get("password"),
+        "zone": backend.find("zone").get("name"),
+    }
+    ssl_xml = backend.find("ssl")
+    if ssl_xml is not None:
+        params.update(
+            client_server_negotiation=ssl_xml.get("client_server_negotiation"),
+            client_server_policy=ssl_xml.get("client_server_policy"),
+            encryption_algorithm=ssl_xml.get("encryption_algorithm"),
+            encryption_key_size=int(ssl_xml.get("encryption_key_size")),
+            encryption_num_hash_rounds=int(ssl_xml.get("encryption_num_hash_rounds")),
+            encryption_salt_size=int(ssl_xml.get("encryption_salt_size")),
+            ssl_verify_server=ssl_xml.get("ssl_verify_server"),
+            ssl_ca_certificate_file=ssl_xml.get("ssl_ca_certificate_file"),
+            ssl_context=ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH),
+        )
+    session = iRODSSession(**params)
+    session.connection_timeout = TIMEOUT
+    return session, backend.find("logical").get("path")
+
+
+def probe(conf):
+    fields = {}
+    session, logical = session_from(backend_config(conf))
+    collection = f"{logical}/.galaxy-irods-probe"
+    obj = f"{collection}/{socket.gethostname()}.txt"
+    payload = f"galaxy-irods-probe {time.time()}\n".encode()
+    try:
+        t = time.monotonic()
+        session.collections.get(logical)
+        fields["connect_seconds"] = time.monotonic() - t
+
+        if not session.collections.exists(collection):
+            session.collections.create(collection)
+
+        t = time.monotonic()
+        with session.data_objects.open(obj, "w") as f:
+            f.write(payload)
+        fields["write_seconds"] = time.monotonic() - t
+
+        t = time.monotonic()
+        with session.data_objects.open(obj, "r") as f:
+            data = f.read()
+        fields["read_seconds"] = time.monotonic() - t
+        if data != payload:
+            raise RuntimeError("read back different content")
+
+        t = time.monotonic()
+        session.data_objects.unlink(obj, force=True)
+        fields["delete_seconds"] = time.monotonic() - t
+    finally:
+        session.cleanup()
+    return fields
+
+
+def main():
+    start = time.monotonic()
+    try:
+        fields = probe(sys.argv[1])
+        fields["ok"] = "1i"
+        error = ""
+    except Exception as e:
+        fields = {"ok": "0i"}
+        error = type(e).__name__
+    fields["total_seconds"] = time.monotonic() - start
+    out = ",".join(
+        f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}" for k, v in fields.items()
+    )
+    if error:
+        out += f',error="{error}"'
+    print(f"galaxy_irods_probe {out}")
+
+
+if __name__ == "__main__":
+    main()

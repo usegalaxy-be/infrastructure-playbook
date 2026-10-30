@@ -78,7 +78,7 @@ groups:
                     params: []
                   type: query
         noDataState: OK
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -134,7 +134,7 @@ groups:
                     params: []
                   type: query
         noDataState: OK
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -196,7 +196,7 @@ groups:
                     params: []
                   type: query
         noDataState: OK
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -251,7 +251,7 @@ groups:
                     params: []
                   type: query
         noDataState: OK
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -317,7 +317,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -373,7 +373,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -452,7 +452,7 @@ groups:
                     type: lt
                     params: [80]
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 1h
         labels:
           severity: warning
@@ -522,7 +522,7 @@ groups:
                     type: gt
                     params: [4000000000]
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 10m
         labels:
           severity: critical
@@ -591,7 +591,7 @@ groups:
                     type: lt
                     params: [80]
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 1h
         labels:
           severity: warning
@@ -655,7 +655,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 30m
         labels:
           severity: info
@@ -711,7 +711,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 10m
         labels:
           severity: critical
@@ -775,7 +775,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 2m
         labels:
           severity: warning
@@ -831,7 +831,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 2m
         labels:
           severity: warning
@@ -893,7 +893,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -949,7 +949,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -1012,8 +1012,8 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
-        for: 0s
+        execErrState: Error
+        for: 5m
         labels:
           severity: critical
           env: prod
@@ -1067,7 +1067,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 0s
         labels:
           severity: warning
@@ -1134,7 +1134,7 @@ groups:
                     params: []
                   type: query
         noDataState: Alerting
-        execErrState: Alerting
+        execErrState: Error
         for: 15m
         labels:
           severity: warning
@@ -1202,7 +1202,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -1275,7 +1275,7 @@ groups:
                     type: lt
                     params: [80]
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 1h
         labels:
           severity: warning
@@ -1342,7 +1342,7 @@ groups:
                     params: []
                   type: query
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 5m
         labels:
           severity: warning
@@ -1416,7 +1416,7 @@ groups:
                     type: lt
                     params: [80]
         noDataState: NoData
-        execErrState: Alerting
+        execErrState: Error
         for: 1h
         labels:
           severity: warning
@@ -1499,7 +1499,7 @@ groups:
                     params: []
                   type: query
         noDataState: Alerting
-        execErrState: Alerting
+        execErrState: Error
         for: 0s
         labels:
           severity: warning
@@ -1514,7 +1514,7 @@ groups:
             It clears by itself if the next 2-hourly batch passes; it escalates to
             critical if it does not.
             ssh usegalaxy.be 'gxadmin query queue-detail'
-            tail ~/logs/galaxy-healthcheck.log on the loginnode
+            ssh usegalaxy.be 'tail ~/logs/galaxy-job-healthcheck.log'
 
       - uid: be-tpv-job-test-sustained
         title: TPV Test Job Failing Repeatedly (prod)
@@ -1575,7 +1575,7 @@ groups:
             not running jobs.
             ssh usegalaxy.be 'gxadmin query queue-detail'
             ssh usegalaxy.be 'condor_q -better-analyze'
-            tail ~/logs/galaxy-healthcheck.log on the loginnode
+            ssh usegalaxy.be 'tail ~/logs/galaxy-job-healthcheck.log'
 
       - uid: be-tpv-job-test-failure-test
         title: TPV Test Job Failed (test)
@@ -1622,7 +1622,7 @@ groups:
                     params: []
                   type: query
         noDataState: Alerting
-        execErrState: Alerting
+        execErrState: Error
         for: 0s
         labels:
           severity: warning
@@ -1696,7 +1696,7 @@ groups:
                     params: []
                   type: query
         noDataState: Alerting
-        execErrState: Alerting
+        execErrState: Error
         for: 30m
         labels:
           severity: warning
@@ -1768,9 +1768,9 @@ groups:
             ssh usegalaxy.be '/srv/galaxy/shared/database/backup/scripts/backup_db.sh'
 
   # ── Failed systemd units ─────────────────────────────────────────────────────
-  # Data source: galaxy_failed_units (galaxy-failed-units exec script). Generic
-  # catch-all for any failed unit, no per-job metric+alert needed.
-
+  # Data source: galaxy_failed_unit (galaxy-failed-units exec script), one point
+  # per failed unit tagged with its name. GROUP BY "unit" gives one alert instance
+  # per unit; a recovered unit stops reporting and its instance resolves.
   - orgId: 1
     name: Failed Systemd Units
     folder: Galaxy Alerts
@@ -1779,11 +1779,152 @@ groups:
 
       - uid: be-failed-units-prod
         title: Failed Systemd Units (prod)
-        condition: B
+        condition: C
         data:
           - refId: A
             relativeTimeRange:
               from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("failed") FROM "galaxy_failed_unit"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+                GROUP BY "unit"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: >-
+            {% raw %}{{ $labels.unit }}{% endraw %} is in failed state on prod
+          description: >-
+            {% raw %}{{ $labels.unit }}{% endraw %} is in failed state on usegalaxy.be. One alert per unit, so a new
+            failed unit notifies even while another one is already firing.
+            ssh usegalaxy.be 'systemctl status {% raw %}{{ $labels.unit }}{% endraw %}'
+
+      - uid: be-failed-units-test
+        title: Failed Systemd Units (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("failed") FROM "galaxy_failed_unit"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY "unit"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 5m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            {% raw %}{{ $labels.unit }}{% endraw %} is in failed state on test
+          description: >-
+            {% raw %}{{ $labels.unit }}{% endraw %} is in failed state on test.usegalaxy.be. One alert per unit, so a new
+            failed unit notifies even while another one is already firing.
+            ssh test.usegalaxy.be 'systemctl status {% raw %}{{ $labels.unit }}{% endraw %}'
+
+  # ── Galaxy host silent ───────────────────────────────────────────────────────
+  # The condition never matches; the rule only fires through noDataState when the
+  # host stops sending galaxy_failed_units.
+  - orgId: 1
+    name: Galaxy Host Silent prod
+    folder: Galaxy Alerts
+    interval: 10m
+    rules:
+
+      - uid: be-host-silent
+        title: Galaxy Host Stopped Reporting (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 1800
               to: 0
             datasourceUid: be-galaxy-new
             model:
@@ -1798,46 +1939,63 @@ groups:
               refId: A
           - refId: B
             relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
               from: 0
               to: 0
             datasourceUid: __expr__
             model:
-              type: classic_conditions
-              refId: B
+              type: threshold
+              refId: C
               datasource:
-                name: Expression
                 type: __expr__
                 uid: __expr__
+              expression: B
               conditions:
-                - evaluator:
-                    type: gt
+                - type: query
+                  evaluator:
+                    type: lt
                     params: [0]
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    type: last
-                    params: []
-                  type: query
         noDataState: Alerting
-        execErrState: Alerting
-        for: 5m
+        execErrState: Error
+        for: 10m
         labels:
           severity: warning
           env: prod
         annotations:
-          summary: At least one systemd unit is in failed state on prod
+          summary: >-
+            usegalaxy.be has sent no metrics for 30 minutes
           description: >-
-            ssh usegalaxy.be 'systemctl --failed'
+            Telegraf on usegalaxy.be has not reported galaxy_failed_units (every 5m) for
+            30 minutes: the host is down, unreachable, or telegraf has stopped.
+            ssh usegalaxy.be 'uptime; systemctl status telegraf'
 
-      - uid: be-failed-units-test
-        title: Failed Systemd Units (test)
-        condition: B
+  - orgId: 1
+    name: Galaxy Host Silent test
+    folder: Galaxy Alerts
+    interval: 10m
+    rules:
+
+      - uid: be-host-silent-test
+        title: Galaxy Host Stopped Reporting (test)
+        condition: C
         data:
           - refId: A
             relativeTimeRange:
-              from: 900
+              from: 1800
               to: 0
             datasourceUid: be-galaxy-new
             model:
@@ -1852,38 +2010,1010 @@ groups:
               refId: A
           - refId: B
             relativeTimeRange:
+              from: 1800
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
               from: 0
               to: 0
             datasourceUid: __expr__
             model:
-              type: classic_conditions
-              refId: B
+              type: threshold
+              refId: C
               datasource:
-                name: Expression
                 type: __expr__
                 uid: __expr__
+              expression: B
               conditions:
-                - evaluator:
-                    type: gt
+                - type: query
+                  evaluator:
+                    type: lt
                     params: [0]
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    type: last
-                    params: []
-                  type: query
         noDataState: Alerting
-        execErrState: Alerting
-        for: 5m
+        execErrState: Error
+        for: 10m
         labels:
           severity: warning
           env: test
         annotations:
-          summary: At least one systemd unit is in failed state on test
+          summary: >-
+            test.usegalaxy.be has sent no metrics for 30 minutes
           description: >-
-            ssh test.usegalaxy.be 'systemctl --failed'
+            Telegraf on test.usegalaxy.be has not reported galaxy_failed_units (every 5m) for
+            30 minutes: the host is down, unreachable, or telegraf has stopped.
+            ssh test.usegalaxy.be 'uptime; systemctl status telegraf'
+
+  # ── OOM kills ────────────────────────────────────────────────────────────────
+  # Data source: kernel_vmstat oom_kill (telegraf, Galaxy hosts), a counter since
+  # boot; non_negative_difference turns it into kills per minute.
+  - orgId: 1
+    name: OOM Kill prod
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-oom-kill
+        title: Process OOM-Killed (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT non_negative_difference(last("oom_kill")) FROM "kernel_vmstat"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+                GROUP BY time(1m) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: sum
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: >-
+            The kernel OOM-killed a process on prod
+          description: >-
+            The kernel OOM killer fired on usegalaxy.be in the last 15 minutes. A service with
+            Restart=always comes back by itself, so it never shows as a failed unit.
+            ssh usegalaxy.be 'sudo journalctl -k --since -1h | grep -i "killed process"'
+
+  - orgId: 1
+    name: OOM Kill test
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-oom-kill-test
+        title: Process OOM-Killed (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT non_negative_difference(last("oom_kill")) FROM "kernel_vmstat"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY time(1m) fill(none)
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: sum
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            The kernel OOM-killed a process on test
+          description: >-
+            The kernel OOM killer fired on test.usegalaxy.be in the last 15 minutes. A service with
+            Restart=always comes back by itself, so it never shows as a failed unit.
+            ssh test.usegalaxy.be 'sudo journalctl -k --since -1h | grep -i "killed process"'
+
+  # ── Galaxy URL down (test) ───────────────────────────────────────────────────
+  # Data source: http_response (telegraf on the monitoring host, every 1m). A
+  # refused connection writes no http_response_code, so NoData also alerts.
+  # Prod is watched by the UptimeRobot check behind status.galaxyproject.org.
+  - orgId: 1
+    name: Galaxy URL Down test
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-galaxy-url-down-test
+        title: Galaxy Site Unreachable (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("http_response_code") FROM "http_response"
+                WHERE "env" = 'test' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: outside_range
+                    params: [200, 299]
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            https://test.usegalaxy.be/api/version is not answering 2xx
+          description: >-
+            The monitoring host has not had a 2xx from https://test.usegalaxy.be/api/version for
+            10 minutes. No data means no HTTP response at all (connection refused, timeout).
+            curl -sv https://test.usegalaxy.be/api/version
+            ssh test.usegalaxy.be 'systemctl status nginx'
+
+  # ── Healthcheck job timeout ──────────────────────────────────────────────────
+  # Data source: tpv_job_test timeouts field. The healthcheck retries a timed-out
+  # tool, which hides a hung job from the ok-based alerts above.
+  - orgId: 1
+    name: Healthcheck Job Timeout prod
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-healthcheck-timeout
+        title: Healthcheck Job Timed Out (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 12600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("timeouts") FROM "tpv_job_test"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+                GROUP BY "tool"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 12600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: max
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: >-
+            Healthcheck job for {% raw %}{{ $labels.tool }}{% endraw %} never finished on prod
+          description: >-
+            A healthcheck job for {% raw %}{{ $labels.tool }}{% endraw %} on usegalaxy.be did not reach a terminal state
+            within the job timeout and was abandoned, even if a retry then passed. A hung job
+            can mean a stuck handler thread. The abandoned job id is in the log.
+            ssh usegalaxy.be 'grep abandoned ~/logs/galaxy-job-healthcheck.log | tail'
+            ssh usegalaxy.be 'gxadmin query queue-detail'
+
+  - orgId: 1
+    name: Healthcheck Job Timeout test
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-healthcheck-timeout-test
+        title: Healthcheck Job Timed Out (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 12600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT max("timeouts") FROM "tpv_job_test"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+                GROUP BY "tool"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 12600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: max
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            Healthcheck job for {% raw %}{{ $labels.tool }}{% endraw %} never finished on test
+          description: >-
+            A healthcheck job for {% raw %}{{ $labels.tool }}{% endraw %} on test.usegalaxy.be did not reach a terminal state
+            within the job timeout and was abandoned, even if a retry then passed. A hung job
+            can mean a stuck handler thread. The abandoned job id is in the log.
+            ssh test.usegalaxy.be 'grep abandoned ~/logs/galaxy-job-healthcheck.log | tail'
+            ssh test.usegalaxy.be 'gxadmin query queue-detail'
+
+  # ── Stuck running local jobs ─────────────────────────────────────────────────
+  # Data source: galaxy_stuck_local_jobs running field (galaxy-stuck-local-jobs).
+  - orgId: 1
+    name: Stuck Running Local Jobs prod
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-stuck-local-running
+        title: Local Runner Job Stuck Running (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("running") FROM "galaxy_stuck_local_jobs"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: >-
+            A local_runner job on prod has been running for 2h+ with no state change
+          description: >-
+            usegalaxy.be has a local_runner job in state running with no update for 2+ hours
+            (normal runs take at most 30 minutes). Its handler thread may be blocked, e.g. on
+            a lost Celery metadata task.
+            ssh usegalaxy.be 'gxadmin query queue-detail | grep running'
+
+  - orgId: 1
+    name: Stuck Running Local Jobs test
+    folder: Galaxy Alerts
+    interval: 5m
+    rules:
+
+      - uid: be-stuck-local-running-test
+        title: Local Runner Job Stuck Running (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("running") FROM "galaxy_stuck_local_jobs"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            A local_runner job on test has been running for 2h+ with no state change
+          description: >-
+            test.usegalaxy.be has a local_runner job in state running with no update for 2+ hours
+            (normal runs take at most 30 minutes). Its handler thread may be blocked, e.g. on
+            a lost Celery metadata task.
+            ssh test.usegalaxy.be 'gxadmin query queue-detail | grep running'
+
+  # ── iRODS probe ──────────────────────────────────────────────────────────────
+  # Data source: galaxy_irods_probe (telegraf exec on each Galaxy host, every 5m).
+  # Each run opens a new iRODS connection, then writes, reads and deletes a small
+  # object. No data means the probe hung past its 90s timeout.
+
+  - orgId: 1
+    name: iRODS Probe Failed prod
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-probe-failed
+        title: iRODS Probe Failed (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_irods_probe"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: >-
+            usegalaxy.be cannot write to and read from iRODS
+          description: >-
+            The iRODS probe on usegalaxy.be failed or hung for 10 minutes. Uploads and jobs
+            that read or write iRODS are likely failing too. The error field names the
+            exception. The June 2026 outage was the iRODS port being blocked.
+            ssh usegalaxy.be 'sudo -u telegraf telegraf --test --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --input-filter exec 2>&1 | grep irods'
+
+  - orgId: 1
+    name: iRODS Connection Slow prod
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-slow
+        title: iRODS Connection Slow (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("connect_seconds") FROM "galaxy_irods_probe"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [10]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        labels:
+          severity: warning
+          env: prod
+        annotations:
+          summary: >-
+            New iRODS connections from usegalaxy.be take over 10 s
+          description: >-
+            Opening a new iRODS connection from usegalaxy.be has taken over 10 s for 15 minutes
+            (normal is under 1 s). Jobs that need a new connection wait this long before
+            they start. Slow TLS handshakes on the KU Leuven side caused this before;
+            report it to the VSC iRODS team with the connect_seconds graph.
+
+  - orgId: 1
+    name: iRODS Probe Failed test
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-probe-failed-test
+        title: iRODS Probe Failed (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_irods_probe"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 10m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            test.usegalaxy.be cannot write to and read from iRODS
+          description: >-
+            The iRODS probe on test.usegalaxy.be failed or hung for 10 minutes. Uploads and jobs
+            that read or write iRODS are likely failing too. The error field names the
+            exception. The June 2026 outage was the iRODS port being blocked.
+            ssh test.usegalaxy.be 'sudo -u telegraf telegraf --test --config /etc/telegraf/telegraf.conf --config-directory /etc/telegraf/telegraf.d --input-filter exec 2>&1 | grep irods'
+
+  - orgId: 1
+    name: iRODS Connection Slow test
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-irods-slow-test
+        title: iRODS Connection Slow (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("connect_seconds") FROM "galaxy_irods_probe"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [10]
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            New iRODS connections from test.usegalaxy.be take over 10 s
+          description: >-
+            Opening a new iRODS connection from test.usegalaxy.be has taken over 10 s for 15 minutes
+            (normal is under 1 s). Jobs that need a new connection wait this long before
+            they start. Slow TLS handshakes on the KU Leuven side caused this before;
+            report it to the VSC iRODS team with the connect_seconds graph.
+
+  # ── Galaxy database ──────────────────────────────────────────────────────────
+  # Data source: galaxy_db_check (telegraf exec on each Galaxy host, every 1m),
+  # SELECT 1 with Galaxy's connection settings. No data means telegraf stopped.
+
+  - orgId: 1
+    name: Galaxy Database Unreachable prod
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-db-unreachable
+        title: Galaxy Database Unreachable (prod)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_db_check"
+                WHERE "host" = 'usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 3m
+        labels:
+          severity: critical
+          env: prod
+        annotations:
+          summary: >-
+            usegalaxy.be cannot query the Galaxy database
+          description: >-
+            SELECT 1 on the Galaxy database from usegalaxy.be has failed for 3 minutes.
+            Galaxy cannot serve pages or run jobs without it.
+            ssh usegalaxy.be 'sudo -u telegraf /usr/bin/galaxy-db-check'
+            ssh db.usegalaxy.be 'systemctl status postgresql'
+
+  - orgId: 1
+    name: Galaxy Database Unreachable test
+    folder: Galaxy Alerts
+    interval: 1m
+    rules:
+
+      - uid: be-db-unreachable-test
+        title: Galaxy Database Unreachable (test)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: be-galaxy-new
+            model:
+              datasource:
+                type: influxdb
+                uid: be-galaxy-new
+              hide: false
+              rawQuery: true
+              query: >-
+                SELECT last("ok") FROM "galaxy_db_check"
+                WHERE "host" = 'test.usegalaxy.be' AND $timeFilter
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: reduce
+              refId: B
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+          - refId: C
+            relativeTimeRange:
+              from: 0
+              to: 0
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: C
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: B
+              conditions:
+                - type: query
+                  evaluator:
+                    type: lt
+                    params: [1]
+        noDataState: Alerting
+        execErrState: Error
+        for: 3m
+        labels:
+          severity: warning
+          env: test
+        annotations:
+          summary: >-
+            test.usegalaxy.be cannot query the Galaxy database
+          description: >-
+            SELECT 1 on the Galaxy database from test.usegalaxy.be has failed for 3 minutes.
+            Galaxy cannot serve pages or run jobs without it.
+            ssh test.usegalaxy.be 'sudo -u telegraf /usr/bin/galaxy-db-check'
+            ssh db.usegalaxy.be 'systemctl status postgresql'
 
 # Rules retired from the groups above; file provisioning only adds/updates by
 # uid, it does not prune rules removed from this file, so old ones must be
