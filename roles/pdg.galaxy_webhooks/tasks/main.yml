@@ -13,4 +13,4 @@
   loop:
     - config.yml
     - script.js
-  notify: restart galaxy
+  notify: Restart Galaxy web processes
