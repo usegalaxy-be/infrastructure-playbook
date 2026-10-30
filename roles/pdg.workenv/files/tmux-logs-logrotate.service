@@ -1,0 +1,6 @@
+[Unit]
+Description=Rotate ~/tmux-logs
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/logrotate --state /var/lib/logrotate/tmux-logs.status /etc/logrotate-tmux-logs.conf
