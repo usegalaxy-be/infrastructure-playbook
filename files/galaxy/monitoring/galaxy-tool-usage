@@ -4,7 +4,7 @@
 #   tool_usage: per tool version, jobs, distinct users and errored jobs over 30 and 90 days
 #   tool_usage_monthly: per tool (all versions), jobs and users per month for the
 #     last 13 months, timestamped at the start of the month so reruns overwrite
-# Outputs InfluxDB line protocol. libpq reads PGHOST/PGDATABASE/PGUSER/PGPASSWORD.
+# Outputs InfluxDB line protocol. libpq reads PGHOST/PGDATABASE/PGUSER and the password from PGPASSFILE.
 #
 # Deployed to: /usr/bin/galaxy-tool-usage
 # Telegraf exec plugin interval: 6h

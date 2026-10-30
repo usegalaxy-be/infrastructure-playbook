@@ -36,8 +36,8 @@ grafana_influx_url: "https://{{ inventory_hostname }}:8086"
 # Telegraf
 # this is used to set env variables before calling custom/gxadmin scripts
 
-custom_telegraf_env: "/usr/bin/env PGHOST={{postgres_host}} PGDATABASE={{ db_name }} PGUSER=telegraf PGPASSWORD={{ vault_prod_postgres_pass }} GALAXY_ROOT={{ galaxy_server_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} GALAXY_LOG_DIR={{ galaxy_log_dir }}"
-custom_telegraf_env_without_gdpr_mode: "/usr/bin/env GDPR_MODE=1 PGHOST={{postgres_host}} PGDATABASE={{ db_name }} PGUSER=telegraf PGPASSWORD={{ vault_prod_postgres_pass }} GALAXY_ROOT={{ galaxy_server_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} GALAXY_LOG_DIR={{ galaxy_log_dir }}"
+custom_telegraf_env: "/usr/bin/env PGHOST={{postgres_host}} PGDATABASE={{ db_name }} PGUSER=telegraf PGPASSFILE=/etc/telegraf/.pgpass GALAXY_ROOT={{ galaxy_server_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} GALAXY_LOG_DIR={{ galaxy_log_dir }}"
+custom_telegraf_env_without_gdpr_mode: "/usr/bin/env GDPR_MODE=1 PGHOST={{postgres_host}} PGDATABASE={{ db_name }} PGUSER=telegraf PGPASSFILE=/etc/telegraf/.pgpass GALAXY_ROOT={{ galaxy_server_dir }} GALAXY_CONFIG_FILE={{ galaxy_config_file }} GALAXY_LOG_DIR={{ galaxy_log_dir }}"
 
 # dj-wasabi.telegraf
 

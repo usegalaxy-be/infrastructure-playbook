@@ -235,6 +235,25 @@
 
   pre_tasks:
 
+    # Before the role restarts Telegraf, so the exec scripts find it straight away
+    - name: Check for the telegraf user
+      getent:
+        database: passwd
+        key: telegraf
+        fail_key: false
+      tags: [telegraf, telegraf-pgpass]
+
+    - name: Deploy the telegraf user's PostgreSQL password file
+      copy:
+        dest: /etc/telegraf/.pgpass
+        content: "{{ postgres_host }}:*:*:telegraf:{{ vault_prod_postgres_pass | regex_replace('([:\\\\])', '\\\\\\1') }}\n"
+        owner: telegraf
+        group: telegraf
+        mode: '0600'
+      no_log: true
+      when: getent_passwd.telegraf is not none
+      tags: [telegraf, telegraf-pgpass]
+
     - name: Install RHEL/CentOS/Rocky specific dependencies
       package:
         name: ['chkconfig']

@@ -10,7 +10,7 @@
 # Telegraf exec plugin interval: 5m
 #
 # Requires env vars set by custom_telegraf_env:
-#   PGHOST, PGDATABASE, PGUSER, PGPASSWORD
+#   PGHOST, PGDATABASE, PGUSER, PGPASSFILE
 
 count=$(psql -t -A -c \
   "SELECT COUNT(*) FROM job

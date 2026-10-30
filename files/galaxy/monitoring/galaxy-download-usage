@@ -8,7 +8,7 @@
 #   Other files (zips, history exports) and datasets without a history count as Unattributed.
 # Points are timestamped at local midnight so reruns overwrite. Only the last RECENT_DAYS
 # days are written, so a day whose oldest lines were rotated away keeps its complete total.
-# Outputs InfluxDB line protocol. libpq reads PGHOST/PGDATABASE/PGUSER/PGPASSWORD.
+# Outputs InfluxDB line protocol. libpq reads PGHOST/PGDATABASE/PGUSER and the password from PGPASSFILE.
 #
 # Deployed to: /usr/local/share/galaxy-metrics/download_usage.py
 # SQL from: /usr/local/share/galaxy-metrics/download_usage.sql (galaxy-download-usage.sql.j2)
