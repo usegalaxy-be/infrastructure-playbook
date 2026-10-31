@@ -30,6 +30,9 @@
       galaxy_manage_systemd: no
       galaxy_manage_gravity: no
 
+    # Per-tool messages above the tool form (toolmsg webhook)
+    - role: pdg.galaxy_webhooks
+
     # Adds a TPV (Total Perspective Vortex) lint script that automatically lints all TPV YAML files
     # some custom changes to allow a different user than root to install scripts and copy tpv related files
 
