@@ -94,3 +94,11 @@ internal_address: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data
 condor_cm: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').usegalaxy_be_ip }}"
 #/32
 
+
+# TPV: run tools that inherit _local_scratch (Unicycler) in node-local HTCondor scratch.
+tpv_local_scratch_enabled: true
+
+# TPV: trainee job priority for email patterns on given dates (trainings without TiaaS).
+tpv_training_email_days:
+  - pattern: '.*[@.]vub\.be$'
+    date: "2026-10-30"

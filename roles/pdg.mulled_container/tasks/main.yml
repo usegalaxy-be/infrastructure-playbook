@@ -9,10 +9,18 @@
   become: true
   become_user: "{{ mulled_container_build_user }}"
   ansible.builtin.pip:
-    name: "galaxy-tool-util{{ ('==' ~ mulled_container_tool_util_version) if mulled_container_tool_util_version else '' }}"
+    name: "{{ ['galaxy-tool-util', 'galaxy-tool-util-models', 'galaxy-util']
+              | map('regex_replace', '$', ('==' ~ mulled_container_tool_util_version) if mulled_container_tool_util_version else '')
+              | list }}"
     virtualenv: "{{ mulled_container_build_venv }}"
     virtualenv_command: "python3 -m venv"
     state: present
+  tags: [mulled_container]
+
+- name: Check whether the mulled build venv is installed
+  ansible.builtin.stat:
+    path: "{{ mulled_container_build_venv }}/bin/python"
+  register: _mulled_venv_python
   tags: [mulled_container]
 
 - name: Ensure the shared mulled cache directory exists
@@ -32,9 +40,19 @@
     mode: "0755"
   tags: [mulled_container]
 
-- name: Build each container
-  ansible.builtin.include_tasks: build_one.yml
+- name: Check which tool XMLs exist on this host
+  ansible.builtin.stat:
+    path: "{{ spec.tool_xml }}"
   loop: "{{ mulled_container_specs }}"
+  loop_control:
+    loop_var: spec
+    label: "{{ spec.name }}"
+  register: _spec_xml
+  tags: [mulled_container]
+
+- name: Build each container whose tool XML exists
+  ansible.builtin.include_tasks: build_one.yml
+  loop: "{{ _spec_xml.results | selectattr('stat.exists') | map(attribute='spec') | list }}"
   loop_control:
     loop_var: spec
     label: "{{ spec.name }}"

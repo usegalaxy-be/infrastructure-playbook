@@ -1,3 +1,16 @@
+# Per-address request limit; internal addresses get an empty key and are not limited.
+geo $limit_req_exempt {
+    default        0;
+    10.0.0.0/8     1;
+    172.16.0.0/12  1;
+    193.190.80.1   1;
+}
+map $limit_req_exempt $limit_req_key {
+    0 $binary_remote_addr;
+    1 "";
+}
+limit_req_zone $limit_req_key zone=per_address:10m rate=20r/s;
+
 {% for subdomain in subdomains %}
 
 # forwards from proxy to {{ subdomain }}
@@ -13,6 +26,10 @@ server {
 
     # Manually blocked IPs (scanner/attacker blocks — replace with fail2ban when deployed)
     deny 185.177.72.11;
+    deny 205.188.56.29;
+
+    limit_req zone=per_address burst=400 nodelay;
+    limit_req_status 429;
 
     # Maintenance page, answered with 503 so monitors and API clients see the outage.
     # The flag file is managed by 00-proxy.yml --tags maintenance (nginx_maintenance_sites).

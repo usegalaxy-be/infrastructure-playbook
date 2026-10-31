@@ -151,6 +151,26 @@ tools:
       - if: input_size >= 20
         fail: "Input data too large for this assembler. Please contact support or downsample your reads."
 
+  # Tool working directory on node-local HTCondor scratch instead of NFS, for I/O-heavy tools.
+  # The scratch copy links back to the other job dir entries, so relative paths like ../outputs still resolve.
+  # Use $VAR, not ${VAR}: TPV evaluates {...} in env values.
+  _local_scratch:
+    abstract: true
+{% if tpv_local_scratch_enabled | default(false) %}
+    params:
+      request_disk: "{{ tpv_local_scratch_request_disk | default('5G') }}"
+    env:
+    - execute: >-
+        if [ -n "$_CONDOR_SCRATCH_DIR" ] && [ -d "$_CONDOR_SCRATCH_DIR" ] && [ -n "$_GALAXY_JOB_DIR" ] && [ -d "$_GALAXY_JOB_DIR" ]; then
+        _gx_scratch="$_CONDOR_SCRATCH_DIR/galaxy_job" &&
+        mkdir -p "$_gx_scratch/working" &&
+        cp -a "$_GALAXY_JOB_DIR/working/." "$_gx_scratch/working/" 2>/dev/null;
+        for _gx_entry in "$_GALAXY_JOB_DIR"/*; do [ "$(basename "$_gx_entry")" = working ] || ln -s "$_gx_entry" "$_gx_scratch/"; done;
+        for _gx_entry in outputs configs metadata; do [ -e "$_gx_scratch/$_gx_entry" ] || ln -s "$_GALAXY_JOB_DIR/$_gx_entry" "$_gx_scratch/$_gx_entry"; done;
+        rm -rf "$_GALAXY_JOB_DIR/working" &&
+        ln -s "$_gx_scratch/working" "$_GALAXY_JOB_DIR/working"; fi
+{% endif %}
+
   # Specific tool definitions
 
   toolshed.g2.bx.psu.edu/repos/iuc/ncbi_fcs_gx/ncbi_fcs_gx/.*:
@@ -359,6 +379,12 @@ tools:
   toolshed.g2.bx.psu.edu/repos/blankenberg/naive_variant_caller/naive_variant_caller/0.0.[12]: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/boris/phylorelatives/phylorelatives/0.0.1: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/1.1[23].*: {inherits: _legacy}
+  # Prod jobs on bacterial assemblies (<50 MB) keep about 1.2 of 8 cores busy; no data for larger inputs.
+  toolshed.g2.bx.psu.edu/repos/crs4/prokka/prokka/.*:
+    rules:
+    - id: prokka_small_assembly_rule
+      if: input_size < 0.05
+      cores: 4
   toolshed.g2.bx.psu.edu/repos/crs4/taxonomy_krona_chart/taxonomy_krona_chart/2.[06].*: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/devteam/bamleftalign/bamleftalign/0.0.2: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/devteam/bamtools/bamtools/0.0.[12]: {inherits: _legacy}
@@ -505,6 +531,9 @@ tools:
   toolshed.g2.bx.psu.edu/repos/peterjc/mummer/mummerplot_wrapper/0.0.7: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.32.3: {inherits: _legacy}
   toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/0.36.[235]: {inherits: _legacy}
+  # Prod jobs keep 0.8 to 1.5 of 6 cores busy at every input size, up to >2 GB.
+  toolshed.g2.bx.psu.edu/repos/pjbriggs/trimmomatic/trimmomatic/.*:
+    cores: 2
   toolshed.g2.bx.psu.edu/repos/devteam/join/gops_join_1/.*: {inherits: _legacy}
 
   # legacy singularity resolv.conf fix tools
@@ -832,6 +861,7 @@ tools:
         - singularity
 
   toolshed.g2.bx.psu.edu/repos/iuc/unicycler/unicycler/.*:
+    inherits: _local_scratch
     cores: 16
     mem: 90
     env:
@@ -845,6 +875,11 @@ tools:
       if: 0.05 <= input_size < 2
       cores: 8
       mem: 31
+    # Short-read-only runs use about 4 cores and peak at 3.4 GB.
+    - id: unicycler_short_only_rule
+      if: 0.05 <= input_size < 2 and not any(d.name == 'long' and d.dataset for d in job.input_datasets)
+      cores: 4
+      mem: 8
 
   # SPAdes family — see _spades abstract for core/mem scaling rules
   toolshed.g2.bx.psu.edu/repos/nml/spades/spades/.*: {inherits: _spades}

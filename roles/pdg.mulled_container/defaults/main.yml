@@ -11,7 +11,7 @@ mulled_container_cache_group: "{{ galaxy_user_name }}"
 # parser, and the image-naming util.
 mulled_container_build_user: "{{ galaxy_user_name }}"
 mulled_container_build_venv: "/home/{{ mulled_container_build_user }}/.mulled-build-venv"
-mulled_container_tool_util_version: ""  # empty = latest; pin for reproducible builds
+mulled_container_tool_util_version: "26.1.2"  # same version on every build host; option names change between releases
 mulled_container_workdir: "/tmp/mulled-build"  # local disk on the build host, not NFS
 
 mulled_container_channels: [conda-forge, bioconda]
@@ -22,4 +22,7 @@ mulled_container_force: false  # rebuild even if the image is already cached
 # no per-tool package list to maintain.
 #   name:     human label
 #   tool_xml: absolute path to the deployed tool XML on the build host
+#   channels: optional, overrides mulled_container_channels for this spec
+#   strict_channel_priority: optional, default true
+#   extra_targets: optional extra conda pins (e.g. pillow=9.5.0); the SIF keeps the tool's resolver name
 mulled_container_specs: []

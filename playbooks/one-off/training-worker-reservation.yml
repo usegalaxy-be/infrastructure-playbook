@@ -1,0 +1,79 @@
+---
+# ============================================================================
+# Reserve HTCondor workers for a training
+# ============================================================================
+#
+# During the time windows in training_reservation_windows, the workers start
+# only trainee jobs (JobPrio >= 10, set by TPV for training-* roles) and
+# optionally smaller jobs (up to 4 cores by default) from everyone. Outside the
+# windows they start everything. Jobs already running finish normally; other
+# jobs wait in the queue. Nothing is preempted.
+#
+# Usage:
+#   # Add the training's window below, then write the rule (any time before it):
+#   ansible-playbook playbooks/one-off/training-worker-reservation.yml
+#
+#   # Remove the rule entirely (e.g. once all windows are over):
+#   ansible-playbook playbooks/one-off/training-worker-reservation.yml -e training_reservation=absent
+#
+#   # All workers but one for trainees only, the last one open to everyone:
+#   ansible-playbook playbooks/one-off/training-worker-reservation.yml --limit 'prodcomputeservers:!worker4x3.usegalaxy.be' -e training_reservation_allow_small=false
+#
+# Check on a worker:
+#   condor_config_val START
+# ============================================================================
+
+- name: Reserve HTCondor workers for a training
+  hosts: prodcomputeservers
+  become: true
+  gather_facts: false
+
+  vars:
+    training_reservation: present
+    # Start and end with UTC offset; past windows can stay until the next cleanup.
+    training_reservation_windows:
+      - start: "2026-10-30T08:00:00+01:00"
+        end: "2026-10-30T20:00:00+01:00"
+    training_reservation_min_priority: 10
+    training_reservation_allow_small: true
+    # Jobs up to this size from other users still start; >4 cores is 4% of jobs but 93% of core-hours.
+    training_reservation_small_cpus: 4
+    training_reservation_small_memory_mb: 65536
+    training_reservation_file: /etc/condor/config.d/99-training-reservation.conf
+
+  tasks:
+    - name: Write the training START rule
+      ansible.builtin.copy:
+        dest: "{{ training_reservation_file }}"
+        mode: "0644"
+        content: |
+          # Training reservation, written by playbooks/one-off/training-worker-reservation.yml
+          {% set windows = [] -%}
+          {% for w in training_reservation_windows -%}
+          {% set _ = windows.append('(time() >= %d && time() < %d)' % ((w.start | to_datetime('%Y-%m-%dT%H:%M:%S%z')).timestamp() | int, (w.end | to_datetime('%Y-%m-%dT%H:%M:%S%z')).timestamp() | int)) -%}
+          {% endfor -%}
+          # Windows: {{ training_reservation_windows | map(attribute='start') | join(', ') }}
+          START = !({{ windows | join(' || ') }}) || (TARGET.JobPrio >= {{ training_reservation_min_priority }}){% if training_reservation_allow_small %} || (TARGET.RequestCpus <= {{ training_reservation_small_cpus }} && TARGET.RequestMemory <= {{ training_reservation_small_memory_mb }}){% endif %}
+
+      when: training_reservation == 'present'
+      register: training_reservation_written
+
+    - name: Remove the training START rule
+      ansible.builtin.file:
+        path: "{{ training_reservation_file }}"
+        state: absent
+      when: training_reservation == 'absent'
+      register: training_reservation_removed
+
+    - name: Reload the HTCondor configuration
+      ansible.builtin.command: condor_reconfig
+      when: training_reservation_written is changed or training_reservation_removed is changed
+
+    - name: Show the active START rule
+      ansible.builtin.command: condor_config_val START
+      register: training_reservation_start
+      changed_when: false
+
+    - name: Report
+      ansible.builtin.debug:
+        msg: "START = {{ training_reservation_start.stdout }}"
