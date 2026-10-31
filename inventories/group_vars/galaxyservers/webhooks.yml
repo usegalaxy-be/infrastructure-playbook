@@ -1,5 +1,5 @@
 ---
-# pdg.galaxy_webhooks: messages shown above a tool form (format in the role defaults).
+# pdg.galaxy_webhooks: messages shown above a tool form. How to add one: docs/tools/tool-banners.md
 # Recommendations come from usegalaxy.eu, kept where we have both tools.
 
 galaxy_webhooks_toolmsg_anonymous_message: >
