@@ -83,7 +83,7 @@
           img=$(docker images --format '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}' | grep -m1 -F "{{ _mulled_built_stem }}" || true)
           [ -n "$img" ] || { echo "no docker image matching {{ _mulled_built_stem }} after build" >&2; exit 3; }
           sif="{{ _mulled_base }}-${img##*-}"
-          apptainer build "./sif/$sif" "docker-daemon://$img"
+          apptainer build --disable-cache "./sif/$sif" "docker-daemon://$img"
           chown "{{ mulled_container_build_user }}" "./sif/$sif"
           docker rmi "$img" || true
           echo "BUILT_SIF=$sif"
@@ -120,6 +120,14 @@
         owner: "{{ mulled_container_cache_owner }}"
         group: "{{ mulled_container_cache_group }}"
         mode: "0644"
+      when: _mulled_needs_build and not ansible_check_mode
+
+    - name: "[{{ spec.name }}] Remove the local build output"
+      become: true
+      ansible.builtin.file:
+        path: "{{ mulled_container_workdir }}/{{ item }}"
+        state: absent
+      loop: [build, sif]
       when: _mulled_needs_build and not ansible_check_mode
 
     - name: "[{{ spec.name }}] Result"
