@@ -1,0 +1,17 @@
+---
+# OS update, one host at a time. Run per group with --limit; --tags preview only reports.
+# The loginnode is updated by hand, proxyservers (CentOS 7) are not supported.
+#
+# -e update_scope=
+#   kernel    (default) the kernel packages already installed, including kernel-devel for DKMS
+#   security  packages with a security or bugfix advisory; misses fixes Rocky ships without one
+#   baseline  all packages
+- name: Update OS packages
+  hosts: all:!loginnode:!proxyservers
+  become: true
+  serial: 1
+  any_errors_fatal: true
+  vars:
+    os_update_scope: "{{ update_scope | default('kernel') }}"
+  roles:
+    - pdg.os_update

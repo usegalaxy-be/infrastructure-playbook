@@ -89,10 +89,27 @@ roles:
 
       final_destinations
 
-  # training.*:
-  #   max_cores: 2
-  #   max_mem: max_cores * 3.8  # TODO check multiplier
-  #   scheduling:
-  #     require:
-  #       # TODO: figure out what to require
-  #       - training
+  # Pin a user's GPU jobs to one GPU generation, e.g. to test openfold on GPUv2 (T4)
+  # and GPUv3 (A2) separately. Add the user to the Galaxy role (Admin > Roles) for the
+  # test run and remove them afterwards. Non-GPU jobs are not affected.
+  # The pinned destinations also require vib-users, so the user needs a @vib.be account.
+  gpu_v2_pin:
+    rules:
+      - id: gpu_v2_pin
+        if: entity.gpus > 0
+        scheduling:
+          require:
+            - gpu_v2
+  gpu_v3_pin:
+    rules:
+      - id: gpu_v3_pin
+        if: entity.gpus > 0
+        scheduling:
+          require:
+            - gpu_v3
+
+  # TiaaS gives trainees a training-<id> role. All Galaxy jobs share one HTCondor user, so job priority
+  # moves trainee jobs ahead of other waiting jobs; nothing is preempted and no workers are reserved.
+  training-.*:
+    params:
+      priority: "{{ tpv_training_priority | default(10) }}"

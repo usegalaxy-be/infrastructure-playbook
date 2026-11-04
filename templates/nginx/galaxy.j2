@@ -145,6 +145,9 @@ server {
     location /_x_accel_redirect {
         internal;
         alias /;
+        # Setting access_log here replaces the server's, so both are listed.
+        access_log  /var/log/nginx/access.log;
+        access_log  {{ galaxy_download_log_dir }}/downloads.log galaxy_downloads;
         add_header X-Frame-Options SAMEORIGIN;
         add_header X-Content-Type-Options nosniff;
     }

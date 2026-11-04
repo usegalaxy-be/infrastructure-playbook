@@ -1,0 +1,19 @@
+---
+- name: Preview
+  ansible.builtin.import_tasks: preview.yml
+  tags: [preview]
+
+- name: Confirm before updating {{ inventory_hostname }}
+  ansible.builtin.pause:
+    prompt: "About to update and, if needed, reboot {{ inventory_hostname }} (scope: {{ os_update_scope }}). Press Enter to continue, or Ctrl-C then A to abort"
+  when: os_update_confirm | bool
+
+- name: Drain
+  ansible.builtin.import_tasks: drain.yml
+  when: os_update_condor_drain | bool
+
+- name: Update
+  ansible.builtin.import_tasks: update.yml
+
+- name: Health check
+  ansible.builtin.import_tasks: health.yml

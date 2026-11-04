@@ -1,0 +1,5 @@
+---
+# Oldest kernel allowed on Rocky 9 and Rocky 8. update.yml fails a host that
+# boots below it. Raise it when a kernel fix must be in place fleet-wide.
+kernel_minimum: "5.14.0-687.24.1.el9_8"
+kernel_minimum_el8: "4.18.0-553.124.1.el8_10"

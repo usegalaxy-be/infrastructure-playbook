@@ -26,6 +26,9 @@ nginx_conf_http:
   gzip_min_length: 128
   # Tradeoff of better compression for slightly more CPU time.
   gzip_comp_level: 6  
+  # Downloads nginx serves from disk via X-Accel-Redirect, read by galaxy-download-usage.
+  # Only the time, status, bytes and file path: no client address, no query string.
+  log_format: "galaxy_downloads '$time_iso8601\\t$status\\t$body_bytes_sent\\t$uri'"
   gzip_types: |
       text/plain
       text/css
@@ -42,6 +45,9 @@ nginx_conf_http:
       image/png
       image/svg+xml
       image/x-icon
+# Directory of the galaxy_downloads log, readable by telegraf through the Galaxy user's group
+galaxy_download_log_dir: /var/log/nginx-downloads
+
 # nginx_ssl_role: usegalaxy_eu.certbot
 # Location of the certificate / private key
 # nginx_conf_ssl_certificate: "{{ galaxy_shared_certs_dir }}/{{ inventory_hostname }}/fullchain.pem" #/etc/ssl/certs/fullchain.pem

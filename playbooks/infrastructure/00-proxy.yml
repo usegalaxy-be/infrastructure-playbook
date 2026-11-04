@@ -5,10 +5,10 @@
 
 - hosts: proxyservers
   vars:
-    # Set to true to enable the maintenance page (redirects all Galaxy requests to GitHub Pages).
-    # Enable:  set true,  run 00-proxy.yml --tags maintenance
-    # Disable: set false, run 00-proxy.yml --tags maintenance
-    nginx_maintenance_mode: false
+    # Sites from `subdomains` that answer 503 with https://usegalaxy-be.github.io/maintenance.
+    # Enable:  list them, e.g. ["usegalaxy.be", "www.usegalaxy.be"], run 00-proxy.yml --tags maintenance
+    # Disable: set [], run 00-proxy.yml --tags maintenance
+    nginx_maintenance_sites: []
   become: true
   become_user: root
   # collections:
@@ -23,6 +23,9 @@
             "tar",
             "git",
             "bc",
+            "rsync",
+            # for galaxyproject.self_signed_certs
+            "python3-cryptography",
           ]
       become: true
       become_user: root
@@ -32,13 +35,6 @@
       selinux:
         state: disabled
       tags: selinux
-
-    - name: Disable firewalld service
-      ansible.builtin.service:
-        name: firewalld
-        enabled: false
-        state: stopped
-      tags: firewalld
 
   roles:
     # Set NTP
@@ -64,29 +60,42 @@
         openssl_private_key_path: "{{ gxit_test_ssl_certificate_key }}"
         openssl_certificate_path: "{{ gxit_test_ssl_certificate }}"
 
+    # NFS mount for the shared certificates, written by the certbot post-renewal hook
+    - role: pdg.autofs
+      tags: autofs
+
     # Sets up a webserver
     - role: galaxyproject.nginx
       tags: nginx
 
   post_tasks:
+    - name: Check that every maintenance site is a proxied site
+      ansible.builtin.assert:
+        that: nginx_maintenance_sites | difference(subdomains) | length == 0
+        fail_msg: "Not in subdomains: {{ nginx_maintenance_sites | difference(subdomains) }}"
+      tags: maintenance
+
+    - name: Create the maintenance flag directory
+      ansible.builtin.file:
+        path: /var/www/html
+        state: directory
+        mode: "0755"
+      tags: maintenance
+
     - name: Enable maintenance mode
       ansible.builtin.file:
-        path: /var/www/html/maintenance.disable
+        path: "/var/www/html/maintenance-{{ item }}"
         state: touch
         modification_time: preserve
         access_time: preserve
-      become: true
-      when: nginx_maintenance_mode
-      notify: reload nginx
+      loop: "{{ nginx_maintenance_sites }}"
       tags: maintenance
 
     - name: Disable maintenance mode
       ansible.builtin.file:
-        path: /var/www/html/maintenance.disable
+        path: "/var/www/html/maintenance-{{ item }}"
         state: absent
-      become: true
-      when: not nginx_maintenance_mode
-      notify: reload nginx
+      loop: "{{ subdomains | difference(nginx_maintenance_sites) }}"
       tags: maintenance
 
     - name: Force immediate NTP clock step

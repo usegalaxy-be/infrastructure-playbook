@@ -361,14 +361,17 @@ destinations:
   #   runner: pulsar_vib
   #   ...
 
-  # GPU workers come in two hardware generations. The GPUGeneration ClassAd is advertised
-  # per node by pdg.nvidia_gpu (04-vib-compute-workers.yml). GPU tools carry the `gpu` tag
-  # and land on v2 by default; a tool/user opts into v3 by also carrying the `gpu_v3` tag.
+  # GPU workers come in two hardware generations: GPUv2 (Tesla T4) and GPUv3 (A2).
+  # The GPUGeneration ClassAd is advertised per node by the worker playbooks
+  # (20-gpu.conf in 04-vib-compute-workers.yml and 02-prod-compute-workers.yml).
+  # GPU tools carry the `gpu` tag and land on any generation (condor_vib_gpu_tpv).
+  # To test a tool on one generation, a job also carries `gpu_v2` or `gpu_v3`, from the
+  # tool (test-condor-gpu for v2, test-condor-gpu-v3 for v3) or from the gpu_v2_pin /
+  # gpu_v3_pin Galaxy roles (roles.yml.j2).
 
-  condor_vib_gpu_v2_tpv:
-    # HTCondor GPUv2 workers (GPUv2.2xlarge) in the VIB OpenStack project.
-    # Also matches nodes not yet advertising a generation, so it stays the default GPU
-    # destination during the v3 rollout.
+  condor_vib_gpu_tpv:
+    # Default GPU destination for VIB users: HTCondor GPU workers of either generation.
+    # VIB GPU workers rank first; the prod GPU worker takes the overflow.
     inherits: _condor_container
     runner: condor
     min_accepted_cores: 1
@@ -380,7 +383,6 @@ destinations:
     env:
       GPU_AVAILABLE: 1
     params:
-      requirements: '(GPUGeneration =?= "v2") || (GPUGeneration =?= undefined)'
       rank: 'TARGET.GalaxyGroup == "vib" ? 1 : 0'
       +GalaxyGroup: '"vib"'
       # docker_volumes/singularity_volumes intentionally unset since they are now set on the tool side (e.g. alphafold DB mount) and should not be overwritten by the destination.
@@ -390,8 +392,36 @@ destinations:
         - gpu
         - vib-users
 
+  condor_vib_gpu_v2_tpv:
+    # HTCondor GPUv2 workers (GPUv2.2xlarge, Tesla T4) only.
+    # Opt-in: a job must carry the `gpu_v2` tag to land here.
+    inherits: _condor_container
+    runner: condor
+    min_accepted_cores: 1
+    min_accepted_mem: 0
+    max_accepted_cores: 16
+    max_accepted_mem: 60
+    min_accepted_gpus: 1
+    max_accepted_gpus: 1
+    env:
+      GPU_AVAILABLE: 1
+    params:
+      requirements: 'GPUGeneration =?= "v2"'
+      rank: 'TARGET.GalaxyGroup == "vib" ? 1 : 0'
+      +GalaxyGroup: '"vib"'
+      # docker_volumes/singularity_volumes intentionally unset since they are now set on the tool side (e.g. alphafold DB mount) and should not be overwritten by the destination.
+      # additionally the volumes no longer differen between standard condor nodes and the vib condor nodes, so the destination should not override the tool-level default.
+    scheduling:
+      require:
+        - gpu_v2
+        - vib-users
+      accept:
+        # GPU tools carry `gpu`; the pin tag decides the generation.
+        - gpu
+
   condor_vib_gpu_v3_tpv:
-    # HTCondor GPUv3 workers (GPUv3.2xlarge) in the VIB OpenStack project.
+    # HTCondor GPUv3 workers (GPUv3.2xlarge, A2) only: the VIB GPUv3 workers and
+    # the prod GPU worker vgcn-condor-worker-1-2x-0.
     # Opt-in: a job must carry the `gpu_v3` tag to land here.
     inherits: _condor_container
     runner: condor
@@ -413,6 +443,9 @@ destinations:
       require:
         - gpu_v3
         - vib-users
+      accept:
+        # GPU tools carry `gpu`; the pin tag decides the generation.
+        - gpu
 
 
 

@@ -1,0 +1,34 @@
+---
+# Read-only kernel report for every host, from the pdg.os_update preview.
+# -e save_report=true writes it to inventories/host_files/kernel_audit.txt.
+- name: Audit fleet kernel versions
+  hosts: all
+  become: true
+  tasks:
+    - name: Report
+      ansible.builtin.include_role:
+        name: pdg.os_update
+        tasks_from: preview.yml
+      vars:
+        os_update_preview_packages: false
+
+- name: Write the collected report
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Ensure the report directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../../inventories/host_files"
+        state: directory
+        mode: '0755'
+      when: save_report | default(false) | bool
+
+    - name: Save the report under inventories/host_files
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../../inventories/host_files/kernel_audit.txt"
+        mode: '0644'
+        content: |
+          {% for host in groups['all'] | sort %}
+          {{ hostvars[host]['os_update_report_line'] | default(host ~ ' | unreachable or skipped') }}
+          {% endfor %}
+      when: save_report | default(false) | bool
