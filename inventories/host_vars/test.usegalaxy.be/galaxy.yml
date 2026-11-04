@@ -98,7 +98,7 @@ galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/dm_data"
 # TODO: can be shared between prod and test
 galaxy_shed_tools_dir: "{{ galaxy_mutable_data_dir }}/shed_tools"
 
-# NOTE: these paths are used by object_store_conf.xml
+# NOTE: these paths are used by object_store_conf.yml
 # previously: galaxy_file_path: "{{galaxy_mutable_data_dir}}/files"
 # NOTE: currently the primary storage location is tier-1 data but we still need these to retrieve old user data
 # TODO: unify between test and prod
@@ -190,3 +190,11 @@ galaxy_tools_install_schedule: []
 
 # TPV: run tools that inherit _local_scratch (Unicycler) in node-local HTCondor scratch.
 tpv_local_scratch_enabled: true
+
+# Scratch storage (object_store_conf.yml.j2, roles/pdg.galaxy_scratch_cleanup).
+# Regression: set both switches to false; datasets already on scratch keep their label.
+galaxy_scratch_default: true
+galaxy_scratch_expiry_days: 60
+galaxy_scratch_cleanup_enabled: true
+galaxy_scratch_cleanup_stores:
+  scratch_tier1: "{{ galaxy_scratch_expiry_days }}"

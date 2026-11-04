@@ -672,11 +672,15 @@ For **remote Pulsar nodes**, `SINGULARITY_CACHEDIR` matters more: the Pulsar nod
 Galaxy stores datasets on VSC Tier-1 iRODS (`vsc-galaxy.irods.hpc.kuleuven.be`).
 The configuration lives in:
 
-- `templates/galaxy/config/usegalaxy.be/object_store_conf.xml.j2` (production)
-- `templates/galaxy/config/test.usegalaxy.be/object_store_conf.xml.j2` (test)
+- `templates/galaxy/config/usegalaxy.be/object_store_conf.yml.j2` (production)
+- `templates/galaxy/config/test.usegalaxy.be/object_store_conf.yml.j2` (test)
 
 Both use a `distributed` object store: local NFS backends (weight 0, legacy fallback)
-plus one iRODS backend (weight 1, all new data goes here).
+plus two iRODS backends in the same iRODS location. `scratch_tier1` is scratch storage:
+Galaxy purges its data a set number of days after it was created (`galaxy_scratch_expiry_days`).
+`tier1_data` is permanent storage. `galaxy_scratch_default` decides which one gets new data.
+Users can pick either one, and moving data between them only changes its label in Galaxy.
+The purge runs from the `pdg.galaxy_scratch_cleanup` role.
 
 ### `<connection>` options
 

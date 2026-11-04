@@ -51,6 +51,10 @@
       - role: galaxyproject.gxadmin
         tags: gxadmin
 
+      # Daily purge of scratch storage data past its expiry
+      - role: pdg.galaxy_scratch_cleanup
+        tags: scratch-cleanup
+
       # HTCondor Cluster setup
       - role: grycap.htcondor
         tags: condor

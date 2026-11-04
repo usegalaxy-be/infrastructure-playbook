@@ -1,0 +1,11 @@
+[Unit]
+Description=Purge Galaxy scratch storage data past its expiry
+After=network-online.target
+
+[Service]
+Type=oneshot
+User={{ galaxy_scratch_cleanup_user }}
+WorkingDirectory={{ galaxy_server_dir }}
+{% for store_id, days in galaxy_scratch_cleanup_stores.items() %}
+ExecStart={{ galaxy_venv_dir }}/bin/python {{ galaxy_server_dir }}/scripts/cleanup_datasets/pgcleanup.py -c {{ galaxy_config_file }} -U -o {{ days | int }} -w 128MB -l {{ galaxy_scratch_cleanup_log_dir }} --object-store-id {{ store_id }}{{ ' --dry-run' if galaxy_scratch_cleanup_dry_run | bool else '' }} purge_old_hdas
+{% endfor %}

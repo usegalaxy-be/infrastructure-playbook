@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily purge of Galaxy scratch storage
+
+[Timer]
+OnCalendar={{ galaxy_scratch_cleanup_on_calendar }}
+Persistent=true
+
+[Install]
+WantedBy=timers.target

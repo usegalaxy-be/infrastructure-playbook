@@ -144,7 +144,7 @@
 # galaxy_dependency_dir: "{{ galaxy_shared_root }}/database/tool-dependencies"
 # galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/database/tool-dependencies"
 
-# NOTE: these paths are overriden by object_store_conf.xml
+# NOTE: these paths are overriden by object_store_conf.yml
 # previously: galaxy_file_path: "{{galaxy_mutable_data_dir}}/files"
 # old_galaxy_file_path: "{{ galaxy_shared_root }}/database/objects"
 # galaxy_file_path: "{{ galaxy_shared_root }}/database/objects1"
