@@ -11,6 +11,12 @@ htcondor_firewall_condor: false
 htcondor_firewall_nfs: false
 condor_ip_range: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').condor_ip_range }}"
 
+# pdg.galaxy_session_cleanup
+galaxy_session_cleanup_user: "{{ galaxy_user_name }}"
+galaxy_session_cleanup_pghost: "{{ postgres_host }}"
+galaxy_session_cleanup_pguser: "{{ postgres_user }}"
+galaxy_session_cleanup_pgdatabase: "{{ galaxy_db_name }}"
+
 # galaxyproject.proftpd
 
 proftpd_galaxy_auth: yes

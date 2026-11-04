@@ -1,0 +1,26 @@
+---
+# Database connection. The password comes from the run user's ~/.pgpass.
+galaxy_session_cleanup_pghost: ""
+galaxy_session_cleanup_pguser: ""
+galaxy_session_cleanup_pgdatabase: ""
+
+# User that runs the cron and owns ~/.pgpass.
+galaxy_session_cleanup_user: galaxy
+galaxy_session_cleanup_script: /usr/local/bin/galaxy-session-cleanup
+
+# Sessions not used for this many days are deleted.
+galaxy_session_cleanup_anonymous_days: 14
+galaxy_session_cleanup_user_days: 90
+
+# IP address and host name of sessions older than this are replaced by the placeholder.
+# Galaxy names anonymous jobs anonymous@<remote_addr> and fails on NULL or "".
+galaxy_session_cleanup_ip_days: 14
+galaxy_session_cleanup_placeholder: redacted
+
+# Rows per statement, so each statement holds its locks only briefly.
+galaxy_session_cleanup_batch_size: 50000
+galaxy_session_cleanup_lock_timeout: 5s
+
+galaxy_session_cleanup_cron_enabled: true
+galaxy_session_cleanup_cron_hour: "3"
+galaxy_session_cleanup_cron_minute: "15"

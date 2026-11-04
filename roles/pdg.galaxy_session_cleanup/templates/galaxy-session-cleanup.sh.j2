@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+{{ ansible_managed | comment }}
+# Delete old Galaxy sessions, then replace the IP address of older remaining sessions.
+# With DRY_RUN=1 it only prints how many rows each step would change.
+set -euo pipefail
+
+export PGHOST={{ galaxy_session_cleanup_pghost | quote }}
+export PGUSER={{ galaxy_session_cleanup_pguser | quote }}
+export PGDATABASE={{ galaxy_session_cleanup_pgdatabase | quote }}
+export PGOPTIONS="-c lock_timeout={{ galaxy_session_cleanup_lock_timeout }}"
+
+batch={{ galaxy_session_cleanup_batch_size | int }}
+placeholder={{ galaxy_session_cleanup_placeholder | quote }}
+
+# Galaxy stores timestamps in UTC without a time zone.
+now="(now() AT TIME ZONE 'UTC')"
+delete_where="((user_id IS NULL AND COALESCE(last_action, update_time) < ${now} - interval '{{ galaxy_session_cleanup_anonymous_days | int }} days')
+  OR (user_id IS NOT NULL AND COALESCE(last_action, update_time) < ${now} - interval '{{ galaxy_session_cleanup_user_days | int }} days'))
+  AND NOT EXISTS (SELECT 1 FROM galaxy_user_openid o WHERE o.session_id = galaxy_session.id)"
+redact_where="create_time < ${now} - interval '{{ galaxy_session_cleanup_ip_days | int }} days'
+  AND (remote_addr IS DISTINCT FROM '${placeholder}' OR remote_host IS DISTINCT FROM '${placeholder}')"
+
+query() {
+  psql -X -q -At -v ON_ERROR_STOP=1 -c "$1"
+}
+
+# Repeat a statement until a batch changes fewer rows than the batch size.
+in_batches() {
+  local label=$1 sql=$2 total=0 n
+  while :; do
+    n=$(query "$sql")
+    total=$((total + n))
+    [ "$n" -lt "$batch" ] && break
+  done
+  echo "${label}: ${total}"
+}
+
+if [ "${DRY_RUN:-0}" = 1 ]; then
+  echo "sessions to delete: $(query "SELECT count(*) FROM galaxy_session WHERE ${delete_where}")"
+  echo "sessions to redact (before the delete): $(query "SELECT count(*) FROM galaxy_session WHERE ${redact_where}")"
+  exit 0
+fi
+
+in_batches "sessions deleted" "WITH d AS (
+  DELETE FROM galaxy_session WHERE id IN (SELECT id FROM galaxy_session WHERE ${delete_where} LIMIT ${batch})
+  RETURNING 1) SELECT count(*) FROM d"
+
+in_batches "sessions redacted" "WITH u AS (
+  UPDATE galaxy_session SET remote_addr = '${placeholder}', remote_host = '${placeholder}'
+  WHERE id IN (SELECT id FROM galaxy_session WHERE ${redact_where} LIMIT ${batch})
+  RETURNING 1) SELECT count(*) FROM u"
