@@ -29,5 +29,8 @@
       - name: marea_cluster_1_1_2
         tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/bimib/marea/84da46340c39/marea/Marea/marea_cluster.xml"
         extra_targets: [pillow=9.5.0]
+      # SMAP selector 0.1.0: unversioned biopython, gffutils and pandas; the conda env merge fails offline.
+      - name: smap_selector_0_1_0
+        tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/ieguinoa/smap_selector/10a610301cf7/smap_selector/smap_selector.xml"
   roles:
     - pdg.mulled_container
