@@ -285,7 +285,7 @@ telegraf_plugins_extra:
   galaxy_irods_probe:
     plugin: "exec"
     config:
-      - commands = ["{{ galaxy_venv_dir }}/bin/python /usr/bin/galaxy-irods-probe {{ galaxy_config_dir }}/object_store_conf.xml"]
+      - commands = ["{{ galaxy_venv_dir }}/bin/python /usr/bin/galaxy-irods-probe {{ galaxy_config_dir }}/object_store_conf.yml"]
       - timeout = "90s"
       - data_format = "influx"
       - interval = "5m"

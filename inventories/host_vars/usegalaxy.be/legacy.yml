@@ -150,7 +150,7 @@
 # involucro_path: "{{ galaxy_tool_dependency_dir }}/involucro"
 
 
-# NOTE: these paths are overriden by object_store_conf.xml
+# NOTE: these paths are overriden by object_store_conf.yml
 # previously: galaxy_file_path: "{{galaxy_mutable_data_dir}}/files"
 # old_galaxy_file_path: "{{ galaxy_shared_root }}/database/files"
 # galaxy_file_path: "{{ galaxy_shared_root }}/database/objects"

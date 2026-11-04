@@ -9,19 +9,22 @@
 # Deployed to: /usr/bin/galaxy-irods-probe
 # Telegraf exec plugin interval: 5m
 #
-# Usage: <galaxy venv>/bin/python galaxy-irods-probe <object_store_conf.xml>
+# Usage: <galaxy venv>/bin/python galaxy-irods-probe <object_store_conf.yml>
 
 import socket
 import ssl
 import sys
 import time
-import xml.etree.ElementTree as ET
+
+import yaml
 
 TIMEOUT = 60
 
 
 def backend_config(path):
-    for backend in ET.parse(path).getroot().iter("backend"):
+    with open(path) as f:
+        config = yaml.safe_load(f)
+    for backend in config.get("backends", []):
         if backend.get("type") == "irods":
             return backend
     raise RuntimeError("no irods backend")
@@ -30,31 +33,31 @@ def backend_config(path):
 def session_from(backend):
     from irods.session import iRODSSession
 
-    auth = backend.find("auth")
-    conn = backend.find("connection")
+    auth = backend["auth"]
+    conn = backend["connection"]
     params = {
-        "host": conn.get("host"),
-        "port": int(conn.get("port")),
-        "user": auth.get("username"),
-        "password": auth.get("password"),
-        "zone": backend.find("zone").get("name"),
+        "host": conn["host"],
+        "port": int(conn["port"]),
+        "user": auth["username"],
+        "password": auth["password"],
+        "zone": backend["zone"]["name"],
     }
-    ssl_xml = backend.find("ssl")
-    if ssl_xml is not None:
+    ssl_conf = backend.get("ssl")
+    if ssl_conf:
         params.update(
-            client_server_negotiation=ssl_xml.get("client_server_negotiation"),
-            client_server_policy=ssl_xml.get("client_server_policy"),
-            encryption_algorithm=ssl_xml.get("encryption_algorithm"),
-            encryption_key_size=int(ssl_xml.get("encryption_key_size")),
-            encryption_num_hash_rounds=int(ssl_xml.get("encryption_num_hash_rounds")),
-            encryption_salt_size=int(ssl_xml.get("encryption_salt_size")),
-            ssl_verify_server=ssl_xml.get("ssl_verify_server"),
-            ssl_ca_certificate_file=ssl_xml.get("ssl_ca_certificate_file"),
+            client_server_negotiation=ssl_conf["client_server_negotiation"],
+            client_server_policy=ssl_conf["client_server_policy"],
+            encryption_algorithm=ssl_conf["encryption_algorithm"],
+            encryption_key_size=int(ssl_conf["encryption_key_size"]),
+            encryption_num_hash_rounds=int(ssl_conf["encryption_num_hash_rounds"]),
+            encryption_salt_size=int(ssl_conf["encryption_salt_size"]),
+            ssl_verify_server=ssl_conf["ssl_verify_server"],
+            ssl_ca_certificate_file=ssl_conf["ssl_ca_certificate_file"],
             ssl_context=ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH),
         )
     session = iRODSSession(**params)
     session.connection_timeout = TIMEOUT
-    return session, backend.find("logical").get("path")
+    return session, backend["logical"]["path"]
 
 
 def probe(conf):

@@ -1,0 +1,19 @@
+---
+# Turn the daily purge on or off. Off stops and disables the timer.
+galaxy_scratch_cleanup_enabled: false
+
+# Object store ids to purge, with the age in days after which data is purged.
+# Every id must contain "scratch"; the role refuses anything else.
+galaxy_scratch_cleanup_stores: {}
+
+# Roll back every purge and only log what would be purged.
+galaxy_scratch_cleanup_dry_run: false
+
+# Runs before the gxadmin cleanup cron at 23:00, which removes the purged files later.
+galaxy_scratch_cleanup_on_calendar: "*-*-* 22:00:00"
+
+galaxy_scratch_cleanup_user: "{{ galaxy_user_name }}"
+galaxy_scratch_cleanup_log_dir: "{{ galaxy_log_dir }}/scratch-cleanup"
+
+# Units must not start with galaxy-: gravity removes those on update.
+galaxy_scratch_cleanup_unit: scratch-cleanup

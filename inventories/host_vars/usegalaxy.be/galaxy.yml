@@ -51,7 +51,7 @@ galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_
 # TODO: can be shared between prod and test
 galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"
 
-# NOTE: these paths are used by object_store_conf.xml
+# NOTE: these paths are used by object_store_conf.yml
 # previously: galaxy_file_path: "{{galaxy_mutable_data_dir}}/files"
 # NOTE: currently the primary storage location is tier-1 data but we still need these to retrieve old user data
 # TODO: unify between test and prod
@@ -102,3 +102,11 @@ tpv_local_scratch_enabled: true
 tpv_training_email_days:
   - pattern: '.*[@.]vub\.be$'
     date: "2026-10-30"
+
+# Scratch storage (object_store_conf.yml.j2, roles/pdg.galaxy_scratch_cleanup).
+# Regression: set both switches to false; datasets already on scratch keep their label.
+galaxy_scratch_default: true
+galaxy_scratch_expiry_days: 60
+galaxy_scratch_cleanup_enabled: true
+galaxy_scratch_cleanup_stores:
+  scratch_tier1: "{{ galaxy_scratch_expiry_days }}"

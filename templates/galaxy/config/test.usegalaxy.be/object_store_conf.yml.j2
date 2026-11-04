@@ -1,0 +1,84 @@
+{# Shared iRODS settings: scratch_tier1 and tier1_data use the same iRODS location, so a move between them copies nothing. #}
+{% macro irods_settings() %}
+    device: tier1
+    auth:
+      username: {{ vault_irods_user | to_json }}
+      password: {{ vault_irods_password | to_json }}
+    resource:
+      name: default
+    zone:
+      name: {{ vault_irods_zone | to_json }}
+    connection:
+      host: {{ vault_irods_host | to_json }}
+      port: {{ vault_irods_port | int }}
+      timeout: 300
+      refresh_time: 1800
+      connection_pool_monitor_interval: 15
+    ssl:
+      client_server_negotiation: {{ vault_irods_client_server_negotiation | to_json }}
+      client_server_policy: {{ vault_irods_client_server_policy | to_json }}
+      encryption_algorithm: {{ vault_irods_encryption_algorithm | to_json }}
+      encryption_key_size: {{ vault_irods_encryption_key_size | int }}
+      encryption_num_hash_rounds: {{ vault_irods_encryption_num_hash_rounds | int }}
+      encryption_salt_size: {{ vault_irods_encryption_salt_size | int }}
+      ssl_verify_server: {{ vault_irods_ssl_verify_server | to_json }}
+      ssl_ca_certificate_file: {{ vault_irods_ssl_ca_certificate_file | to_json }}
+    logical:
+      path: {{ (vault_irods_cwd ~ '/test') | to_json }}
+    cache:
+      path: {{ galaxy_object_store_cache_path | to_json }}
+      size: 10000
+      cache_updated_data: true
+    extra_dirs:
+      - type: job_work
+        path: {{ galaxy_job_working_directory | to_json }}
+      - type: temp
+        path: {{ galaxy_tmp_dir | to_json }}
+{% endmacro %}
+type: distributed
+backends:
+  - id: tier1_data
+    type: irods
+    weight: {{ 0 if galaxy_scratch_default | bool else 1 }}
+    store_by: uuid
+    allow_selection: true
+    name: Permanent storage
+    description: |
+      Data here is kept until you delete it. Use it for results you want to keep.
+{{ irods_settings() }}
+  - id: scratch_tier1
+    type: irods
+    weight: {{ 1 if galaxy_scratch_default | bool else 0 }}
+    store_by: uuid
+    allow_selection: true
+    name: Scratch storage
+    description: |
+      Data here is deleted automatically {{ galaxy_scratch_expiry_days }} days after it was created.
+      Move results you want to keep to permanent storage before then.
+    object_expires_after_days: {{ galaxy_scratch_expiry_days | int }}
+    quota:
+      source: scratch
+    badges:
+      - type: short_term
+        message: "Data here is deleted {{ galaxy_scratch_expiry_days }} days after it was created."
+{{ irods_settings() }}
+  - id: new_internal_nfs_shares
+    type: disk
+    weight: 0
+    store_by: uuid
+    files_dir: {{ galaxy_file_path | to_json }}
+    extra_dirs:
+      - type: job_work
+        path: {{ galaxy_job_working_directory | to_json }}
+      - type: temp
+        path: {{ galaxy_tmp_dir | to_json }}
+  - id: internal_nfs_shares
+    type: disk
+    weight: 0
+    store_by: id
+    files_dir: {{ old_galaxy_file_path | to_json }}
+    extra_dirs:
+      - type: job_work
+        path: {{ galaxy_job_working_directory | to_json }}
+      - type: temp
+        path: {{ galaxy_tmp_dir | to_json }}
