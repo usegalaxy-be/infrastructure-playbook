@@ -1,0 +1,26 @@
+---
+- name: Assert the database connection is set
+  ansible.builtin.assert:
+    that:
+      - galaxy_session_cleanup_pghost | length > 0
+      - galaxy_session_cleanup_pguser | length > 0
+      - galaxy_session_cleanup_pgdatabase | length > 0
+    fail_msg: "galaxy_session_cleanup_pghost, _pguser and _pgdatabase must be set."
+
+- name: Install the session cleanup script
+  ansible.builtin.template:
+    src: galaxy-session-cleanup.sh.j2
+    dest: "{{ galaxy_session_cleanup_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+# Output goes to the journal under the tag galaxy-session-cleanup.
+- name: Schedule the session cleanup
+  ansible.builtin.cron:
+    name: "Galaxy session cleanup"
+    user: "{{ galaxy_session_cleanup_user }}"
+    hour: "{{ galaxy_session_cleanup_cron_hour }}"
+    minute: "{{ galaxy_session_cleanup_cron_minute }}"
+    job: "/usr/bin/systemd-cat -t galaxy-session-cleanup {{ galaxy_session_cleanup_script }}"
+    state: "{{ 'present' if galaxy_session_cleanup_cron_enabled | bool else 'absent' }}"

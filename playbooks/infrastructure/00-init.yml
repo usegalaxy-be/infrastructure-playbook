@@ -92,7 +92,7 @@
         mode: "0755"
       tags: logging
 
-    - name: Bound persistent journal size
+    - name: Bound persistent journal size and age
       ansible.builtin.template:
         src: "{{ playbook_dir }}/../../templates/logging/journald-override.conf.j2"
         dest: /etc/systemd/journald.conf.d/10-max-use.conf

@@ -51,6 +51,10 @@
       - role: galaxyproject.gxadmin
         tags: gxadmin
 
+      # Deletes old Galaxy sessions and replaces their IP addresses, daily
+      - role: pdg.galaxy_session_cleanup
+        tags: session-cleanup
+
       # HTCondor Cluster setup
       - role: grycap.htcondor
         tags: condor
