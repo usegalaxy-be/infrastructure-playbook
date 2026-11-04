@@ -11,10 +11,6 @@ condor_peer_schedd_dnat:
   - floating_ip: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_vip_ip }}"   # test head VSC floating IP
     vm_ip: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/usegalaxy-be/network/device_ips').test_usegalaxy_be_ip }}"           # test head VM-network IP
 
-# pdg.galaxy_session_cleanup
-# Off until the first bulk delete has run by hand under its RFC.
-galaxy_session_cleanup_cron_enabled: false
-
 # pdg.rsync_tool_dependencies
 
 rsync_source: "/srv/galaxy/shared/etc/dependencies"
