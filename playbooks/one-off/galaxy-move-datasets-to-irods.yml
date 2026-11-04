@@ -1,0 +1,13 @@
+# One-off: install scripts/move_datasets_to_irods.py on the Galaxy head node.
+# Run the script by hand afterwards, see its docstring. Use --limit testgalaxyservers or prodgalaxyservers.
+- hosts: galaxyservers
+  become: true
+  become_user: "{{ galaxy_user_name }}"
+  tasks:
+    - name: Copy move_datasets_to_irods.py into the Galaxy scripts folder
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../scripts/move_datasets_to_irods.py"
+        dest: "{{ galaxy_server_dir }}/scripts/move_datasets_to_irods.py"
+        owner: "{{ galaxy_user_name }}"
+        group: "{{ galaxy_user_name }}"
+        mode: "0755"
