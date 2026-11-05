@@ -8,8 +8,3 @@ postgres_pass: '{{ vault_test_postgres_pass }}'
 postgres_host: '{{ vault_test_postgres_host }}'
 postgres_port: '{{ vault_postgres_port }}'
 
-# Test only: prod's Python 3.7 conda base needs a rebuild first. "defaults" excluded (Anaconda licence terms).
-miniconda_channels: ['conda-forge']
-
-# conda >= 23.10 uses libmamba by default; listed so the solver is present anyway.
-miniconda_base_env_packages: ['conda-libmamba-solver']

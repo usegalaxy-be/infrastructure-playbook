@@ -1,0 +1,51 @@
+---
+# Copy an environment's Galaxy code and virtualenv into the per-env layout on the NFS server.
+# The virtualenv contains its own path in its scripts, which is rewritten to the new path.
+# rsync --delete makes a repeat run copy only what changed since the last one.
+#
+# Usage:
+#   ansible-playbook playbooks/one-off/nfs-layout-copy-code.yml -e layout_env=test
+#   ansible-playbook playbooks/one-off/nfs-layout-copy-code.yml -e layout_env=prod
+
+- name: Copy Galaxy code and virtualenv to the per-env layout
+  hosts: nfsservers
+  become: true
+  gather_facts: false
+  vars:
+    layout_copies:
+      prod:
+        - {src: /data/share/prod/src/, dest: /data/share/prod/server/}
+        - {src: /data/share/prod/etc/venv-py3.11/, dest: /data/share/prod/venv/venv-py3.11/}
+      test:
+        - {src: /data/share/test/database/tool-dependencies/venv-py3.11/, dest: /data/share/test/venv/venv-py3.11/}
+    # Client paths in the virtualenv scripts: old -> new
+    layout_rewrites:
+      prod:
+        - {old: /srv/galaxy/shared/etc/venv-py3.11, new: /srv/galaxy/shared/venv/venv-py3.11}
+      test:
+        - {old: /srv/galaxy_test/shared/database/tool-dependencies/venv-py3.11, new: /srv/galaxy_test/shared/venv/venv-py3.11}
+    layout_venv: "{{ layout_copies[layout_env][-1].dest }}"
+
+  tasks:
+    - name: Check layout_env
+      ansible.builtin.assert:
+        that: layout_env in layout_copies
+
+    - name: Copy
+      ansible.builtin.command:
+        cmd: rsync -a --delete {{ item.src }} {{ item.dest }}
+      loop: "{{ layout_copies[layout_env] }}"
+      changed_when: true
+
+    - name: Rewrite the virtualenv path in its scripts
+      ansible.builtin.shell: |
+        grep -rlIZ "{{ item.old }}" {{ layout_venv }}bin | xargs -0 -r sed -i "s#{{ item.old }}#{{ item.new }}#g"
+      loop: "{{ layout_rewrites[layout_env] }}"
+      changed_when: true
+
+    - name: Scripts still pointing at the old path
+      ansible.builtin.shell: grep -rlI "{{ item.old }}" {{ layout_venv }}bin | wc -l
+      loop: "{{ layout_rewrites[layout_env] }}"
+      register: layout_left
+      changed_when: false
+      failed_when: layout_left.stdout | int > 0

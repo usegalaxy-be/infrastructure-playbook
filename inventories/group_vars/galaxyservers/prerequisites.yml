@@ -35,14 +35,11 @@ miniconda_prefix: '{{ galaxy_dependency_dir }}/miniconda3'
 # Community-built conda envs, same repo usegalaxy.org uses (see dependency_resolvers_conf.xml).
 galaxy_cvmfs_conda_prefix: /cvmfs/main.galaxyproject.org/deps/_conda
 
-# miniconda_version: 4.12.0 #3.16.0
-# miniconda_installer_version: "{{ miniconda_version }}"
-# miniconda_installer_python: "38"
-# miniconda_python: "{{ miniconda_installer_python }}"
-# miniconda_channels: ['conda-forge', 'defaults']
-# miniconda_installer_checksum: ""
-# miniconda_update_conda: False
-# miniconda_env: "galaxy"
+# Miniforge, conda-forge only: the Anaconda "defaults" channel needs its terms of service.
+miniconda_distribution: miniforge
+miniconda_installer_version: 26.7.2-0
+miniconda_version: "26.7.2"
+miniconda_channels: ['conda-forge']
 
 galaxy_conda_create_env: true
 galaxy_conda_env_packages:

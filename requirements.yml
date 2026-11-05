@@ -40,7 +40,7 @@ roles:
     version: 1.2.0
   # install due to issues when running tools in containers?
   - src: galaxyproject.miniconda
-    version: 0.3.1
+    version: 0.3.4
   - name: usegalaxy-eu.ansible-postgresql
     src: https://github.com/usegalaxy-eu/ansible-postgresql
     version: main

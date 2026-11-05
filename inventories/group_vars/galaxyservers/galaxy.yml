@@ -111,8 +111,15 @@ galaxy_mutable_data_dir: "{{ galaxy_shared_root }}/database"
 
 galaxy_object_store_cache_path: "{{ galaxy_mutable_data_dir }}/object_store_cache"
 
-# NOTE: should probably be moved to mutable data and shared between prod and test
-galaxy_tool_data_path: "{{ galaxy_mutable_config_dir }}/tool_data"
+# Shared between prod and test at one path on every host (galaxy_shared_data_dir, nfs_config.yml)
+galaxy_tool_data_path: "{{ galaxy_shared_data_dir }}/tool_data"
+
+# Non-venv tool dependencies (conda), shared between prod and test
+galaxy_dependency_dir: "{{ galaxy_shared_data_dir }}/dependencies"
+galaxy_tool_dependency_dir: "{{ galaxy_shared_data_dir }}/dependencies/tool-dependencies"
+
+# Data Manager reference data, shared between prod and test
+galaxy_data_manager_data_path: "{{ galaxy_shared_data_dir }}/dm_data"
 
 # Where to write Galaxy logs to (same as default)
 # NOTE: needs to be referenced in gxconfig.yml to work
@@ -165,17 +172,18 @@ galaxy_local_tools_src_dir: "{{ inventory_dir }}/../files/galaxy/tools"
 # Local (relative to playbook) path to dynamic job rules
 galaxy_dynamic_job_rules_src_dir: "{{ inventory_dir }}/../files/galaxy/dynamic_job_rules"
 
-galaxy_local_tools:
+# Each env's own copy, on its NFS tree
+galaxy_local_tools_dir: "{{ galaxy_shared_root }}/local_tools"
+
+# Local tools: the common list plus each host's galaxy_local_tools_env
+galaxy_local_tools: "{{ galaxy_local_tools_common + galaxy_local_tools_env }}"
+galaxy_local_tools_env: []
+galaxy_local_tools_common:
 - api_test.xml
 - testing.xml
 - plink.xml
 - protein_calculator/v1.0.2/protein_calculator.xml
 - protein_calculator/v1.1.0/protein_calculator.xml
-- {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-conda.xml,       section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-gpu.xml,         section_name: "TPV test Tools", section_id: tpv_test}
-- {file: tpv_test/test-condor-gpu-v3.xml,      section_name: "TPV test Tools", section_id: tpv_test}
 - interactive/interactivetool_ilastik.xml
 - interactive/interactivetool_pavian.xml
 - interactive/interactivetool_phinch.xml
@@ -389,6 +397,8 @@ galaxy_container_volumes:
     - "{{ galaxy_data_manager_data_path }}:ro"
     #- "{{ legacy_data_manager_data_path }}:ro"
     - "/srv/galaxy/shared/database/reference_data:ro"
+    - "{{ galaxy_shared_data_dir }}/dm_data:ro"
+    - "{{ galaxy_shared_data_dir }}/tool_data:ro"
     - "/cvmfs/data.galaxyproject.org:ro"
   # Same as 'local' but without $_CONDOR_SCRATCH_DIR, which HTCondor sets and
   # local_runner jobs never have. Scratch space is already covered by
@@ -409,6 +419,8 @@ galaxy_container_volumes:
     - "{{ galaxy_file_path }}:ro"
     - "{{ old_galaxy_file_path }}:ro"
     - "{{ galaxy_data_manager_data_path }}:ro"
+    - "{{ galaxy_shared_data_dir }}/dm_data:ro"
+    - "{{ galaxy_shared_data_dir }}/tool_data:ro"
     - "/cvmfs/data.galaxyproject.org:ro"
   vib:
     - "$_CONDOR_SCRATCH_DIR:rw"
@@ -427,4 +439,6 @@ galaxy_container_volumes:
     - "{{ galaxy_data_manager_data_path }}:ro"
     # - "{{ legacy_data_manager_data_path }}:ro"
     - "/srv/galaxy/shared/database/reference_data:ro"
+    - "{{ galaxy_shared_data_dir }}/dm_data:ro"
+    - "{{ galaxy_shared_data_dir }}/tool_data:ro"
     - "/cvmfs/data.galaxyproject.org:ro"
