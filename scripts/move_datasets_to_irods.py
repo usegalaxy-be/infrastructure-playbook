@@ -11,6 +11,12 @@ clean: for datasets moved at least --min-age-hours ago, compare checksums
 revert: point datasets that still have their disk copy back at the disk store.
 check:  read moved datasets that still have their disk copy through Galaxy's
         object store, and compare them with the disk copy.
+restore: for moved datasets whose disk copy was cleaned, download them from
+        iRODS to their old disk path, compare checksums, then point them back
+        at the disk store. The iRODS copy stays. Every dataset in the range
+        that is on the target store without a disk copy is restored, so only
+        give it the range of cleaned datasets. Stops when the disk would have
+        less than --min-free-gb free.
 
 Datasets used by an unfinished job are skipped in all modes. Each run ends with a
 summary line; pass its next_start_id as --start-id to the next run. When it is
@@ -35,6 +41,10 @@ from types import SimpleNamespace
 sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, "lib")))
 
 import irods.keywords as kw
+from irods.exception import (
+    CollectionDoesNotExist,
+    DataObjectDoesNotExist,
+)
 from sqlalchemy import (
     bindparam,
     create_engine,
@@ -152,15 +162,45 @@ def copy_dataset(session, target, pairs):
             raise RuntimeError(f"checksum or size differs after upload: {remote}")
 
 
+def restore_pairs(source, target, session, ds):
+    """List (disk path, iRODS path, size) for the dataset file and its extra files."""
+    main_remote = f"{target.logical_path}/{target._construct_path(ds)}"
+    pairs = [(source._construct_path(ds), main_remote, session.data_objects.get(main_remote).size)]
+
+    source_extra = f"dataset_{source._get_object_id(ds)}_files"
+    target_extra = f"dataset_{target._get_object_id(ds)}_files"
+    extra_remote = f"{target.logical_path}/{target._construct_path(ds, extra_dir=target_extra, dir_only=True)}"
+    extra_remote = extra_remote.rstrip("/")
+    if session.collections.exists(extra_remote):
+        extra_local = source._construct_path(ds, extra_dir=source_extra, dir_only=True)
+        for _coll, _subs, objs in session.collections.get(extra_remote).walk():
+            for obj in objs:
+                rel = obj.path[len(extra_remote) + 1 :]
+                pairs.append((os.path.join(extra_local, rel), obj.path, obj.size))
+    return pairs
+
+
+def restore_dataset(session, pairs):
+    for local, remote, _size in pairs:
+        os.makedirs(os.path.dirname(local), exist_ok=True)
+        tmp = f"{local}.restore-tmp"
+        session.data_objects.get(remote, tmp, **{kw.FORCE_FLAG_KW: ""})
+        if not irods_matches(session, tmp, remote):
+            os.remove(tmp)
+            raise RuntimeError(f"checksum or size differs after download: {remote}")
+        os.rename(tmp, local)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--mode", choices=["copy", "clean", "revert", "check"], required=True)
+    parser.add_argument("--mode", choices=["copy", "clean", "revert", "check", "restore"], required=True)
     parser.add_argument("--source-store", required=True, help="disk object store id, e.g. internal_nfs_shares")
     parser.add_argument("--target-store", required=True, help="iRODS object store id, e.g. tier1_data")
     parser.add_argument("--start-id", type=int, required=True)
     parser.add_argument("--end-id", type=int, required=True)
     parser.add_argument("--limit", type=int, default=1000, help="maximum number of datasets handled in this run")
     parser.add_argument("--min-age-hours", type=int, default=24, help="clean: only datasets moved this long ago")
+    parser.add_argument("--min-free-gb", type=int, default=500, help="restore: free space to keep on the disk")
     parser.add_argument("--max-errors", type=int, default=20, help="stop after this many failed datasets")
     parser.add_argument("--dry-run", action="store_true", help="list what would happen, change nothing")
     populate_config_args(parser)
@@ -184,19 +224,61 @@ def main():
         "states": ACTIVE_JOB_STATES,
     }
     select = COPY_SELECT if args.mode == "copy" else CLEAN_SELECT
-    if args.mode in ("revert", "check"):
+    if args.mode in ("revert", "check", "restore"):
         params["min_age_hours"] = 0
     with engine.connect() as conn:
         rows = conn.execute(text(select).bindparams(bindparam("states", expanding=True)), params).fetchall()
 
     done = skipped = failed = 0
     total_bytes = 0
+    stopped = False
     next_start_id = args.start_id
     for dataset_id, dataset_uuid in rows:
         if done >= args.limit:
             break
         next_start_id = dataset_id + 1
         ds = SimpleNamespace(id=dataset_id, uuid=uuid.UUID(str(dataset_uuid)))
+        if args.mode == "restore":
+            try:
+                source._get_filename(ds)
+                print(f"skip {dataset_id}: disk copy exists, use revert")
+                skipped += 1
+                continue
+            except ObjectNotFound:
+                pass
+            try:
+                rpairs = restore_pairs(source, target, session, ds)
+            except (DataObjectDoesNotExist, CollectionDoesNotExist):
+                print(f"skip {dataset_id}: not found in iRODS")
+                skipped += 1
+                continue
+            size = sum(rsize for _local, _remote, rsize in rpairs)
+            if args.dry_run:
+                print(f"would restore {dataset_id}: {len(rpairs)} files, {size} bytes")
+                done += 1
+                total_bytes += size
+                continue
+            if shutil.disk_usage(source.file_path).free < size + args.min_free_gb * 1024**3:
+                print(f"stopping: restoring {dataset_id} would leave less than {args.min_free_gb} GB free")
+                next_start_id = dataset_id
+                stopped = True
+                break
+            try:
+                restore_dataset(session, rpairs)
+                with engine.begin() as conn:
+                    updated = conn.execute(text(REVERT_STORE), {**params, "id": dataset_id}).rowcount
+                if updated != 1:
+                    raise RuntimeError("dataset row not switched back, store changed during restore")
+                print(f"restored {dataset_id}: {len(rpairs)} files, {size} bytes")
+                done += 1
+                total_bytes += size
+            except Exception as e:
+                print(f"error {dataset_id}: {e}")
+                failed += 1
+                if failed >= args.max_errors:
+                    print(f"stopping after {failed} errors")
+                    break
+            continue
         try:
             pairs, dirs = file_pairs(source, target, ds)
         except ObjectNotFound:
@@ -247,7 +329,7 @@ def main():
                 print(f"stopping after {failed} errors")
                 break
 
-    if done < args.limit and failed < args.max_errors:
+    if done < args.limit and failed < args.max_errors and not stopped:
         next_start_id = args.end_id + 1
     print(
         f"summary mode={args.mode} done={done} skipped={skipped} failed={failed} bytes={total_bytes}"
