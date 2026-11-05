@@ -17,7 +17,7 @@ cvmfs_quota_limit: 10000
 influx_url: https://usegalaxy.be:59086
 
 # pdf.autofs
-_nfs_ip: "{{ _vault_device_ips.nfs_usegalaxy_be_ip }}"
+_nfs_ip: "{{ nfs_server_address }}"
 
 autofs_mounts:
   - name: "prod"
