@@ -8,7 +8,7 @@ galaxy_session_cleanup_pgdatabase: ""
 galaxy_session_cleanup_user: galaxy
 galaxy_session_cleanup_script: /usr/local/bin/galaxy-session-cleanup
 
-# Sessions not used for this many days are deleted.
+# Sessions not used for this many days are deleted. A user's newest session is always kept.
 galaxy_session_cleanup_anonymous_days: 14
 galaxy_session_cleanup_user_days: 90
 
