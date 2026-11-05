@@ -2,7 +2,7 @@
 
 Galaxy keeps a row in `galaxy_session` for every browser session, with the visitor's IP address and host name. It never removes these rows. This role installs a script and a daily cron that clean the table in two steps.
 
-First, the script deletes sessions that have not been used for a while: 14 days for anonymous sessions and 90 days for logged-in ones. A logged-in user whose session is deleted has to log in again. Jobs, events and user actions of a deleted session keep their data, and only lose the link to the session.
+First, the script deletes sessions that have not been used for a while: 14 days for anonymous sessions and 90 days for logged-in ones. A user's newest session is never deleted, as in Galaxy's own `delete_galaxy_sessions.py`. Galaxy shows it as the user's last login in the admin users list and reopens its history at the next login. A logged-in user whose session is deleted has to log in again. Jobs, events and user actions of a deleted session keep their data, and only lose the link to the session.
 
 Then it replaces the IP address and host name of every remaining session older than 14 days with `redacted`. Galaxy only reads these columns in the admin job details and in the name of jobs of anonymous users (`anonymous@<ip>`). That job name code fails on NULL or an empty string, so the script writes a placeholder instead.
 

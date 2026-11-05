@@ -14,8 +14,10 @@ placeholder={{ galaxy_session_cleanup_placeholder | quote }}
 
 # Galaxy stores timestamps in UTC without a time zone.
 now="(now() AT TIME ZONE 'UTC')"
+# A user's newest session (by update_time) is kept: Galaxy shows it as the last login and reopens its history.
 delete_where="((user_id IS NULL AND COALESCE(last_action, update_time) < ${now} - interval '{{ galaxy_session_cleanup_anonymous_days | int }} days')
-  OR (user_id IS NOT NULL AND COALESCE(last_action, update_time) < ${now} - interval '{{ galaxy_session_cleanup_user_days | int }} days'))
+  OR (user_id IS NOT NULL AND COALESCE(last_action, update_time) < ${now} - interval '{{ galaxy_session_cleanup_user_days | int }} days'
+      AND id <> (SELECT l.id FROM galaxy_session l WHERE l.user_id = galaxy_session.user_id ORDER BY l.update_time DESC, l.id DESC LIMIT 1)))
   AND NOT EXISTS (SELECT 1 FROM galaxy_user_openid o WHERE o.session_id = galaxy_session.id)"
 redact_where="create_time < ${now} - interval '{{ galaxy_session_cleanup_ip_days | int }} days'
   AND (remote_addr IS DISTINCT FROM '${placeholder}' OR remote_host IS DISTINCT FROM '${placeholder}')"
