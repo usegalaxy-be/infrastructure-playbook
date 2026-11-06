@@ -18,7 +18,9 @@ restore: for moved datasets whose disk copy was cleaned, download them from
         give it the range of cleaned datasets. Stops when the disk would have
         less than --min-free-gb free.
 
-Datasets used by an unfinished job are skipped in all modes. Each run ends with a
+Datasets used by an unfinished job are skipped in all modes. Extra files can be
+links to other datasets; a link whose target is gone makes copy and revert fail
+for that dataset, and clean checks that file against iRODS only. Each run ends with a
 summary line; pass its next_start_id as --start-id to the next run. When it is
 above --end-id, the range is done.
 
@@ -129,7 +131,7 @@ def irods_matches(session, local_path, remote_path):
 
 
 def file_pairs(source, target, ds):
-    """List (local path, iRODS path) for the dataset file and its extra files."""
+    """List (local path, iRODS path) for the dataset file and its extra files, and the broken links among them."""
     main_local = source._get_filename(ds)
     main_remote = f"{target.logical_path}/{target._construct_path(ds)}"
     pairs = [(main_local, main_remote)]
@@ -150,7 +152,14 @@ def file_pairs(source, target, ds):
                 local = os.path.join(root, name)
                 rel = os.path.relpath(local, extra_local)
                 pairs.append((local, f"{extra_remote}/{rel}"))
-    return pairs, dirs
+    broken = {local for local, _remote in pairs if os.path.islink(local) and not os.path.exists(local)}
+    return pairs, dirs, broken
+
+
+def irods_has_copy(session, remote_path):
+    """True if the iRODS object exists, is not empty and has a registered checksum."""
+    obj = session.data_objects.get(remote_path)
+    return obj.size > 0 and bool(obj.checksum)
 
 
 def copy_dataset(session, target, pairs):
@@ -280,14 +289,14 @@ def main():
                     break
             continue
         try:
-            pairs, dirs = file_pairs(source, target, ds)
+            pairs, dirs, broken = file_pairs(source, target, ds)
         except ObjectNotFound:
             # In clean, revert and check mode most datasets in the target store were never on the source store.
             if args.mode == "copy":
                 print(f"skip {dataset_id}: no file on {args.source_store}")
                 skipped += 1
             continue
-        size = sum(os.path.getsize(local) for local, _remote in pairs)
+        size = sum(os.path.getsize(local) for local, _remote in pairs if local not in broken)
 
         if args.dry_run:
             print(f"would {args.mode} {dataset_id}: {len(pairs)} files, {size} bytes")
@@ -296,6 +305,8 @@ def main():
             continue
 
         try:
+            if broken and args.mode in ("copy", "revert"):
+                raise RuntimeError(f"{len(broken)} extra files are links to missing files, e.g. {sorted(broken)[0]}")
             if args.mode == "copy":
                 copy_dataset(session, target, pairs)
                 with engine.begin() as conn:
@@ -314,12 +325,16 @@ def main():
                 print(f"reverted {dataset_id}: {len(pairs)} files, {size} bytes")
             else:
                 for local, remote in pairs:
-                    if not irods_matches(session, local, remote):
+                    if local in broken:
+                        if not irods_has_copy(session, remote):
+                            raise RuntimeError(f"link target gone and no iRODS copy: {remote}")
+                    elif not irods_matches(session, local, remote):
                         raise RuntimeError(f"iRODS copy differs from disk: {remote}")
                 for local_dir, _remote_dir in dirs:
                     shutil.rmtree(local_dir)
                 os.remove(pairs[0][0])
-                print(f"cleaned {dataset_id}: {len(pairs)} files, {size} bytes")
+                note = f", {len(broken)} broken links checked in iRODS only" if broken else ""
+                print(f"cleaned {dataset_id}: {len(pairs)} files, {size} bytes{note}")
             done += 1
             total_bytes += size
         except Exception as e:
