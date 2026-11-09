@@ -1,83 +1,102 @@
 ---
-# Copy prod's conda environments and legacy tool dependencies to the shared dependencies directory.
-# Conda environments contain their own path, so each one is cloned (paths rewritten), not copied.
-# Packages come from the old package cache. Each finished environment gets a marker file;
-# environments without one are cloned again, so the run can be repeated after an interruption.
+# Copy an environment's conda environments and legacy tool dependencies to the shared dependencies directory.
+# Runs on the NFS server, so the work is local. scripts/conda_copy_envs.py copies each environment
+# as hard links and rewrites the old conda path in it, as conda does on install. Finished environments get a
+# marker and are skipped, so the run can be repeated after an interruption.
 #
-# Needs the galaxy_shared autofs map and Miniforge at the new path:
-#   ansible-playbook playbooks/infrastructure/nfs-client-mounts.yml --limit usegalaxy.be
+# Needs Miniforge at the new path:
 #   ansible-playbook playbooks/infrastructure/03-galaxy-prerequisites.yml --limit test.usegalaxy.be --tags miniconda
-# Usage, from tmux: the clone takes hours, and a second run while one is going stops with exit 3.
+# Usage, from tmux: the copy takes hours, and a second run while one is going stops with exit 3.
 #   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml
-#   -e conda_copy_allow_failed=true   finish even if some environments failed (listed in the result)
+#   -e conda_copy_limit=5            copy only 5 environments, to test
+#   -e conda_copy_allow_failed=true  finish even if some environments failed (listed in the result)
 # Then test's own environments that prod does not have:
-#   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml -e conda_copy_host=test.usegalaxy.be \
-#     -e conda_copy_old=/srv/galaxy_test/shared/database/tool-dependencies -e conda_copy_legacy=false
+#   ansible-playbook playbooks/one-off/conda-copy-to-shared.yml -e conda_copy_env=test
 
 - name: Copy conda environments to the shared path
-  hosts: "{{ conda_copy_host | default('usegalaxy.be') }}"
+  hosts: nfsservers
   become: true
   become_user: "{{ galaxy_user_name }}"
   gather_facts: false
   vars:
-    conda_copy_old: /srv/galaxy/shared/etc/dependencies
-    conda_copy_new: "{{ galaxy_shared_data_dir }}/dependencies"
+    conda_copy_env: prod
+    conda_copy_limit: 0
+    # Environments copied at the same time; the disk is the limit, not the CPU
+    conda_copy_jobs: 4
     conda_copy_allow_failed: false
-    conda_copy_legacy: true
-
+    # Old conda root per environment: path on the NFS server, and the path the clients use
+    conda_copy_sources:
+      prod:
+        server: /data/share/prod/etc/dependencies
+        client: /srv/galaxy/shared/etc/dependencies
+        legacy: true
+      test:
+        server: /data/share/test/database/tool-dependencies
+        client: /srv/galaxy_test/shared/database/tool-dependencies
+        legacy: false
+    conda_copy_old: "{{ conda_copy_sources[conda_copy_env] }}"
+    conda_copy_new_server: /data/share/shared_data/dependencies
+    conda_copy_new_client: "{{ galaxy_shared_data_dir }}/dependencies"
+    conda_copy_python: "{{ conda_copy_new_server }}/miniconda3/bin/python"
+    conda_copy_script: "{{ conda_copy_new_server }}/conda_copy_envs.py"
   tasks:
     - name: Check the new conda is installed
       ansible.builtin.stat:
-        path: "{{ conda_copy_new }}/miniconda3/bin/conda"
+        path: "{{ conda_copy_python }}"
       register: conda_copy_bin
       failed_when: not conda_copy_bin.stat.exists
 
-    # flock: a second run exits instead of cloning in parallel
-    - name: Clone each environment into the new conda
-      ansible.builtin.shell: |
-        set -u
-        exec 9> "{{ conda_copy_new }}/conda-copy.lock"
-        flock -n 9 || { echo "another copy is running"; exit 3; }
-        export CONDA_PKGS_DIRS="{{ conda_copy_new }}/miniconda3/pkgs,{{ conda_copy_old }}/miniconda3/pkgs"
-        failed_list="{{ conda_copy_new }}/conda-copy-failed.txt"
-        : > "$failed_list"
-        copied=0; skipped=0; failed=0
-        for env in {{ conda_copy_old }}/miniconda3/envs/*/; do
-          name=$(basename "$env")
-          new="{{ conda_copy_new }}/miniconda3/envs/$name"
-          if [ -f "$new/.copied" ]; then skipped=$((skipped+1)); continue; fi
-          rm -rf "$new"
-          if "{{ conda_copy_new }}/miniconda3/bin/conda" create --quiet --yes --prefix "$new" --clone "$env" \
-              >> "{{ conda_copy_new }}/conda-copy.log" 2>&1; then
-            touch "$new/.copied"; copied=$((copied+1))
-          else
-            rm -rf "$new"; echo "$name" >> "$failed_list"; failed=$((failed+1))
-          fi
-        done
-        echo "copied=$copied skipped=$skipped failed=$failed"
-      args:
-        executable: /bin/bash
+    - name: Install the copy script
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../scripts/conda_copy_envs.py"
+        dest: "{{ conda_copy_script }}"
+        mode: "0755"
+
+    - name: Copy each environment into the new conda
+      ansible.builtin.command:
+        argv:
+          - nice
+          - "{{ conda_copy_python }}"
+          - "{{ conda_copy_script }}"
+          - --old-envs
+          - "{{ conda_copy_old.server }}/miniconda3/envs"
+          - --new-envs
+          - "{{ conda_copy_new_server }}/miniconda3/envs"
+          - --old-prefix
+          - "{{ conda_copy_old.client }}/miniconda3"
+          - --new-prefix
+          - "{{ conda_copy_new_client }}/miniconda3"
+          - --limit
+          - "{{ conda_copy_limit }}"
+          - --jobs
+          - "{{ conda_copy_jobs }}"
       async: 172800
       poll: 60
       register: conda_copy_result
       changed_when: "'copied=0 ' not in conda_copy_result.stdout"
 
-    - name: Environments that failed to clone
-      ansible.builtin.command: cat {{ conda_copy_new }}/conda-copy-failed.txt
+    - name: Environments that failed to copy
+      ansible.builtin.command: cat {{ conda_copy_new_server }}/conda-copy-failed.txt
       register: conda_copy_failed
       changed_when: false
 
+    # Hard links, as for the environments; sed -i below replaces the env files it changes
     - name: Copy the legacy tool-dependencies tree
-      when: conda_copy_legacy | bool
+      when: conda_copy_old.legacy and conda_copy_limit | int == 0
       ansible.builtin.command:
-        cmd: rsync -a {{ conda_copy_old }}/tool-dependencies/ {{ conda_copy_new }}/tool-dependencies/
+        argv:
+          - rsync
+          - -aH
+          - --link-dest={{ conda_copy_old.server }}/tool-dependencies
+          - "{{ conda_copy_old.server }}/tool-dependencies/"
+          - "{{ conda_copy_new_server }}/tool-dependencies/"
       changed_when: true
 
     - name: Point the legacy tool-dependencies env files at the new path
-      when: conda_copy_legacy | bool
+      when: conda_copy_old.legacy and conda_copy_limit | int == 0
       ansible.builtin.shell: |
-        grep -rlZ --include=env.sh "{{ conda_copy_old }}" "{{ conda_copy_new }}/tool-dependencies" \
-          | xargs -0 -r sed -i "s#{{ conda_copy_old }}#{{ conda_copy_new }}#g"
+        grep -rlZ --include=env.sh "{{ conda_copy_old.client }}" "{{ conda_copy_new_server }}/tool-dependencies" \
+          | xargs -0 -r sed -i "s#{{ conda_copy_old.client }}#{{ conda_copy_new_client }}#g"
       changed_when: true
 
     - name: Result
