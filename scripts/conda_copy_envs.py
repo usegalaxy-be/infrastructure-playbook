@@ -65,7 +65,12 @@ def files_with(env, text):
     """Files under env that contain text; symlinks are not followed."""
     out = subprocess.run(["grep", "-rlFZ", "--", text, env], capture_output=True, check=False)
     if out.returncode > 1:
-        raise RuntimeError(out.stderr.decode(errors="replace"))
+        # An empty file without read permission cannot hold the path; anything else is an error
+        for line in out.stderr.decode(errors="replace").splitlines():
+            path = line[len("grep: "):].rsplit(": ", 1)[0] if line.startswith("grep: ") else ""
+            if not (line.endswith(": Permission denied") and os.path.isfile(path)
+                    and os.lstat(path).st_size == 0):
+                raise RuntimeError(line)
     return [p.decode() for p in out.stdout.split(b"\0") if p]
 
 
