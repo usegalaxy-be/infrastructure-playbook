@@ -55,22 +55,23 @@ vib_nfs_server: "{{ lookup('community.hashi_vault.hashi_vault', 'vsc/prod/data/u
 autofs_mounts:
   - name: "prod"
     conf:
-      - "database  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/database"
-      - "local_tools  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/local_tools"
-      - "etc  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/etc"
-      - "dm-data  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/dm_data"
-      - "src  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/src"
-      - "tmp  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod_duplicate/tmp"
+      - "database  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod/database"
+      - "server  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod/server"
+      - "venv  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod/venv"
+      - "local_tools  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod/local_tools"
+      # Old layout, kept as the rollback path until a later cleanup
+      - "etc  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod/etc"
+      - "src  -rw,hard,intr,nosuid  {{ vib_nfs_server }}:/data/share/prod/src"
     mountpoint: "/srv/galaxy/shared"
     conf_location: "/etc/auto.prod"
     map_options: "nfsvers=3 browse"
   - name: "test"
     conf:
-      - "database  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/database"
-      - "local_tools  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/local_tools"
-      - "server  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/server"
-      - "tmp  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/tmp"
-      - "venv  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test_share/venv"
+      - "database  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test/database"
+      - "local_tools  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test/local_tools"
+      - "server  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test/server"
+      - "tmp  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test/tmp"
+      - "venv  -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/test/venv"
       - "shared_data -rw,hard,intr,nosuid,quota  {{ vib_nfs_server }}:/data/share/shared_data"
     mountpoint: "/srv/galaxy_test/shared"
     conf_location: "/etc/auto.test"
@@ -87,6 +88,10 @@ autofs_mounts:
     mountpoint: "/data_stage"
     conf_location: "/etc/auto.staging"
     map_options: "nfsvers=3 browse"
+  - "{{ galaxy_shared_autofs_mount }}"
+
+# VIB workers reach the NFS server on its VSC address
+galaxy_shared_nfs_server: "{{ vib_nfs_server }}"
 
 autofs_cleanup_entries:
   - conf_location: /etc/auto.srv
@@ -96,4 +101,4 @@ autofs_cleanup_entries:
   - conf_location: /etc/auto.legacy
     key: dm-data
     unmount_path: /galaxy_base/scratch_prod/dm-data
-    remove_master_entry: galaxy_base/scratch_prod
+    remove_master_entry: legacy

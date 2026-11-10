@@ -1,0 +1,59 @@
+---
+# Server-side moves for the NFS layout change, each leaving a symlink at the old path.
+# Clients resolve the symlinks themselves, so the old paths keep working until a later cleanup.
+# Each move is skipped when the old path is already a symlink, so the playbook can be run again.
+#
+# Usage:
+#   # test_share -> test, then prod_duplicate -> prod
+#   ansible-playbook playbooks/one-off/nfs-layout-move.yml --tags rename_test
+#   ansible-playbook playbooks/one-off/nfs-layout-move.yml --tags rename_prod
+#   # prod's Data Manager data into shared_data/dm_data, read through /srv/galaxy_shared/dm_data
+#   ansible-playbook playbooks/one-off/nfs-layout-move.yml --tags dm_data
+
+- name: NFS layout moves
+  hosts: nfsservers
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Rename test_share to test
+      ansible.builtin.shell: |
+        set -e
+        cd /data/share
+        [ -L test_share ] && exit 0
+        mv test_share test
+        ln -s test test_share
+        echo moved
+      register: nfs_move_test
+      changed_when: "'moved' in nfs_move_test.stdout"
+      tags: rename_test
+
+    - name: Rename prod_duplicate to prod
+      ansible.builtin.shell: |
+        set -e
+        cd /data/share
+        [ -L prod_duplicate ] && exit 0
+        mv prod_duplicate prod
+        ln -s prod prod_duplicate
+        echo moved
+      register: nfs_move_prod
+      changed_when: "'moved' in nfs_move_prod.stdout"
+      tags: rename_prod
+
+    # Contents only: shared_data/dm_data is an export and keeps its inode.
+    - name: Move prod's Data Manager data into shared_data
+      ansible.builtin.shell: |
+        set -e
+        old=/data/share/prod/database/reference_data/dm_data
+        [ -L "$old" ] && exit 0
+        [ -z "$(ls -A /data/share/shared_data/dm_data)" ]
+        shopt -s dotglob
+        mv "$old"/* /data/share/shared_data/dm_data/
+        rmdir "$old"
+        ln -s /srv/galaxy_shared/dm_data "$old"
+        echo moved
+      args:
+        executable: /bin/bash
+      register: nfs_move_dm
+      changed_when: "'moved' in nfs_move_dm.stdout"
+      tags: dm_data

@@ -13,13 +13,12 @@ galaxy_install_database_connection: "sqlite:///{{ galaxy_mutable_data_dir }}/she
 galaxy_root: /srv/galaxy
 
 # Filesystem path where the Galaxy server code will be installed (cloned)
-# TODO: rename to /server
-galaxy_server_dir: "{{ galaxy_shared_root }}/src"
+galaxy_server_dir: "{{ galaxy_shared_root }}/server"
 
 # Galaxy's virtualenv directory. Versioned by Python version so a new venv is only
 # created when the Python interpreter changes — old Galaxy keeps serving while the new
 # venv is built alongside it, then galaxyctl graceful switches over with no downtime.
-galaxy_venv_dir: "{{ galaxy_shared_root }}/etc/venv-py{{ galaxy_python_version }}"
+galaxy_venv_dir: "{{ galaxy_shared_root }}/venv/venv-py{{ galaxy_python_version }}"
 
 # Node-local RAM (tmpfs) copy of this env's Galaxy lib+venv on the condor workers
 # (see roles/pdg.galaxy_code_tmpfs). Per-env mount so test/prod stay isolated on
@@ -28,9 +27,6 @@ galaxy_venv_dir: "{{ galaxy_shared_root }}/etc/venv-py{{ galaxy_python_version }
 galaxy_code_tmpfs_mount: /opt/galaxy_prod
 galaxy_code_tmpfs_enabled: true
 
-# TODO: any tool dependencies that are not the venv could be shared between prod and test
-galaxy_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies"
-galaxy_tool_dependency_dir: "{{ galaxy_shared_root }}/etc/dependencies/tool-dependencies"
 
 # List of tool configs to load
 galaxy_tool_config_files:
@@ -40,13 +36,14 @@ galaxy_tool_config_files:
   # - "{{ galaxy_server_dir }}/config/tool_conf.xml.sample"
   # - "{{ galaxy_config_dir }}/interactive_tools_conf.xml"
 
-# Directory on the Galaxy server where local tools will be installed.
-# TODO: change this to be within the shared nfs directory and shared between prod and test
-galaxy_local_tools_dir: "{{ galaxy_mutable_data_dir }}/local_tools"
+# Test tools used by the job healthcheck (test also has the pulsar ones)
+galaxy_local_tools_env:
+  - {file: tpv_test/test-condor-singularity.xml, section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-docker.xml,      section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-conda.xml,       section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-gpu.xml,         section_name: "TPV test Tools", section_id: tpv_test}
+  - {file: tpv_test/test-condor-gpu-v3.xml,      section_name: "TPV test Tools", section_id: tpv_test}
 
-# Directory to store Data Manager based tool-data. Defaults to the value of the <tool_data_path> option.
-# TODO: This should probably be within the shared nfs directory and shared between prod and test
-galaxy_data_manager_data_path: "{{ galaxy_mutable_data_dir }}/reference_data/dm_data"
 
 # TODO: can be shared between prod and test
 galaxy_shed_tools_dir: "{{ galaxy_shared_root }}/database/shed_data/shed_tools"
@@ -71,10 +68,6 @@ galaxy_new_file_path: "{{ galaxy_mutable_data_dir }}/tmp/scratch"
 galaxy_job_working_directory: "{{ galaxy_mutable_data_dir }}/tmp/jobs"
 # NOTE: unused
 # galaxy_cluster_files_directory: "{{ galaxy_mutable_data_dir }}/tmp/pbs"
-
-# Top level cache directory. Any other cache directories (tool_cache_data_dir, template_cache_path, etc.)
-# should be subdirectories.
-galaxy_cache_dir: "{{ galaxy_mutable_data_dir }}/cache"
 
 # TODO: implement a local disk (not NFS) iRODS object store cache to avoid double network hop
 # galaxy_irods_cache_path: "{{ galaxy_local_root }}/object_store_cache"

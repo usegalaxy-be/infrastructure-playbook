@@ -1,0 +1,27 @@
+---
+# autofs maps for usegalaxy.be (prod), written by nfs-client-mounts.yml.
+# Same per-env names as test; data shared with test is in galaxy_shared_autofs_mount.
+# Map names match the existing files (prod.autofs, staging.autofs), so they are replaced in place.
+# etc and src are the old layout, kept as the rollback path until a later cleanup.
+
+autofs_mounts:
+  - name: prod
+    mountpoint: "/srv/galaxy/shared"
+    conf_location: "/etc/auto.prod"
+    map_options: "nfsvers=3 browse"
+    conf:
+      - "database      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod/database"
+      - "server        -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod/server"
+      - "venv          -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod/venv"
+      - "local_tools   -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod/local_tools"
+      - "shared_certs  -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_certs"
+      - "shared_data   -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/shared_data"
+      - "etc           -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod/etc"
+      - "src           -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/prod/src"
+  - name: staging
+    mountpoint: "/data_stage"
+    conf_location: "/etc/auto.staging"
+    map_options: "nfsvers=3"
+    conf:
+      - "psb_data      -rw,hard,intr,nosuid,quota  {{ nfs_server_address }}:/data/share/data_stage/psb_data"
+  - "{{ galaxy_shared_autofs_mount }}"

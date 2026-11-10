@@ -29,6 +29,7 @@
 
     # Celery Task Monitoring Dashboard (Flower)
     - role: pdg.flower
+      tags: [flower]
 
   tasks:
     - name: Verify RabbitMQ is running
