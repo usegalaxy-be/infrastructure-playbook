@@ -636,4 +636,17 @@ destinations:
       require:
         - sanjay-pulsar
 
+  # BEGIN BYOC byoc_0e0fad4d103ae8ed (managed by scripts/byoc/byoc_sync.py, do not edit)
+  pulsar_byoc_0e0fad4d103ae8ed_tpv:
+    inherits: _pulsar
+    runner: pulsar_byoc_0e0fad4d103ae8ed
+    max_accepted_cores: 4
+    max_accepted_mem: 28
+    min_accepted_gpus: 0
+    max_accepted_gpus: 0
+    scheduling:
+      require:
+        - byoc-0e0fad4d103ae8ed
+  # END BYOC byoc_0e0fad4d103ae8ed
+
   # BYOC: generated blocks go above this line

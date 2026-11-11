@@ -139,6 +139,18 @@ galaxy_job_config:
       amqp_publish_retry_max_retries: 60
       galaxy_url: "https://{{ inventory_hostname }}"
       manager: test      
+    # BEGIN BYOC byoc_0e0fad4d103ae8ed (managed by scripts/byoc/byoc_sync.py, do not edit)
+    pulsar_byoc_0e0fad4d103ae8ed:
+      load: galaxy.jobs.runners.pulsar:PulsarMQJobRunner
+      amqp_url: "pyamqp://bh_surf:{{ rabbitmq_password_galaxy_byoc_0e0fad4d103ae8ed }}@127.0.0.1:5671//pulsar/bh_surf?ssl=1"
+      galaxy_url: "https://test.usegalaxy.be"
+      manager: production
+      amqp_acknowledge: true
+      amqp_ack_republish_time: 300
+      amqp_consumer_timeout: 15.0
+      amqp_publish_retry: true
+      amqp_publish_retry_max_retries: 60
+    # END BYOC byoc_0e0fad4d103ae8ed
     # BYOC: generated blocks go above this line
   handling:
     assign: ['db-skip-locked']

@@ -74,5 +74,10 @@ rabbitmq_users:
   - user: pulsar_sl01
     password: "{{ vault_rabbitmq_password_pulsar_esg }}"
     vhost: /pulsar/pulsar_sl01
+  # BEGIN BYOC byoc_0e0fad4d103ae8ed (managed by scripts/byoc/byoc_sync.py, do not edit)
+  - user: bh_surf
+    password: "{{ rabbitmq_password_galaxy_byoc_0e0fad4d103ae8ed }}"
+    vhost: /pulsar/bh_surf
+  # END BYOC byoc_0e0fad4d103ae8ed
   # BYOC: generated blocks go above this line
     
