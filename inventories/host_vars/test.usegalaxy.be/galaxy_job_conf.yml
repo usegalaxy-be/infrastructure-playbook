@@ -139,6 +139,7 @@ galaxy_job_config:
       amqp_publish_retry_max_retries: 60
       galaxy_url: "https://{{ inventory_hostname }}"
       manager: test      
+    # BYOC: generated blocks go above this line
   handling:
     assign: ['db-skip-locked']
   execution:
