@@ -120,6 +120,10 @@ destinations:
       TMPDIR: $_GALAXY_JOB_TMP_DIR
       XDG_CACHE_HOME: $_GALAXY_JOB_TMP_DIR
     params:
+      # Only paths that exist on any Pulsar: the job's own directories and CVMFS reference data.
+      # Overrides the tool default, which mounts usegalaxy.be's own shared paths.
+      singularity_volumes: "$job_directory:rw,$tool_directory:ro,$job_directory/outputs:rw,$working_directory:rw,/cvmfs/data.galaxyproject.org:ro"
+      docker_volumes: "$job_directory:rw,$tool_directory:ro,$job_directory/outputs:rw,$working_directory:rw,/cvmfs/data.galaxyproject.org:ro"
       tmp_dir: true
       outputs_to_working_directory: false
       remote_metadata: false
