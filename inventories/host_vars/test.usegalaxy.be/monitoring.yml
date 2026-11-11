@@ -272,6 +272,24 @@ telegraf_plugins_extra:
       - data_format = "influx"
       - interval = "5m"
 
+  # SELECT 1 on the Galaxy database; ok=0 when it cannot be reached
+  galaxy_db_check:
+    plugin: "exec"
+    config:
+      - commands = ["{{ custom_telegraf_env }} /usr/bin/galaxy-db-check"]
+      - timeout = "15s"
+      - data_format = "influx"
+      - interval = "1m"
+
+  # New iRODS connection plus a small write, read and delete, with Galaxy's object store settings
+  galaxy_irods_probe:
+    plugin: "exec"
+    config:
+      - commands = ["{{ galaxy_venv_dir }}/bin/python /usr/bin/galaxy-irods-probe {{ galaxy_config_dir }}/object_store_conf.xml"]
+      - timeout = "90s"
+      - data_format = "influx"
+      - interval = "5m"
+
   # Per-destination average queue and run times for jobs running longer than 90s
   monitor_galaxy_tool_times:
     plugin: "exec"

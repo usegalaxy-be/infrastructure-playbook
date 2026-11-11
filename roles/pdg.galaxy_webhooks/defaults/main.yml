@@ -1,0 +1,15 @@
+---
+# Folder for our webhooks. Add it to webhooks_dir in galaxy.yml, next to Galaxy's own folder.
+galaxy_webhooks_dir: "{{ galaxy_config_dir }}/webhooks"
+
+# Run as root after a webhook file changes: a rolling restart of the web processes only.
+galaxy_webhooks_restart_command: "{{ galaxy_gravity_command }} -c {{ galaxy_config_file }} graceful gunicorn"
+
+# Messages the toolmsg webhook shows above a tool form: a list of {tool_id, message, class}.
+# tool_id matches any tool whose id starts with it, so leave out the version.
+# message is HTML. class is a Bootstrap alert class: primary, info, success, warning, danger.
+galaxy_webhooks_toolmsg_messages: []
+
+# HTML message for visitors who are not logged in, shown above tool forms, in the upload dialog
+# and on the welcome page. Empty: no message.
+galaxy_webhooks_toolmsg_anonymous_message: ""

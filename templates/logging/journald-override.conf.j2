@@ -1,3 +1,4 @@
-# Managed by Ansible. Bound persistent journal growth on the root disk.
+# Managed by Ansible. Bound persistent journal size and age.
 [Journal]
 SystemMaxUse={{ journald_system_max_use | default('1G') }}
+MaxRetentionSec={{ journald_max_retention | default('14day') }}

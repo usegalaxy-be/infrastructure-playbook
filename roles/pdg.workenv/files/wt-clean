@@ -4,18 +4,22 @@
 # Usage (from the main clone, not from inside a worktree):
 #   wt-clean            # dry run: list what would be removed
 #   wt-clean --apply    # remove those worktrees and their local branches
+#   wt-clean --force    # also include merged worktrees with uncommitted changes
 #
-# Skips a worktree if its branch moved on after the merge or if it has
-# uncommitted changes. Requires: gh CLI, authenticated.
+# Skips a worktree if its branch moved on after the merge, or if it has
+# uncommitted changes unless --force is given. Requires: gh CLI, authenticated.
 
 set -euo pipefail
 
-APPLY="${1:-}"
-
-if [[ -n "$APPLY" && "$APPLY" != "--apply" ]]; then
-    echo "Usage: wt-clean [--apply]" >&2
-    exit 1
-fi
+APPLY=""
+FORCE=""
+for arg in "$@"; do
+    case "$arg" in
+        --apply) APPLY="--apply" ;;
+        --force) FORCE="--force" ;;
+        *) echo "Usage: wt-clean [--apply] [--force]" >&2; exit 1 ;;
+    esac
+done
 
 if ! command -v gh >/dev/null 2>&1; then
     echo "gh CLI not found on PATH" >&2
@@ -37,14 +41,17 @@ while IFS=$'\t' read -r path branch; do
         echo "keep    $branch"
         continue
     fi
-    if [[ -n "$(git -C "$path" status --porcelain)" ]]; then
+    dirty=$(git -C "$path" status --porcelain | wc -l)
+    if [[ "$dirty" -gt 0 && -z "$FORCE" ]]; then
         echo "DIRTY   $branch (PR #$pr merged, has uncommitted changes, skipped)"
         continue
     fi
+    note=""
+    [[ "$dirty" -gt 0 ]] && note=", $dirty uncommitted files lost"
     if [[ "$APPLY" == "--apply" ]]; then
-        git worktree remove "$path" && git branch -D "$branch" >/dev/null && echo "removed $branch (PR #$pr)"
+        git worktree remove $FORCE "$path" && git branch -D "$branch" >/dev/null && echo "removed $branch (PR #$pr$note)"
     else
-        echo "remove  $branch (PR #$pr)  $path"
+        echo "remove  $branch (PR #$pr$note)  $path"
     fi
 done < <(git worktree list --porcelain | awk '/^worktree /{p=substr($0,10)} /^branch /{sub("refs/heads/","",$2); print p "\t" $2}')
 

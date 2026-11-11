@@ -122,11 +122,42 @@
 - name: Deploy tmux-logs logrotate config
   ansible.builtin.copy:
     src: tmux-logs-logrotate
-    dest: /etc/logrotate.d/tmux-logs
+    dest: /etc/logrotate-tmux-logs.conf
     owner: root
     group: root
     mode: '0644'
   when: workenv_deploy_session_script
+
+# The hourly timer below replaces the daily run from /etc/logrotate.d
+- name: Remove the daily tmux-logs logrotate config
+  ansible.builtin.file:
+    path: /etc/logrotate.d/tmux-logs
+    state: absent
+  when: workenv_deploy_session_script
+
+- name: Deploy the tmux-logs logrotate service and timer
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: '0644'
+  loop:
+    - tmux-logs-logrotate.service
+    - tmux-logs-logrotate.timer
+  register: __workenv_tmux_logs_units
+  when: workenv_deploy_session_script
+
+# In check mode the units aren't installed yet, so systemd can't find the timer
+- name: Enable the tmux-logs logrotate timer
+  ansible.builtin.systemd_service:
+    name: tmux-logs-logrotate.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when:
+    - workenv_deploy_session_script
+    - not (ansible_check_mode and __workenv_tmux_logs_units is changed)
 
 - name: Ensure ~/bin exists
   ansible.builtin.file:

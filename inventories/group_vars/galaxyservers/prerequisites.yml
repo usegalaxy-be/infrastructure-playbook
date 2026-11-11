@@ -40,6 +40,8 @@ miniconda_distribution: miniforge
 miniconda_installer_version: 26.7.2-0
 miniconda_version: "26.7.2"
 miniconda_channels: ['conda-forge']
+# miniconda_version is the conda version, so update with conda, not the role's default mamba.
+miniconda_executable: conda
 
 galaxy_conda_create_env: true
 galaxy_conda_env_packages:
