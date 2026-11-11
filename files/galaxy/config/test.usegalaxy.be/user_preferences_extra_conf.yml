@@ -43,5 +43,49 @@ preferences:
           # - ["Bergen (Norway) - UIB", no-pulsar]
           # - ["Prague (Czech Republic) - MetaCentrum", cz-pulsar]
           # - ["Bratislava (Slovakia) - IISAS", sk-pulsar]
-
-
+  byoc_pulsar:
+    description: >
+      Bring your own Pulsar endpoint to test.usegalaxy.be. Deploy Pulsar on your own compute,
+      for example with https://github.com/pauldg/pulsar-byoc, with a RabbitMQ username and password
+      you choose. Your Pulsar connects to
+      pyamqp://USERNAME:PASSWORD@test.usegalaxy.be:59871//pulsar/USERNAME?ssl=1.
+      An administrator reviews every new or changed endpoint before Galaxy sends jobs to it.
+      Set the transport to "Disabled" to stop sending jobs to your Pulsar at once.
+      This is an experimental feature.
+    inputs:
+      - name: transport
+        label: Transport between Galaxy and your Pulsar.
+        type: select
+        required: False
+        value: none
+        options:
+          - ["Disabled", none]
+          - ["RabbitMQ (test.usegalaxy.be:59871)", mq]
+      - name: username
+        label: "RabbitMQ username, 3-32 lower-case letters, digits or '_' (e.g. mypulsarendpoint)."
+        type: text
+        required: False
+      - name: password
+        label: "RabbitMQ password, at least 10 letters or digits."
+        type: password
+        required: False
+      - name: jobs_directory
+        label: "Optional: Pulsar staging directory on your endpoint (default /data/share/staging)."
+        type: text
+        required: False
+      - name: max_accepted_cores
+        label: Maximum number of CPU cores available.
+        type: number
+        required: False
+      - name: max_accepted_mem
+        label: Maximum memory available (in GB).
+        type: number
+        required: False
+      - name: min_accepted_gpus
+        label: Minimum number of GPUs (set to zero if you don't share GPUs).
+        type: number
+        required: False
+      - name: max_accepted_gpus
+        label: Maximum number of GPUs (set to zero if you don't share GPUs).
+        type: number
+        required: False
