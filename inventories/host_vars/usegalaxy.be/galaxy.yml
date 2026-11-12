@@ -95,3 +95,5 @@ tpv_local_scratch_enabled: true
 tpv_training_email_days:
   - pattern: '.*[@.]vub\.be$'
     date: "2026-10-30"
+  - pattern: '.*[@.]vub\.be$'
+    date: "2026-11-13"
