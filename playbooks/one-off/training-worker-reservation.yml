@@ -34,6 +34,8 @@
     training_reservation_windows:
       - start: "2026-10-30T08:00:00+01:00"
         end: "2026-10-30T20:00:00+01:00"
+      - start: "2026-11-13T14:00:00+01:00"
+        end: "2026-11-13T18:00:00+01:00"
     training_reservation_min_priority: 10
     training_reservation_allow_small: true
     # Jobs up to this size from other users still start; >4 cores is 4% of jobs but 93% of core-hours.
