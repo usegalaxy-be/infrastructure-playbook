@@ -129,8 +129,8 @@ tools:
           - pulsar
 {% if tpv_byoc_enabled | default(false) %}
       - id: byoc_pulsar_by_name
-        # byoc-sync endpoints: require "<name>-byoc-pulsar" for the name in the user's form once its
-        # destination exists. The destination's own rule refuses jobs of anyone but its owner.
+        # byoc-sync endpoints: rank the destination tagged "<name>-byoc-pulsar" first once it exists; jobs it cannot
+        # take run on our own destinations. The destination's own rule refuses jobs of anyone but its owner.
         if: |
           retval = False
           if not (job_wrapper is None) and user is not None and "internal" not in {tag.value for tag in entity.tpv_tags.tags}:
@@ -145,8 +145,12 @@ tools:
 
           name = user.extra_preferences.get("byoc_pulsar|username").strip().lower()
           entity.tpv_tags = entity.tpv_tags.combine(
-              SchedulingTags(require=[name.replace("_", "-") + "-byoc-pulsar"])
+              SchedulingTags(prefer=[name.replace("_", "-") + "-byoc-pulsar"])
           )
+        rank: |
+          byoc_tag = user.extra_preferences.get("byoc_pulsar|username").strip().lower().replace("_", "-") + "-byoc-pulsar"
+          ranked = sorted(candidate_destinations, key=lambda d: d.score(entity), reverse=True)
+          [d for d in ranked if byoc_tag in d.tpv_dest_tags.all_tag_values()] + [d for d in ranked if byoc_tag not in d.tpv_dest_tags.all_tag_values()]
 {% endif %}
       # - id: remote_resources
       #   if: user is not None
