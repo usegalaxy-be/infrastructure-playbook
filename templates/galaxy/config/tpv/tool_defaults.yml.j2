@@ -147,6 +147,25 @@ tools:
           entity.tpv_tags = entity.tpv_tags.combine(
               SchedulingTags(require=["byoc-" + app.security.encode_id(user.id)])
           )
+      - id: byoc_pulsar_by_name
+        # byoc-sync endpoints: require "<name>-byoc-pulsar" for the name in the user's form once its
+        # destination exists. The destination's own rule refuses jobs of anyone but its owner.
+        if: |
+          retval = False
+          if not (job_wrapper is None) and user is not None and "internal" not in {tag.value for tag in entity.tpv_tags.tags}:
+              user_preferences = user.extra_preferences
+              name = (user_preferences.get("byoc_pulsar|username") or "").strip().lower()
+              if name and user_preferences.get("byoc_pulsar|transport") == "mq" and user_preferences.get("distributed_compute|remote_resources", "None") in ("None", None, ""):
+                  byoc_tag = name.replace("_", "-") + "-byoc-pulsar"
+                  retval = any(any(d.tpv_dest_tags.filter(tag_value=byoc_tag)) for d in mapper.destinations.values())
+          retval
+        execute: |
+          from tpv.core.entities import SchedulingTags
+
+          name = user.extra_preferences.get("byoc_pulsar|username").strip().lower()
+          entity.tpv_tags = entity.tpv_tags.combine(
+              SchedulingTags(require=[name.replace("_", "-") + "-byoc-pulsar"])
+          )
 {% endif %}
       # - id: remote_resources
       #   if: user is not None

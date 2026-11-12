@@ -1,0 +1,5 @@
+---
+# Ownership of BYOC endpoints by Galaxy user id. Only byoc-sync reads this file.
+byoc_owners:
+  # keeps the mapping non-empty so byoc-sync can add owners below it
+  _placeholder: {}

@@ -46,9 +46,9 @@ preferences:
   byoc_pulsar:
     description: >
       Bring your own Pulsar endpoint to test.usegalaxy.be. Deploy Pulsar on your own compute,
-      for example with https://github.com/pauldg/pulsar-byoc, with a RabbitMQ username and password
-      you choose. Your Pulsar connects to
-      pyamqp://USERNAME:PASSWORD@test.usegalaxy.be:59871//pulsar/USERNAME?ssl=1.
+      for example with https://github.com/sanjaysrikakulam/elixir_biohackathon_2026_project1/tree/main/pulsar-byoc,
+      with an endpoint name and a RabbitMQ password you choose. Your Pulsar connects to
+      pyamqp://galaxy_NAME_byoc:PASSWORD@test.usegalaxy.be:59871//pulsar/galaxy_NAME_byoc?ssl=1.
       An administrator reviews every new or changed endpoint before Galaxy sends jobs to it.
       Set the transport to "Disabled" to stop sending jobs to your Pulsar at once.
       This is an experimental feature.
@@ -62,15 +62,15 @@ preferences:
           - ["Disabled", none]
           - ["RabbitMQ (test.usegalaxy.be:59871)", mq]
       - name: username
-        label: "RabbitMQ username, 3-32 lower-case letters, digits or '_' (e.g. mypulsarendpoint)."
+        label: "Name of your endpoint, 3-32 lower-case letters, digits or '_', starting with a letter (e.g. alice01)."
         type: text
         required: False
       - name: password
         label: "RabbitMQ password, at least 10 letters or digits."
         type: password
         required: False
-      - name: jobs_directory
-        label: "Optional: Pulsar staging directory on your endpoint (default /data/share/staging)."
+      - name: nfs_path
+        label: "Optional: shared directory on your endpoint that holds Pulsar's staging, persisted_data and var/database/container_cache directories (e.g. /data/share)."
         type: text
         required: False
       - name: max_accepted_cores

@@ -1,0 +1,1 @@
+# Encoded Galaxy user ids that byoc-sync may create endpoints for, one per line.
