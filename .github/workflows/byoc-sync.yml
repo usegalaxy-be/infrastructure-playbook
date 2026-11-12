@@ -1,8 +1,7 @@
 ---
 # Bring your own compute on test.usegalaxy.be: turn users' byoc_pulsar
-# preferences into one PR per user. Nothing is merged automatically.
-# The sync script lives in the usegalaxy.eu playbook (scripts/byoc) and is
-# pinned to a commit with site support until that is merged upstream.
+# preferences into one PR per user with byoc-sync. Nothing is merged automatically.
+# byoc-sync is pinned to a commit with the usegalaxy-be-test site until that is merged upstream.
 name: BYOC sync
 
 "on":
@@ -28,46 +27,35 @@ jobs:
     if: github.repository == 'usegalaxy-be/infrastructure-playbook'
     runs-on: ubuntu-latest
     env:
-      BYOC_SCRIPT_REPO: pauldg/infrastructure-playbook-eu
-      BYOC_SCRIPT_REF: 2ec34b99cc42ef166834b0fff51459590393721b
+      BYOC_SYNC_REPO: pauldg/elixir_biohackathon_2026_project1
+      BYOC_SYNC_REF: 30c59ece567909b996159f28fcc5a737e70f329e
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Check out the sync script
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.BYOC_SCRIPT_REPO }}
-          ref: ${{ env.BYOC_SCRIPT_REF }}
-          path: .byoc-sync
-          sparse-checkout: scripts/byoc
+          # byoc-sync pushes with its own token
           persist-credentials: false
 
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - run: pip install -r .byoc-sync/scripts/byoc/requirements.txt
+      - run: pip install "byoc-sync @ git+https://github.com/${BYOC_SYNC_REPO}@${BYOC_SYNC_REF}#subdirectory=byoc-sync"
 
       - name: Sync
         env:
           GALAXY_API_KEY: ${{ secrets.BYOC_GALAXY_ADMIN_API_KEY }}
-          VAULT_PASSWORD: ${{ secrets.BYOC_VAULT_PASSWORD }}
-          BYOC_FINGERPRINT_KEY: ${{ secrets.BYOC_FINGERPRINT_KEY }}
+          BYOC_SYNC_VAULT_PASSWORD: ${{ secrets.BYOC_VAULT_PASSWORD }}
+          BYOC_SYNC_FINGERPRINT_KEY: ${{ secrets.BYOC_FINGERPRINT_KEY }}
           # A bot or GitHub App token makes the opened PRs run the usual checks;
           # PRs opened with the built-in token do not.
-          GH_TOKEN: ${{ secrets.BYOC_GH_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.BYOC_GH_TOKEN || github.token }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
         run: |
-          umask 077
-          ANSIBLE_VAULT_PASSWORD_FILE="$RUNNER_TEMP/vault_password"
-          printf '%s\n' "$VAULT_PASSWORD" > "$ANSIBLE_VAULT_PASSWORD_FILE"
-          export ANSIBLE_VAULT_PASSWORD_FILE
-          git config user.name "usegalaxy-be-byoc"
-          git config user.email "usegalaxy-be-byoc@users.noreply.github.com"
-          args=(--repo "$GITHUB_REPOSITORY" --base "${{ github.event.repository.default_branch }}")
-          if [ "$DRY_RUN" = "true" ]; then args=(--dry-run); fi
-          python .byoc-sync/scripts/byoc/byoc_sync.py \
-            --site .byoc-sync/scripts/byoc/sites/test.usegalaxy.be.yml \
-            --root . "${args[@]}"
+          args=(--github-repo "$GITHUB_REPOSITORY" --base-branch "${{ github.event.repository.default_branch }}")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          byoc-sync \
+            --source api --galaxy-url https://test.usegalaxy.be \
+            --repo-path . --site-config usegalaxy-be-test \
+            --allow-list files/byoc/test.usegalaxy.be/allow_list.txt \
+            "${args[@]}"

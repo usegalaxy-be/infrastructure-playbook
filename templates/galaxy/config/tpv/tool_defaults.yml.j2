@@ -128,25 +128,29 @@ tools:
           reject:
           - pulsar
 {% if tpv_byoc_enabled | default(false) %}
-      - id: byoc_pulsar
-        # Bring your own compute: the BYOC sync script adds a destination requiring
-        # "byoc-<encoded user id>" once an admin merged the user's PR. Only that user's
-        # jobs can carry the tag. It applies while the user keeps BYOC enabled and has not
-        # picked another remote resource; internal tools never leave Galaxy.
+      - id: byoc_pulsar_by_name
+        # byoc-sync endpoints: rank the destination tagged "<name>-byoc-pulsar" first once it exists; jobs it cannot
+        # take run on our own destinations. The destination's own rule refuses jobs of anyone but its owner.
         if: |
           retval = False
           if not (job_wrapper is None) and user is not None and "internal" not in {tag.value for tag in entity.tpv_tags.tags}:
               user_preferences = user.extra_preferences
-              if user_preferences.get("byoc_pulsar|transport") in ("mq", "relay") and user_preferences.get("distributed_compute|remote_resources", "None") in ("None", None, ""):
-                  byoc_tag = "byoc-" + app.security.encode_id(user.id)
+              name = (user_preferences.get("byoc_pulsar|username") or "").strip().lower()
+              if name and user_preferences.get("byoc_pulsar|transport") == "mq" and user_preferences.get("distributed_compute|remote_resources", "None") in ("None", None, ""):
+                  byoc_tag = name.replace("_", "-") + "-byoc-pulsar"
                   retval = any(any(d.tpv_dest_tags.filter(tag_value=byoc_tag)) for d in mapper.destinations.values())
           retval
         execute: |
           from tpv.core.entities import SchedulingTags
 
+          name = user.extra_preferences.get("byoc_pulsar|username").strip().lower()
           entity.tpv_tags = entity.tpv_tags.combine(
-              SchedulingTags(require=["byoc-" + app.security.encode_id(user.id)])
+              SchedulingTags(prefer=[name.replace("_", "-") + "-byoc-pulsar"])
           )
+        rank: |
+          byoc_tag = user.extra_preferences.get("byoc_pulsar|username").strip().lower().replace("_", "-") + "-byoc-pulsar"
+          ranked = sorted(candidate_destinations, key=lambda d: d.score(entity), reverse=True)
+          [d for d in ranked if byoc_tag in d.tpv_dest_tags.all_tag_values()] + [d for d in ranked if byoc_tag not in d.tpv_dest_tags.all_tag_values()]
 {% endif %}
       # - id: remote_resources
       #   if: user is not None
