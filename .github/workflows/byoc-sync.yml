@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BYOC_SYNC_REPO: pauldg/elixir_biohackathon_2026_project1
-      BYOC_SYNC_REF: 30c59ece567909b996159f28fcc5a737e70f329e
+      BYOC_SYNC_REF: 1fe0e73c81a775b304718c2a0b99032bedf57d12
     steps:
       - uses: actions/checkout@v4
         with:

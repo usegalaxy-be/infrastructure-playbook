@@ -70,7 +70,7 @@ preferences:
         type: password
         required: False
       - name: nfs_path
-        label: "Optional: shared directory on your endpoint that holds Pulsar's staging, persisted_data and var/database/container_cache directories (e.g. /data/share)."
+        label: "Optional: Pulsar's shared directory on your endpoint, which holds its staging directory (e.g. /data/share). Galaxy keeps the container cache there too."
         type: text
         required: False
       - name: max_accepted_cores
