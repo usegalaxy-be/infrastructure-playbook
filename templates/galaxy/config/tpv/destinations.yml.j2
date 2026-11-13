@@ -660,3 +660,27 @@ destinations:
           from tpv.core.entities import TryNextDestinationOrFail
           raise TryNextDestinationOrFail("pulsar_bh_surf_byoc_tpv only accepts jobs of its owner")
 
+  pulsar_bh_denbi_byoc_tpv:
+    inherits: _pulsar
+    runner: pulsar_bh_denbi_byoc
+    max_accepted_cores: 8
+    max_accepted_mem: 14
+    min_accepted_gpus: 0
+    max_accepted_gpus: 0
+    env:
+      SINGULARITY_TMPDIR: $_GALAXY_JOB_TMP_DIR
+      APPTAINER_TMPDIR: $_GALAXY_JOB_TMP_DIR
+      SINGULARITY_CACHEDIR: "/data/share/container_cache"
+      APPTAINER_CACHEDIR: "/data/share/container_cache"
+    params:
+      jobs_directory: "/data/share/staging"
+    scheduling:
+      require:
+        - bh-denbi-byoc-pulsar
+    rules:
+      - id: byoc-owner-guard
+        if: "user is None or \"4f97d52b254222e6\" not in (str(user.id), app.security.encode_id(user.id))"
+        execute: |
+          from tpv.core.entities import TryNextDestinationOrFail
+          raise TryNextDestinationOrFail("pulsar_bh_denbi_byoc_tpv only accepts jobs of its owner")
+
