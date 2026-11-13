@@ -640,3 +640,23 @@ destinations:
       require:
         - sanjay-pulsar
 
+  pulsar_bh_surf_byoc_tpv:
+    inherits: _pulsar
+    runner: pulsar_bh_surf_byoc
+    max_accepted_cores: 4
+    max_accepted_mem: 28
+    min_accepted_gpus: 0
+    max_accepted_gpus: 0
+    env:
+      SINGULARITY_TMPDIR: $_GALAXY_JOB_TMP_DIR
+      APPTAINER_TMPDIR: $_GALAXY_JOB_TMP_DIR
+    scheduling:
+      require:
+        - bh-surf-byoc-pulsar
+    rules:
+      - id: byoc-owner-guard
+        if: "user is None or \"0e0fad4d103ae8ed\" not in (str(user.id), app.security.encode_id(user.id))"
+        execute: |
+          from tpv.core.entities import TryNextDestinationOrFail
+          raise TryNextDestinationOrFail("pulsar_bh_surf_byoc_tpv only accepts jobs of its owner")
+
