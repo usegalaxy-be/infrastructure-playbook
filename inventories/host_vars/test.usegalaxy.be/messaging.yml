@@ -74,3 +74,6 @@ rabbitmq_users:
   - user: pulsar_sl01
     password: "{{ vault_rabbitmq_password_pulsar_esg }}"
     vhost: /pulsar/pulsar_sl01
+  - user: galaxy_bh_surf_byoc
+    password: "{{ rabbitmq_password_galaxy_bh_surf_byoc }}"
+    vhost: /pulsar/galaxy_bh_surf_byoc

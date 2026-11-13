@@ -3,3 +3,5 @@
 byoc_owners:
   # keeps the mapping non-empty so byoc-sync can add owners below it
   _placeholder: {}
+  '0e0fad4d103ae8ed':
+    name: bh_surf
