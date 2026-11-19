@@ -230,6 +230,16 @@
   loop: "{{ workenv_users }}"
   when: workenv_deploy_session_script
 
+- name: Deploy vault password script for vault id byoc
+  ansible.builtin.copy:
+    src: vault-pass-byoc.sh
+    dest: "{{ item.uhome }}/.vault-pass-byoc.sh"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0700'
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
 # --- Galaxy / HTCondor head node only -----------------------------------
 
 - name: Deploy condor_q.sh helper script

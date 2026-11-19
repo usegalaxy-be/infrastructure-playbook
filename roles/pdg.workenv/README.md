@@ -23,6 +23,7 @@ user's shell environment is managed separately by `usegalaxy-eu.bashrc`.
 |---|---|
 | `~/galaxy-session.sh` | Pure-tmux session init — replaces `galaxy-byobu.sh` |
 | `~/.vault-pass.sh` | Ansible vault password script — reads `$ANSIBLE_VAULT_PASSWORD` from SSH env |
+| `~/.vault-pass-byoc.sh` | Password for vault id `byoc` (BYOC passwords on test). Reads it from HashiCorp Vault (`vsc/prod/data/usegalaxy-be/byoc`, key `vault_password`) after `vault_login` |
 | `/etc/logrotate-tmux-logs.conf`, `tmux-logs-logrotate.timer` | Rotates `~/tmux-logs/` hourly when a log passes 100 MB, otherwise daily; keeps 7 files |
 | `~/bin/wt-clean` | Removes git worktrees whose PR is merged (`wt-clean` dry run, `wt-clean --apply`; `--force` also removes those with uncommitted changes) |
 
