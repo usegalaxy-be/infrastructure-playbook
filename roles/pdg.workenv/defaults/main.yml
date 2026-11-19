@@ -9,6 +9,10 @@ workenv_vim_install: true
 workenv_tmux_install: true
 workenv_tools_install: true
 
+# SSH keys in ~/.ssh that keychain loads into the shared agent on the login node.
+workenv_keychain_keys:
+  - id_infra
+
 # Extra packages for this host group, e.g. pandoc on the loginnode.
 workenv_extra_packages: []
 

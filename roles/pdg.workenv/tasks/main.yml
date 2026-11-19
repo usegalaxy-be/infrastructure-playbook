@@ -209,7 +209,7 @@
       # the agent, which breaks SSH_AUTH_SOCK in shells/panes already running at that
       # point. Symlinking to a fixed path means only NEW shells need to run this line
       # to refresh the symlink target, already-open panes keep working unchanged.
-      eval "$(keychain --eval --quiet --agents ssh id_infra)"
+      eval "$(keychain --eval --quiet --agents ssh {{ workenv_keychain_keys | join(' ') }})"
       ln -sf "$SSH_AUTH_SOCK" ~/.ssh/agent.sock
       export SSH_AUTH_SOCK=~/.ssh/agent.sock
 

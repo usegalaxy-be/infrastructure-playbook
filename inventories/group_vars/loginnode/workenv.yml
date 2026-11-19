@@ -6,3 +6,7 @@ workenv_deploy_session_script: true
 # pandoc converts RFC drafts to epub.
 workenv_extra_packages:
   - pandoc
+# id_vsc reaches the VSC HPC-UGent login nodes (BYOC on Tier-2).
+workenv_keychain_keys:
+  - id_infra
+  - id_vsc
