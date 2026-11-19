@@ -40,7 +40,8 @@ const jobTools = {};
 async function currentToolId() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("tool_id")) {
-        return params.get("tool_id");
+        // URLSearchParams reads a literal "+" (as in 1.9+galaxy1) as a space; tool ids have no spaces
+        return params.get("tool_id").replace(/ /g, "+");
     }
     const jobId = params.get("job_id");
     if (jobId) {
