@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  author: pdg
+  description: Replace the e-mail address and username of purged Galaxy users with a hash, daily
+  license: MIT
+  min_ansible_version: "2.15"
+  galaxy_tags:
+    - galaxy
+    - gdpr
+    - cleanup
+
+dependencies: []

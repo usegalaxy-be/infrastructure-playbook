@@ -1,0 +1,15 @@
+---
+# Database connection. The password comes from the run user's ~/.pgpass.
+galaxy_purged_user_redaction_pghost: ""
+galaxy_purged_user_redaction_pguser: ""
+galaxy_purged_user_redaction_pgdatabase: ""
+
+# User that runs the cron and owns ~/.pgpass.
+galaxy_purged_user_redaction_user: galaxy
+galaxy_purged_user_redaction_script: /usr/local/bin/galaxy-purged-user-redaction
+
+galaxy_purged_user_redaction_lock_timeout: 5s
+
+galaxy_purged_user_redaction_cron_enabled: true
+galaxy_purged_user_redaction_cron_hour: "3"
+galaxy_purged_user_redaction_cron_minute: "30"

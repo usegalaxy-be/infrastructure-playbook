@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+{{ ansible_managed | comment }}
+# Replace the e-mail address and username of purged Galaxy users with a hash, as Galaxy's own purge does,
+# and delete their preferences and sessions. With DRY_RUN=1 it only prints how many rows it would change.
+set -euo pipefail
+
+export PGHOST={{ galaxy_purged_user_redaction_pghost | quote }}
+export PGUSER={{ galaxy_purged_user_redaction_pguser | quote }}
+export PGDATABASE={{ galaxy_purged_user_redaction_pgdatabase | quote }}
+export PGOPTIONS="-c lock_timeout={{ galaxy_purged_user_redaction_lock_timeout }}"
+
+query() {
+  psql -X -q -At -F' ' -v ON_ERROR_STOP=1 -c "$1"
+}
+
+# Purged users that still have an e-mail address. Galaxy's purge leaves a 64-character hash without an @.
+purged="SELECT id, email, username FROM galaxy_user WHERE purged AND strpos(email, '@') > 0"
+# Their roles: the private role is named after the e-mail address, other roles may contain it or the username.
+role_match="strpos(r.name, p.email) > 0 OR strpos(COALESCE(r.description, ''), p.email) > 0
+  OR (COALESCE(p.username, '') <> '' AND (strpos(r.name, p.username) > 0 OR strpos(COALESCE(r.description, ''), p.username) > 0))"
+# A purged user's sessions; a session linked to an OpenID login cannot be deleted.
+sessions="SELECT s.id FROM galaxy_session s JOIN galaxy_user u ON u.id = s.user_id
+  WHERE u.purged AND NOT EXISTS (SELECT 1 FROM galaxy_user_openid o WHERE o.session_id = s.id)"
+
+if [ "${DRY_RUN:-0}" = 1 ]; then
+  read -r users roles preferences sessions_deleted < <(query "SELECT
+    (SELECT count(*) FROM (${purged}) p),
+    (SELECT count(DISTINCT r.id) FROM role r JOIN (${purged}) p ON ${role_match}
+      WHERE r.name = p.email OR EXISTS (SELECT 1 FROM user_role_association a WHERE a.user_id = p.id AND a.role_id = r.id)),
+    (SELECT count(*) FROM user_preference WHERE user_id IN (SELECT id FROM galaxy_user WHERE purged)),
+    (SELECT count(*) FROM (${sessions}) s)")
+  echo "users to redact: ${users}, roles to redact: ${roles}, preferences to delete: ${preferences}, sessions to delete: ${sessions_deleted}"
+  exit 0
+fi
+
+# One statement, so the roles and the user get the same hashes.
+read -r users roles preferences sessions_deleted < <(query "WITH p AS MATERIALIZED (
+    SELECT id, email, username,
+      encode(sha256(convert_to(email || gen_random_uuid()::text, 'UTF8')), 'hex') AS email_hash,
+      encode(sha256(convert_to(COALESCE(username, '') || gen_random_uuid()::text, 'UTF8')), 'hex') AS username_hash
+    FROM (${purged}) x),
+  r AS (UPDATE role r
+    SET name = replace(replace(r.name, p.email, p.email_hash), COALESCE(p.username, ''), p.username_hash),
+        description = replace(replace(r.description, p.email, p.email_hash), COALESCE(p.username, ''), p.username_hash)
+    FROM p
+    WHERE (${role_match})
+      AND (r.name = p.email OR EXISTS (SELECT 1 FROM user_role_association a WHERE a.user_id = p.id AND a.role_id = r.id))
+    RETURNING 1),
+  u AS (UPDATE galaxy_user g
+    SET email = p.email_hash, username = CASE WHEN g.username IS NULL THEN NULL ELSE p.username_hash END
+    FROM p WHERE g.id = p.id
+    RETURNING 1),
+  d AS (DELETE FROM user_preference WHERE user_id IN (SELECT id FROM galaxy_user WHERE purged) RETURNING 1),
+  s AS (DELETE FROM galaxy_session WHERE id IN (${sessions}) RETURNING 1)
+  SELECT (SELECT count(*) FROM u), (SELECT count(*) FROM r), (SELECT count(*) FROM d), (SELECT count(*) FROM s)")
+
+echo "users redacted: ${users}, roles redacted: ${roles}, preferences deleted: ${preferences}, sessions deleted: ${sessions_deleted}"
