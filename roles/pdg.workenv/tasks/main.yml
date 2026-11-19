@@ -209,7 +209,7 @@
       # the agent, which breaks SSH_AUTH_SOCK in shells/panes already running at that
       # point. Symlinking to a fixed path means only NEW shells need to run this line
       # to refresh the symlink target, already-open panes keep working unchanged.
-      eval "$(keychain --eval --quiet --agents ssh id_infra)"
+      eval "$(keychain --eval --quiet --agents ssh {{ workenv_keychain_keys | join(' ') }})"
       ln -sf "$SSH_AUTH_SOCK" ~/.ssh/agent.sock
       export SSH_AUTH_SOCK=~/.ssh/agent.sock
 
@@ -227,6 +227,16 @@
     group: "{{ item.uname }}"
     mode: '0700'
     backup: true
+  loop: "{{ workenv_users }}"
+  when: workenv_deploy_session_script
+
+- name: Deploy vault password script for vault id byoc
+  ansible.builtin.copy:
+    src: vault-pass-byoc.sh
+    dest: "{{ item.uhome }}/.vault-pass-byoc.sh"
+    owner: "{{ item.uname }}"
+    group: "{{ item.uname }}"
+    mode: '0700'
   loop: "{{ workenv_users }}"
   when: workenv_deploy_session_script
 
