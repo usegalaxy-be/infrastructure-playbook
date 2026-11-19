@@ -154,7 +154,7 @@ telegraf_plugins_extra:
   galaxy_jobs_queue_overview:
     plugin: "exec"
     config:
-      - commands = ["{{ custom_telegraf_env }} /usr/bin/gxadmin iquery queue-overview --short-tool-id"]
+      - commands = ["{{ custom_telegraf_env_gdpr_mode }} /usr/bin/gxadmin iquery queue-overview --short-tool-id"]
       - timeout = "30s"
       - data_format = "influx"
       - interval = "1m"
@@ -199,7 +199,7 @@ telegraf_plugins_extra:
       - commands = [
         "{{ custom_telegraf_env }} /usr/bin/galaxy_failed_jobs_by_destination.sh",
         "{{ custom_telegraf_env }} /usr/bin/galaxy_most_used_tools_by_destination.sh",
-        "{{ custom_telegraf_env_without_gdpr_mode }} /usr/bin/galaxy_num_anonymous_jobs_by_destination.sh",
+        "{{ custom_telegraf_env_gdpr_mode }} /usr/bin/galaxy_num_anonymous_jobs_by_destination.sh",
         "{{ custom_telegraf_env }} /usr/bin/galaxy_unique_users_job_count_by_destination.sh",
         "{{ custom_telegraf_env }} /usr/bin/galaxy_longest_running_jobs_by_destination.sh",
         "{{ custom_telegraf_env }} /usr/bin/galaxy_num_user_running_jobs_count_by_destination.sh",
