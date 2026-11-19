@@ -231,8 +231,21 @@
       register: _nginx_autofs_dropin
       tags: [nginx, systemd]
 
+    # Package updates reset these to nginx:root 0770 and restart nginx; workers run as nginx_conf_user.
+    - name: Create systemd drop-in to set owner of nginx temp directories on start
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/nginx.service.d/temp-dirs.conf
+        content: |
+          [Service]
+          ExecStartPre=/usr/bin/chown {{ nginx_conf_user }} /var/lib/nginx /var/lib/nginx/tmp
+        owner: root
+        group: root
+        mode: '0644'
+      register: _nginx_temp_dirs_dropin
+      tags: [nginx, systemd]
+
     - name: Reload systemd after nginx drop-in change
       ansible.builtin.systemd:
         daemon_reload: true
-      when: _nginx_autofs_dropin.changed
+      when: _nginx_autofs_dropin.changed or _nginx_temp_dirs_dropin.changed
       tags: [nginx, systemd]
