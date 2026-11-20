@@ -55,6 +55,10 @@
       - role: pdg.galaxy_session_cleanup
         tags: session-cleanup
 
+      # Replaces the e-mail address and username of purged users with a hash, daily
+      - role: pdg.galaxy_purged_user_redaction
+        tags: purged-user-redaction
+
       # HTCondor Cluster setup
       - role: grycap.htcondor
         tags: condor

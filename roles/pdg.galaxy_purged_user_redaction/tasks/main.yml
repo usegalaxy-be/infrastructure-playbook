@@ -1,0 +1,26 @@
+---
+- name: Assert the database connection is set
+  ansible.builtin.assert:
+    that:
+      - galaxy_purged_user_redaction_pghost | length > 0
+      - galaxy_purged_user_redaction_pguser | length > 0
+      - galaxy_purged_user_redaction_pgdatabase | length > 0
+    fail_msg: "galaxy_purged_user_redaction_pghost, _pguser and _pgdatabase must be set."
+
+- name: Install the purged user redaction script
+  ansible.builtin.template:
+    src: galaxy-purged-user-redaction.sh.j2
+    dest: "{{ galaxy_purged_user_redaction_script }}"
+    owner: root
+    group: root
+    mode: "0755"
+
+# Output goes to the journal under the tag galaxy-purged-user-redaction.
+- name: Schedule the purged user redaction
+  ansible.builtin.cron:
+    name: "Galaxy purged user redaction"
+    user: "{{ galaxy_purged_user_redaction_user }}"
+    hour: "{{ galaxy_purged_user_redaction_cron_hour }}"
+    minute: "{{ galaxy_purged_user_redaction_cron_minute }}"
+    job: "/usr/bin/systemd-cat -t galaxy-purged-user-redaction {{ galaxy_purged_user_redaction_script }}"
+    state: "{{ 'present' if galaxy_purged_user_redaction_cron_enabled | bool else 'absent' }}"

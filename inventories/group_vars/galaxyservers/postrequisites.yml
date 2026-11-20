@@ -17,6 +17,12 @@ galaxy_session_cleanup_pghost: "{{ postgres_host }}"
 galaxy_session_cleanup_pguser: "{{ postgres_user }}"
 galaxy_session_cleanup_pgdatabase: "{{ galaxy_db_name }}"
 
+# pdg.galaxy_purged_user_redaction
+galaxy_purged_user_redaction_user: "{{ galaxy_user_name }}"
+galaxy_purged_user_redaction_pghost: "{{ postgres_host }}"
+galaxy_purged_user_redaction_pguser: "{{ postgres_user }}"
+galaxy_purged_user_redaction_pgdatabase: "{{ galaxy_db_name }}"
+
 # galaxyproject.proftpd
 
 proftpd_galaxy_auth: yes
