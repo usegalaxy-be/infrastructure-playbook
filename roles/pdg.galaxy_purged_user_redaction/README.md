@@ -4,6 +4,8 @@ When Galaxy purges a user through its API or the admin page, it replaces the e-m
 
 This role installs a script and a daily cron that finish the job for every purged user that still has an e-mail address. It replaces the e-mail address and username with a SHA-256 hash of the value plus a random string, in `galaxy_user` and in the names and descriptions of the user's roles. It also deletes the preferences of purged users, which can hold passwords for external services, and their remaining sessions. All changes run in one statement, using only built-in PostgreSQL functions.
 
+This role is a stopgap. It can go once `gxadmin galaxy cleanup` can use `pgcleanup.py`'s GDPR purge, and that purge works without `pgcrypto` and also redacts the user's roles.
+
 The script connects with the `PG*` settings below and takes the password from the run user's `~/.pgpass`, which `hxr.postgres-connection` writes. Output goes to the journal:
 
 ```bash
