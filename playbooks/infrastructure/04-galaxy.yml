@@ -335,6 +335,45 @@
         - patches
         - pulsar
 
+    # Galaxy sends e-mail and IP addresses, session cookies and user details to Sentry.
+    # Adds sentry_scrub_personal_data, which removes them before events leave the server.
+    # The new module is copied, as a patch that creates a file fails once the file exists.
+    # Upstream change: pauldg/galaxy fix/sentry-scrub-pii, usegalaxy-be/issues#210.
+    # Remove both tasks once it is in the Galaxy release we deploy.
+    - name: Copy the Sentry scrub module into Galaxy
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/sentry_scrub_personal_data.py"
+        dest: "{{ galaxy_server_dir }}/lib/galaxy/util/sentry.py"
+        mode: "0644"
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      notify: "restart galaxy"
+      tags:
+        - patches
+
+    - name: Patch Galaxy to scrub personal data from Sentry events
+      ansible.builtin.patch:
+        src: "{{ playbook_dir }}/../../files/galaxy/patches/sentry_scrub_personal_data.patch"
+        basedir: "{{ galaxy_server_dir }}"
+        strip: 1
+      become: true
+      become_user: "{{ galaxy_user_name }}"
+      register: sentry_scrub_patch_result
+      failed_when: false
+      notify: "restart galaxy"
+      tags:
+        - patches
+
+    - name: Warn if Sentry scrub patch could not be applied
+      ansible.builtin.debug:
+        msg: >
+          WARNING: Sentry scrub patch was not applied cleanly (rc={{ sentry_scrub_patch_result.rc }}).
+          Either already merged upstream or context mismatch, verify manually:
+          {{ galaxy_server_dir }}/lib/galaxy/util/sentry.py
+      when: sentry_scrub_patch_result.rc | default(0) != 0
+      tags:
+        - patches
+
     # Gravity overwrites galaxy-gunicorn@.service on every update, so we use a
     # drop-in to add the autofs dependency without fighting Gravity. Without this,
     # systemd restarts Galaxy before autofs mounts the NFS share, causing ExecStart

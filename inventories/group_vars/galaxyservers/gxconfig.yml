@@ -2032,6 +2032,11 @@ galaxy: &GALAXY
   # <project_name> -> Settings -> API Keys.
   sentry_dsn: "{{ vault_galaxy_sentry_dsn }}"
 
+  # Remove personal data from Sentry events before they are sent, and turn
+  # off browser-side error reporting. Needs sentry_scrub_personal_data.patch
+  # until the option is in the deployed Galaxy release.
+  sentry_scrub_personal_data: true
+
   # Determines the minimum log level that will be sent as an event to
   # Sentry. Possible values are DEBUG, INFO, WARNING, ERROR or CRITICAL.
   #sentry_event_level: ERROR
