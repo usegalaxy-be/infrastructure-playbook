@@ -339,6 +339,8 @@
     # Adds sentry_scrub_personal_data, which removes them before events leave the server.
     # The new module is copied, as a patch that creates a file fails once the file exists.
     # Upstream change: pauldg/galaxy fix/sentry-scrub-pii, usegalaxy-be/issues#210.
+    # No restart here: the daily-galaxy-config run that sets the option restarts Galaxy,
+    # and handlers fail in a --tags patches run, as the role's version facts are not set.
     # Remove both tasks once it is in the Galaxy release we deploy.
     - name: Copy the Sentry scrub module into Galaxy
       ansible.builtin.copy:
@@ -347,7 +349,6 @@
         mode: "0644"
       become: true
       become_user: "{{ galaxy_user_name }}"
-      notify: "restart galaxy"
       tags:
         - patches
 
@@ -360,7 +361,6 @@
       become_user: "{{ galaxy_user_name }}"
       register: sentry_scrub_patch_result
       failed_when: false
-      notify: "restart galaxy"
       tags:
         - patches
 

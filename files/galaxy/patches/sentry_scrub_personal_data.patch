@@ -1,14 +1,8 @@
 diff --git a/lib/galaxy/app/__init__.py b/lib/galaxy/app/__init__.py
-index f2c0852e66..443ad511a1 100644
+index f2c0852e66..e476ebee03 100644
 --- a/lib/galaxy/app/__init__.py
 +++ b/lib/galaxy/app/__init__.py
-@@ -1,4 +1,5 @@
- import collections
-+import inspect
- import logging
- import os
- import signal
-@@ -196,6 +197,11 @@ from galaxy.util import (
+@@ -196,6 +196,11 @@ from galaxy.util import (
      listify,
      StructuredExecutionTimer,
  )
@@ -20,15 +14,18 @@ index f2c0852e66..443ad511a1 100644
  from galaxy.util.task import IntervalTask
  from galaxy.util.tool_shed import tool_shed_registry
  from galaxy.visualization.data_providers.registry import DataProviderRegistry
-@@ -270,6 +276,7 @@ class SentryClientMixin:
+@@ -269,7 +274,10 @@ class SentryClientMixin:
+                 "CRITICAL",
              ], f"Invalid sentry event level '{self.config.sentry.event_level}'"
  
++            import inspect
++
              import sentry_sdk
 +            import sentry_sdk.consts
              from sentry_sdk.integrations.logging import LoggingIntegration
  
              sentry_logging = LoggingIntegration(
-@@ -277,7 +284,13 @@ class SentryClientMixin:
+@@ -277,7 +285,13 @@ class SentryClientMixin:
                  event_level=getattr(logging, event_level),  # Send errors as events
              )
  
@@ -42,7 +39,7 @@ index f2c0852e66..443ad511a1 100644
                  if "exc_info" in hint:
                      exc_type, exc_value, tb = hint["exc_info"]
                      if isinstance(exc_value, ToolTemplatingException):
-@@ -288,9 +301,9 @@ class SentryClientMixin:
+@@ -288,9 +302,9 @@ class SentryClientMixin:
                          # If we don't do this issues are never properly grouped since by default the calling stack is inspected,
                          # and that is always unique in cheetah as it is dynamically generated.
                          event["fingerprint"] = [
@@ -54,7 +51,7 @@ index f2c0852e66..443ad511a1 100644
                          ]
                          event.setdefault("tags", {}).update(
                              {
-@@ -301,6 +314,14 @@ class SentryClientMixin:
+@@ -301,6 +315,14 @@ class SentryClientMixin:
                          )
                  return event
  
@@ -69,7 +66,7 @@ index f2c0852e66..443ad511a1 100644
              self.sentry_client = sentry_sdk.init(
                  self.config.sentry_dsn,
                  release=f"{self.config.version_major}.{self.config.version_minor}",
-@@ -308,6 +329,7 @@ class SentryClientMixin:
+@@ -308,6 +330,7 @@ class SentryClientMixin:
                  traces_sample_rate=self.config.sentry_traces_sample_rate,
                  ca_certs=self.config.sentry_ca_certs,
                  before_send=before_send,
