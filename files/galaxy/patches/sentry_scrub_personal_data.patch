@@ -1,0 +1,129 @@
+diff --git a/lib/galaxy/app/__init__.py b/lib/galaxy/app/__init__.py
+index f2c0852e66..e476ebee03 100644
+--- a/lib/galaxy/app/__init__.py
++++ b/lib/galaxy/app/__init__.py
+@@ -196,6 +196,11 @@ from galaxy.util import (
+     listify,
+     StructuredExecutionTimer,
+ )
++from galaxy.util.sentry import (
++    scrub_event,
++    scrub_options,
++    scrub_string,
++)
+ from galaxy.util.task import IntervalTask
+ from galaxy.util.tool_shed import tool_shed_registry
+ from galaxy.visualization.data_providers.registry import DataProviderRegistry
+@@ -269,7 +274,10 @@ class SentryClientMixin:
+                 "CRITICAL",
+             ], f"Invalid sentry event level '{self.config.sentry.event_level}'"
+ 
++            import inspect
++
+             import sentry_sdk
++            import sentry_sdk.consts
+             from sentry_sdk.integrations.logging import LoggingIntegration
+ 
+             sentry_logging = LoggingIntegration(
+@@ -277,7 +285,13 @@ class SentryClientMixin:
+                 event_level=getattr(logging, event_level),  # Send errors as events
+             )
+ 
++            scrub_personal_data = self.config.sentry_scrub_personal_data
++            # Applied to values taken from the raw exception after the event was scrubbed.
++            clean = scrub_string if scrub_personal_data else str
++
+             def before_send(event, hint):
++                if scrub_personal_data:
++                    scrub_event(event)
+                 if "exc_info" in hint:
+                     exc_type, exc_value, tb = hint["exc_info"]
+                     if isinstance(exc_value, ToolTemplatingException):
+@@ -288,9 +302,9 @@ class SentryClientMixin:
+                         # If we don't do this issues are never properly grouped since by default the calling stack is inspected,
+                         # and that is always unique in cheetah as it is dynamically generated.
+                         event["fingerprint"] = [
+-                            str(exc_value),
++                            clean(str(exc_value)),
+                             str(exc_value.tool_version),
+-                            str(exc_value.__cause__),
++                            clean(str(exc_value.__cause__)),
+                         ]
+                         event.setdefault("tags", {}).update(
+                             {
+@@ -301,6 +315,14 @@ class SentryClientMixin:
+                         )
+                 return event
+ 
++            def scrub_item(item, hint):
++                return scrub_event(item)
++
++            privacy_options: dict[str, Any] = {}
++            if scrub_personal_data:
++                supported = inspect.signature(sentry_sdk.consts.ClientConstructor.__init__).parameters
++                privacy_options = scrub_options(supported, scrub_item)
++
+             self.sentry_client = sentry_sdk.init(
+                 self.config.sentry_dsn,
+                 release=f"{self.config.version_major}.{self.config.version_minor}",
+@@ -308,6 +330,7 @@ class SentryClientMixin:
+                 traces_sample_rate=self.config.sentry_traces_sample_rate,
+                 ca_certs=self.config.sentry_ca_certs,
+                 before_send=before_send,
++                **privacy_options,
+             )
+ 
+ 
+diff --git a/lib/galaxy/config/__init__.py b/lib/galaxy/config/__init__.py
+index 4c76fdaa33..37049144ef 100644
+--- a/lib/galaxy/config/__init__.py
++++ b/lib/galaxy/config/__init__.py
+@@ -630,6 +630,7 @@ class CommonConfigurationMixin:
+     """Shared configuration settings code for Galaxy and ToolShed."""
+ 
+     sentry_dsn: str
++    sentry_scrub_personal_data: bool
+     config_dict: dict[str, str]
+ 
+     @property
+@@ -649,9 +650,11 @@ class CommonConfigurationMixin:
+     def sentry_dsn_public(self):
+         """
+         Sentry URL with private key removed for use in client side scripts,
+-        sentry server will need to be configured to accept events
++        sentry server will need to be configured to accept events.
++        Not set when personal data is scrubbed, as browsers would send the
++        user's IP address to the Sentry server directly.
+         """
+-        if self.sentry_dsn:
++        if self.sentry_dsn and not self.sentry_scrub_personal_data:
+             return re.sub(r"^([^:/?#]+:)?//(\w+):(\w+)", r"\1//\2", self.sentry_dsn)
+ 
+     def get_bool(self, key, default):
+diff --git a/lib/galaxy/config/schemas/config_schema.yml b/lib/galaxy/config/schemas/config_schema.yml
+index ce03424c8a..28705f6502 100644
+--- a/lib/galaxy/config/schemas/config_schema.yml
++++ b/lib/galaxy/config/schemas/config_schema.yml
+@@ -2514,6 +2514,22 @@ mapping:
+           performance traces sent to Sentry. Independent of
+           sentry_traces_sample_rate, which controls server-side tracing.
+ 
++      sentry_scrub_personal_data:
++        type: bool
++        default: false
++        required: false
++        desc: |
++          Remove personal data from Sentry events before they are sent. When
++          enabled, Galaxy drops user details, cookies, request bodies, the
++          client address and stack frame variables from each event, and keeps
++          only the template of log messages, not the values passed to them. It
++          masks e-mail addresses, IP addresses, API keys, tokens and session
++          cookies in messages, exceptions and breadcrumbs. Usernames and ids in
++          free text cannot be recognised and are sent as they are.
++          Browser-side error reporting is turned off, as browsers connect to
++          the Sentry server directly and so share the user's IP address with
++          it.
++
+       sentry_ca_certs:
+         type: str
+         required: False
