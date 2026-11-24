@@ -108,28 +108,35 @@ def _scrub_request(request: dict[str, Any]) -> None:
 _TOOL_TAGS = frozenset(("tool", "tool_id", "tool_version", "tool.version"))
 
 
-def _drop_log_parameters(event: dict[str, Any]) -> None:
-    # Values passed to a log call cannot be recognised in general; keep the template only.
+def _as_text(value: Any) -> Any:
+    if value is None or isinstance(value, (str, bool, int, float)):
+        return value
+    try:
+        return str(value)
+    except Exception:
+        return FILTERED
+
+
+def _log_parameters_as_text(event: dict[str, Any]) -> None:
+    # The SDK turns log arguments into text after this hook, so objects would skip scrubbing.
     logentry = event.get("logentry")
-    if isinstance(logentry, dict) and logentry.get("params"):
-        logentry.pop("params")
-        logentry.pop("formatted", None)
-    attributes = event.get("attributes")
-    if isinstance(attributes, dict):
-        template = attributes.get("sentry.message.template")
-        if template is not None:
-            event["body"] = template.get("value") if isinstance(template, dict) else template
-            for name in [name for name in attributes if name.startswith("sentry.message.parameter.")]:
-                del attributes[name]
+    if not isinstance(logentry, dict):
+        return
+    params = logentry.get("params")
+    if isinstance(params, dict):
+        logentry["params"] = {key: _as_text(item) for key, item in params.items()}
+    elif isinstance(params, (list, tuple)):
+        logentry["params"] = [_as_text(item) for item in params]
 
 
 def scrub_event(event: dict[str, Any]) -> dict[str, Any]:
     """Remove user details and personal data from a Sentry event.
 
-    Drops the user block, cookies, request bodies, the client address, Celery task
-    arguments and the values passed to log calls, and masks e-mail addresses, IP addresses, API keys, tokens and
-    session cookies in every string of the event, dictionary keys included. The
-    event's top-level values are replaced, and the event is returned.
+    Drops the user block, cookies, request bodies, the client address and
+    Celery task arguments. Masks e-mail addresses, IP addresses, API keys,
+    tokens and session cookies in every string of the event, dictionary keys
+    and log message arguments included. The event's top-level values are
+    replaced, and the event is returned.
     """
     event.pop("user", None)
     request = event.get("request")
@@ -141,7 +148,7 @@ def scrub_event(event: dict[str, Any]) -> dict[str, Any]:
         for key in ("args", "kwargs"):
             if key in celery_job:
                 celery_job[key] = FILTERED
-    _drop_log_parameters(event)
+    _log_parameters_as_text(event)
     tags = event.get("tags")
     kept_tags = {name: tags[name] for name in _TOOL_TAGS if name in tags} if isinstance(tags, dict) else {}
     for key in list(event):
@@ -152,10 +159,7 @@ def scrub_event(event: dict[str, Any]) -> dict[str, Any]:
 
 
 def scrub_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any] | None) -> dict[str, Any]:
-    """Scrub a breadcrumb, keeping only the template of a log message that has arguments."""
-    record = (hint or {}).get("log_record")
-    if record is not None and record.args:
-        crumb["message"] = str(record.msg)
+    """Mask personal data in a breadcrumb."""
     scrubbed: dict[str, Any] = _scrub(crumb)
     return scrubbed
 
