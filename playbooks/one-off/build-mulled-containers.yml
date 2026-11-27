@@ -33,7 +33,9 @@
       - name: smap_selector_0_1_0
         tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/ieguinoa/smap_selector/10a610301cf7/smap_selector/smap_selector.xml"
       # SMAP design 0.1.0: unversioned primer3-py, pandas, biopython, matplotlib and gffutils; same offline merge failure.
+      # Pinned to the conda env of the last working runs; numpy 2 breaks the script's np.select call.
       - name: smap_design_0_1_0
         tool_xml: "{{ galaxy_shared_root }}/database/shed_data/toolshed.g2.bx.psu.edu/repos/ieguinoa/smap_design/fe9f46c3bd28/smap_design/smap_design.xml"
+        extra_targets: [python=3.9.12, primer3-py=0.6.1, pandas=1.4.2, numpy=1.22.3, biopython=1.79, matplotlib=3.5.1, gffutils=0.10.1]
   roles:
     - pdg.mulled_container
